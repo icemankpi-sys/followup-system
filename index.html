@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Iceman Follow-Up</title>
+<style>
+:root{--ink:#1d2b36;--mut:#5b6b78;--line:#dde3e8;--bg:#f4f6f8;--card:#fff;--navy:#0b3c5d;--red:#c0392b;--amb:#d68910;--grn:#1e8449}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 'Segoe UI',Arial,sans-serif;color:var(--ink);background:var(--bg)}
+button,input,select,textarea{font:inherit}
+header{background:var(--navy);color:#fff;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header h1{font-size:17px;margin:0;flex:1;min-width:160px}header select,header button{padding:5px 8px;border-radius:5px;border:0}
+header .who{font-size:12px;opacity:.85}
+main{padding:12px 16px;max-width:1500px;margin:auto}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px}
+.tile{background:var(--card);border-radius:8px;padding:8px 10px;border-left:5px solid var(--navy)}
+.tile b{display:block;font-size:17px}.tile span{font-size:11.5px;color:var(--mut)}
+.tile.r{border-color:var(--red)}.tile.a{border-color:var(--amb)}.tile.g{border-color:var(--grn)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.filters select,.filters input{padding:5px 8px;border:1px solid var(--line);border-radius:5px;background:#fff;min-width:0}
+.wrap{overflow-x:auto;background:var(--card);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:1000px}
+th{background:var(--navy);color:#fff;text-align:left;padding:6px 8px;font-size:12px;white-space:nowrap;position:sticky;top:0}
+td{padding:5px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.row{cursor:pointer}tr.row:hover{background:#eef4f8}
+.tag{display:inline-block;border-radius:10px;padding:0 7px;font-size:11px;color:#fff;margin-right:3px;white-space:nowrap}
+.t-r{background:var(--red)}.t-a{background:var(--amb)}.t-g{background:var(--grn)}.t-b{background:#5b6b78}
+.st{font-size:11.5px;border:1px solid var(--line);border-radius:10px;padding:0 7px;white-space:nowrap}
+.hint{color:var(--mut);font-size:12px;margin:6px 0}
+#login{max-width:340px;margin:12vh auto;background:#fff;padding:22px;border-radius:10px;box-shadow:0 2px 10px #0002}
+#login h2{margin:0 0 4px;color:var(--navy)}#login input{width:100%;padding:8px;margin:6px 0;border:1px solid var(--line);border-radius:5px}
+#login button{width:100%;padding:9px;border:0;border-radius:5px;background:var(--navy);color:#fff;margin-top:6px;cursor:pointer}
+.err{color:var(--red);font-size:13px;min-height:18px}
+#panel{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:#fff;box-shadow:-3px 0 14px #0004;padding:14px;overflow-y:auto;transform:translateX(105%);transition:transform .2s;z-index:5}
+#panel.open{transform:none}
+#panel h3{margin:0 0 2px;color:var(--navy)}#panel label{display:block;font-size:12px;color:var(--mut);margin-top:8px}
+#panel select,#panel input,#panel textarea{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:#fff}
+.pbtn{padding:8px 14px;border:0;border-radius:5px;background:var(--navy);color:#fff;cursor:pointer;margin-top:10px}
+.pbtn.s{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+.ev{border-left:3px solid var(--line);padding:2px 8px;margin:6px 0;font-size:12.5px}.ev small{color:var(--mut)}
+#usersView{padding:12px 16px;max-width:1200px;margin:auto}
+#usersView .card{background:#fff;border-radius:8px;padding:12px;margin-bottom:12px}
+#usersView h3{margin:0 0 8px;color:var(--navy)}
+#usersView input,#usersView select{padding:5px 8px;border:1px solid var(--line);border-radius:5px;background:#fff;min-width:0}
+.row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.btn{padding:5px 10px;border:1px solid var(--navy);border-radius:5px;background:#fff;color:var(--navy);cursor:pointer}
+.btn.p{background:var(--navy);color:#fff}.btn.d{border-color:var(--red);color:var(--red)}
+.lv{display:inline-block;border-radius:10px;padding:0 8px;font-size:11.5px;color:#fff}.lv-view{background:#5b6b78}.lv-edit{background:var(--amb)}.lv-full{background:var(--grn)}
+@media(max-width:600px){main{padding:8px}}
+</style></head><body>
+
+<div id="login">
+  <h2>Iceman Follow-Up</h2>
+  <div style="color:var(--mut);font-size:13px">Sign in with your account</div>
+  <input id="lemail" type="email" placeholder="Email" autocomplete="username">
+  <input id="lpass" type="password" placeholder="Password" autocomplete="current-password">
+  <div class="err" id="lerr"></div>
+  <button id="lbtn">Sign in</button>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>Iceman Follow-Up &middot; Outstanding over 90</h1>
+    <select id="opSel" title="Operation"></select>
+    <span class="who" id="who"></span><button id="usersBtn" hidden>Users &amp; Access</button>
+    <button id="logout">Sign out</button>
+  </header>
+  <main>
+    <div class="tiles" id="tiles"></div>
+    <div class="filters">
+      <select id="fChain"></select><select id="fRep"></select><select id="fBucket"></select>
+      <select id="fStatus"></select><select id="fFlag"></select>
+      <input id="fText" placeholder="Search outlet / memo" style="flex:1;min-width:160px">
+    </div>
+    <div class="hint" id="count"></div>
+    <div class="wrap"><table>
+      <thead><tr><th>Chain</th><th>Outlet</th><th>Memo</th><th>Sales rep</th><th class="n">Days</th><th class="n">To 120</th><th class="n">Balance</th><th>Reason</th><th>Next step</th><th>Next date</th><th>Status</th><th>Flags</th></tr></thead>
+      <tbody id="tb"></tbody></table></div>
+  </main>
+  <div id="usersView" hidden></div>
+  <div id="panel"></div>
+</div>
+
+<script>
+const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
+const STATUS = {open:'Open',promised:'Promised',dispute:'Dispute',action_pending:'Action pending',settled:'Settled',written_off:'Written off'};
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = v => Number(v || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+let access = [], allowedOps = [];
+let sess = null, me = null, ops = [], lists = {reason: [], next_step: []}, rows = [], cur = null;
+try { sess = JSON.parse(localStorage.getItem('fu_session') || 'null'); } catch (e) {}
+
+async function raw(path, opt) {
+  opt = opt || {};
+  const h = Object.assign({apikey: KEY, 'Content-Type': 'application/json'}, opt.headers || {});
+  if (sess) h.Authorization = 'Bearer ' + sess.access_token;
+  return fetch(URL_ + path, {method: opt.method || 'GET', headers: h, body: opt.body ? JSON.stringify(opt.body) : undefined});
+}
+async function refresh() {
+  if (!sess || !sess.refresh_token) return false;
+  const r = await fetch(URL_ + '/auth/v1/token?grant_type=refresh_token', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({refresh_token: sess.refresh_token})});
+  if (!r.ok) return false;
+  sess = await r.json(); localStorage.setItem('fu_session', JSON.stringify(sess)); return true;
+}
+async function api(path, opt) {
+  let r = await raw(path, opt);
+  if (r.status === 401 && await refresh()) r = await raw(path, opt);
+  if (!r.ok) { let m = ''; try { m = (await r.json()).message || ''; } catch (e) {} throw new Error(m || ('HTTP ' + r.status)); }
+  return r.status === 204 ? null : r.json().catch(() => null);
+}
+
+const RANK = {view: 1, edit: 2, full: 3};
+const rank = l => RANK[l] || 0;
+function lvl(op) {
+  if (me && me.role === 'admin') return 'full';
+  let best = 0;
+  access.forEach(a => { if (['receivable', '*'].includes(a.module) && (a.operation === op || a.operation === '*')) best = Math.max(best, rank(a.level)); });
+  return ['', 'view', 'edit', 'full'][best];
+}
+async function signIn() {
+  $('lerr').textContent = '';
+  const r = await fetch(URL_ + '/auth/v1/token?grant_type=password', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({email: $('lemail').value.trim(), password: $('lpass').value})});
+  const j = await r.json();
+  if (!r.ok) { $('lerr').textContent = j.error_description || j.msg || 'Sign in failed'; return; }
+  sess = j; localStorage.setItem('fu_session', JSON.stringify(j)); $('lpass').value = ''; start();
+}
+function signOut() { sess = null; localStorage.removeItem('fu_session'); location.reload(); }
+
+async function start() {
+  try {
+    const uid = sess.user.id;
+    const p = await api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role,operation');
+    me = p[0]; if (!me) throw new Error('No profile');
+    access = me.role === 'admin' ? [] : await api('/rest/v1/fu_access?user_id=eq.' + uid + '&select=module,operation,level');
+    ops = await api('/rest/v1/operations?select=code,name&order=sort');
+    const l = await api('/rest/v1/fu_lists?module=eq.receivable&order=sort&select=kind,value');
+    lists = {reason: l.filter(x => x.kind === 'reason').map(x => x.value), next_step: l.filter(x => x.kind === 'next_step').map(x => x.value)};
+  } catch (e) { $('lerr').textContent = 'Could not load: ' + e.message; sess = null; localStorage.removeItem('fu_session'); return; }
+  $('login').hidden = true; $('app').hidden = false;
+  $('who').textContent = (me.full_name || me.username) + ' (' + (me.role === 'admin' ? 'Admin, full access' : allowedOps.map(o => o.code + ': ' + lvl(o.code)).join(', ')) + ')';
+  allowedOps = ops.filter(o => rank(lvl(o.code)) > 0);
+  if (!allowedOps.length) { $('login').hidden = false; $('app').hidden = true; $('lerr').textContent = 'Your account has no access yet. Ask the Admin.'; sess = null; localStorage.removeItem('fu_session'); return; }
+  $('opSel').innerHTML = (allowedOps.length > 1 ? '<option value="">All my operations</option>' : '') + allowedOps.map(o => '<option value="' + o.code + '">' + esc(o.code + ' - ' + o.name) + '</option>').join('');
+  $('opSel').hidden = allowedOps.length < 2;
+  $('usersBtn').hidden = me.role !== 'admin';
+  await load();
+}
+
+async function load() {
+  rows = await api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000');
+  if (!$('fChain').options.length) fillFilters();
+  render();
+}
+function opts(sel, label, vals) { sel.innerHTML = '<option value="">' + label + '</option>' + vals.map(v => '<option>' + esc(v) + '</option>').join(''); }
+function fillFilters() {
+  const op = $('opSel').value, base = rows.filter(r => !op || r.operation === op);
+  const u = k => [...new Set(base.map(r => r[k]).filter(Boolean))].sort();
+  opts($('fChain'), 'All chains', u('party')); opts($('fRep'), 'All sales reps', u('owner_name'));
+  opts($('fBucket'), 'All buckets', ['91-120', '121-240', 'Over 240', '0-30', '31-60', '61-90']);
+  $('fStatus').innerHTML = '<option value="active">Active (not settled)</option><option value="">All statuses</option>' + Object.keys(STATUS).map(k => '<option value="' + k + '">' + STATUS[k] + '</option>').join('');
+  $('fFlag').innerHTML = '<option value="">All items</option><option value="incomplete">Incomplete (no reason / next step / date)</option><option value="overdue">Action overdue</option><option value="broken">Promise broken</option><option value="soon">Crossing 120 within 30 days</option>';
+}
+const isActive = r => !['settled', 'written_off'].includes(r.status);
+function filtered() {
+  const op = $('opSel').value, ch = $('fChain').value, rep = $('fRep').value, bu = $('fBucket').value, st = $('fStatus').value, fl = $('fFlag').value, tx = $('fText').value.trim().toLowerCase();
+  return rows.filter(r => (!op || r.operation === op) && (!ch || r.party === ch) && (!rep || r.owner_name === rep) && (!bu || r.bucket === bu)
+    && (st === 'active' ? isActive(r) : (!st || r.status === st))
+    && (!fl || (fl === 'incomplete' && r.incomplete) || (fl === 'overdue' && r.action_overdue) || (fl === 'broken' && r.promise_broken) || (fl === 'soon' && isActive(r) && r.days_to_120 > 0 && r.days_to_120 <= 30))
+    && (!tx || (r.outlet || '').toLowerCase().includes(tx) || (r.ref_key || '').toLowerCase().includes(tx)));
+}
+function render() {
+  const op = $('opSel').value, act = rows.filter(r => (!op || r.operation === op) && isActive(r));
+  const sum = a => a.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const o120 = act.filter(r => r.aging_days > 120), b91 = act.filter(r => r.aging_days <= 120);
+  $('tiles').innerHTML = [
+    ['', money(sum(act)), 'Active balance (' + act.length + ' items)'],
+    ['r', money(sum(o120)), 'Over 120 days (' + o120.length + ')'],
+    ['a', money(sum(b91)), 'Up to 120 days (' + b91.length + '), will roll to over 120'],
+    ['a', act.filter(r => r.incomplete).length, 'Incomplete: need reason, next step, date'],
+    ['r', act.filter(r => r.action_overdue).length, 'Action overdue'],
+    ['r', act.filter(r => r.promise_broken).length, 'Promise broken'],
+    ['g', rows.filter(r => (!op || r.operation === op) && !isActive(r)).length, 'Settled / closed']
+  ].map(t => '<div class="tile ' + t[0] + '"><b>' + t[1] + '</b><span>' + t[2] + '</span></div>').join('');
+  const f = filtered();
+  $('count').textContent = f.length + ' items, balance ' + money(sum(f));
+  $('tb').innerHTML = f.map(r => '<tr class="row" data-id="' + r.id + '"><td>' + esc(r.party) + '</td><td>' + esc(r.outlet) + (!op && r.operation ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.ref_key) + '</td><td>' + esc(r.owner_name) + '</td>'
+    + '<td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + (r.days_to_120 == null ? '' : r.days_to_120) + '</td><td class="n"><b>' + money(r.amount) + '</b></td>'
+    + '<td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td><td><span class="st">' + STATUS[r.status] + '</span></td>'
+    + '<td>' + (r.action_overdue ? '<span class="tag t-r">overdue</span>' : '') + (r.promise_broken ? '<span class="tag t-r">promise broken</span>' : '') + (r.incomplete && isActive(r) ? '<span class="tag t-a">incomplete</span>' : '') + '</td></tr>').join('');
+}
+
+function selOpts(arr, val, blank) { return (blank ? '<option value=""></option>' : '') + arr.map(v => '<option' + (v === val ? ' selected' : '') + '>' + esc(v) + '</option>').join(''); }
+async function openPanel(id) {
+  cur = rows.find(r => r.id === id); if (!cur) return;
+  const r = cur, canEdit = rank(lvl(r.operation)) >= 2, canFull = rank(lvl(r.operation)) >= 3;
+  const reasonList = lists.reason.includes(r.reason) || !r.reason ? lists.reason : lists.reason.concat([r.reason]);
+  const stepList = lists.next_step.includes(r.next_step) || !r.next_step ? lists.next_step : lists.next_step.concat([r.next_step]);
+  const dis = canEdit ? '' : ' disabled';
+  $('panel').innerHTML = '<div style="display:flex;justify-content:space-between"><h3>' + esc(r.outlet) + '</h3><button class="pbtn s" style="margin:0" id="pClose">Close</button></div>'
+    + '<div class="hint">' + esc(r.party) + ' &middot; ' + esc(r.ref_key) + ' &middot; ' + esc(r.owner_name) + '<br><b>' + money(r.amount) + '</b> &middot; invoice ' + esc(r.base_date) + ' &middot; ' + r.aging_days + ' days (' + esc(r.bucket) + ')' + (r.days_to_120 > 0 ? ', ' + r.days_to_120 + ' days to 120' : '') + '</div>'
+    + '<label>Status</label><select id="eStatus"' + dis + '>' + Object.keys(STATUS).map(k => '<option value="' + k + '"' + (k === r.status ? ' selected' : '') + (k === 'written_off' && !canFull ? ' disabled' : '') + '>' + STATUS[k] + (k === 'written_off' && !canFull ? ' (Full access only)' : '') + '</option>').join('') + '</select>'
+    + '<label>Reason</label><select id="eReason"' + dis + '>' + selOpts(reasonList, r.reason, true) + '</select>'
+    + '<label>Next step</label><select id="eStep"' + dis + '>' + selOpts(stepList, r.next_step, true) + '</select>'
+    + '<label>Who does it</label><input id="eOwner" value="' + esc(r.next_owner) + '"' + dis + '>'
+    + '<label>Next action date</label><input id="eNext" type="date" value="' + esc(r.next_date) + '"' + dis + '>'
+    + '<label>Customer promise date</label><input id="ePromise" type="date" value="' + esc(r.promised_date) + '"' + dis + '>'
+    + '<label>Remarks</label><textarea id="eRem" rows="2"' + dis + '>' + esc(r.remarks) + '</textarea>'
+    + (canEdit ? '<button class="pbtn" id="pSave">Save</button> <span class="err" id="pErr"></span><hr><label>Add a note</label><input id="eNote" placeholder="e.g. Spoke to Arpico accounts, payment by 12 Nov"><button class="pbtn s" id="pNote">Add note</button>' : '<div class="hint">View only: you cannot change this item.</div>')
+    + '<h4 style="margin:14px 0 2px">History</h4><div id="hist">Loading...</div>';
+  $('panel').classList.add('open');
+  $('pClose').onclick = () => $('panel').classList.remove('open');
+  if (canEdit) { $('pSave').onclick = save; $('pNote').onclick = addNote; }
+  loadHist();
+}
+async function loadHist() {
+  try {
+    const ev = await api('/rest/v1/fu_events?item_id=eq.' + cur.id + '&order=at.desc&limit=50&select=at,by_name,kind,field,old_value,new_value,note');
+    $('hist').innerHTML = ev.length ? ev.map(e => '<div class="ev"><small>' + esc(new Date(e.at).toLocaleString('en-GB')) + ' &middot; ' + esc(e.by_name || '') + '</small><br>'
+      + (e.field ? esc(e.field) + ': ' + esc(e.old_value || '(blank)') + ' &rarr; <b>' + esc(e.new_value || '(blank)') + '</b>' : '') + esc(e.note || '') + '</div>').join('') : '<div class="hint">No history</div>';
+  } catch (e) { $('hist').textContent = e.message; }
+}
+async function save() {
+  const v = {status: $('eStatus').value, reason: $('eReason').value || null, next_step: $('eStep').value || null, next_owner: $('eOwner').value.trim() || null, next_date: $('eNext').value || null, promised_date: $('ePromise').value || null, remarks: $('eRem').value.trim() || null};
+  if (v.status === 'promised' && !v.promised_date) { $('pErr').textContent = 'Promised needs a promise date'; return; }
+  const ch = {}; Object.keys(v).forEach(k => { if ((cur[k] || null) !== v[k]) ch[k] = v[k]; });
+  if (!Object.keys(ch).length) { $('pErr').textContent = 'Nothing changed'; return; }
+  try { await api('/rest/v1/fu_items?id=eq.' + cur.id, {method: 'PATCH', body: ch, headers: {Prefer: 'return=minimal'}}); $('pErr').textContent = ''; await load(); cur = rows.find(r => r.id === cur.id); $('pErr').textContent = 'Saved'; loadHist(); }
+  catch (e) { $('pErr').textContent = e.message; }
+}
+async function addNote() {
+  const t = $('eNote').value.trim(); if (!t) return;
+  try { await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: t}}); $('eNote').value = ''; loadHist(); } catch (e) { $('pErr').textContent = e.message; }
+}
+
+// ---------- Users & Access (admin only) ----------
+const MODS = [['*', 'All modules'], ['receivable', 'Receivables (over 30 to 240)'], ['foc', 'FOC report'], ['short_expiry', 'Short expiry'], ['grn', 'GRN outstanding'], ['kpi', 'KPI']];
+const modName = m => (MODS.find(x => x[0] === m) || [m, m])[1];
+let uData = {users: [], access: []}, uSel = null;
+async function fn(body) {
+  const go = () => fetch(URL_ + '/functions/v1/admin-users', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json', Authorization: 'Bearer ' + sess.access_token}, body: JSON.stringify(body)});
+  let r = await go(); if (r.status === 401 && await refresh()) r = await go();
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || j.message || ('HTTP ' + r.status)); return j;
+}
+function toggleUsers() {
+  const show = $('usersView').hidden;
+  $('usersView').hidden = !show; document.querySelector('main').hidden = show; $('panel').classList.remove('open');
+  $('usersBtn').textContent = show ? 'Back to follow-up' : 'Users & Access';
+  if (show) loadUsers();
+}
+async function loadUsers() {
+  try { uData = await fn({action: 'list'}); renderUsers(''); } catch (e) { $('usersView').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; }
+}
+const lvTag = l => '<span class="lv lv-' + l + '">' + l + '</span>';
+function renderUsers(msg) {
+  const opsOpt = '<option value="*">All operations</option>' + ops.map(o => '<option value="' + o.code + '">' + esc(o.code + ' - ' + o.name) + '</option>').join('');
+  const modOpt = MODS.map(m => '<option value="' + m[0] + '">' + esc(m[1]) + '</option>').join('');
+  let h = '<div class="card"><h3>Users &amp; Access</h3><div class="hint">Levels: <b>view</b> = read only &middot; <b>edit</b> = update follow-up fields and add notes &middot; <b>full</b> = edit + upload weekly lists + write off + change data. Admin sees and does everything. Access is per module and per operation.</div><div class="err" id="uMsg">' + esc(msg) + '</div></div>';
+  h += '<div class="card"><h3>New user</h3><div class="row2"><input id="nName" placeholder="Full name"><input id="nUser" placeholder="Username or email"><input id="nPass" type="password" placeholder="Password (8+ characters)" autocomplete="new-password"><select id="nRole"><option value="user">User</option><option value="admin">Admin</option></select><button class="btn p" data-act="create">Create user</button></div></div>';
+  h += '<div class="card"><h3>Users</h3><div class="wrap"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>'
+    + uData.users.map(u => {
+      const ac = uData.access.filter(a => a.user_id === u.id);
+      return '<tr><td>' + esc(u.full_name) + (u.active ? '' : ' <span class="tag t-b">off</span>') + '</td><td>' + esc(u.username) + '</td><td>' + esc(u.role) + '</td><td>'
+        + (u.role === 'admin' ? '<i>Everything</i>' : (ac.map(a => esc(modName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + ' ' + lvTag(a.level)).join('<br>') || '<span class="hint">no access yet</span>'))
+        + '</td><td style="white-space:nowrap"><button class="btn" data-act="acc" data-id="' + u.id + '">Access</button> <button class="btn" data-act="pwd" data-id="' + u.id + '">Password</button> <button class="btn" data-act="role" data-id="' + u.id + '">' + (u.role === 'admin' ? 'Make User' : 'Make Admin') + '</button> <button class="btn d" data-act="act" data-id="' + u.id + '">' + (u.active ? 'Switch off' : 'Switch on') + '</button></td></tr>';
+    }).join('') + '</tbody></table></div></div>';
+  if (uSel) {
+    const u = uData.users.find(x => x.id === uSel), ac = uData.access.filter(a => a.user_id === uSel);
+    h += '<div class="card"><h3>Access for ' + esc(u ? (u.full_name || u.username) : '') + '</h3>'
+      + (u && u.role === 'admin' ? '<div class="hint">Admins have full access to everything. Make the user a normal User to give limited access.</div>' : '')
+      + ac.map(a => '<div class="row2"><span style="min-width:230px">' + esc(modName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + '</span><select data-act="lv" data-id="' + a.id + '">' + ['view', 'edit', 'full'].map(l => '<option' + (l === a.level ? ' selected' : '') + '>' + l + '</option>').join('') + '</select><button class="btn d" data-act="rm" data-id="' + a.id + '">Remove</button></div>').join('')
+      + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-act="add">Add access</button></div></div>';
+  }
+  $('usersView').innerHTML = h;
+}
+async function usersClick(e) {
+  const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'SELECT') return;
+  const act = b.dataset.act, id = b.dataset.id;
+  try {
+    if (act === 'create') {
+      const v = {action: 'create', full_name: $('nName').value.trim(), username: $('nUser').value.trim(), password: $('nPass').value, role: $('nRole').value};
+      await fn(v); uSel = null; await loadUsers(); $('uMsg').textContent = 'User created. Now press Access to give operations and levels.';
+    } else if (act === 'acc') { uSel = id; renderUsers(''); window.scrollTo(0, document.body.scrollHeight); }
+    else if (act === 'pwd') { const p = prompt('New password (8+ characters)'); if (!p) return; await fn({action: 'set_password', id, password: p}); $('uMsg').textContent = 'Password changed.'; }
+    else if (act === 'role') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, role: u.role === 'admin' ? 'user' : 'admin'}); await loadUsers(); }
+    else if (act === 'act') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, active: !u.active}); await loadUsers(); }
+    else if (act === 'add') { await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: $('aMod').value, operation: $('aOp').value, level: $('aLv').value}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}}); await loadUsers(); }
+    else if (act === 'rm') { await api('/rest/v1/fu_access?id=eq.' + id, {method: 'DELETE', headers: {Prefer: 'return=minimal'}}); await loadUsers(); }
+  } catch (er) { const m = $('uMsg'); if (m) m.textContent = er.message; }
+}
+async function usersChange(e) {
+  const s = e.target; if (s.dataset.act !== 'lv') return;
+  try { await api('/rest/v1/fu_access?id=eq.' + s.dataset.id, {method: 'PATCH', body: {level: s.value}, headers: {Prefer: 'return=minimal'}}); await loadUsers(); } catch (er) { $('uMsg').textContent = er.message; }
+}
+$('lbtn').onclick = signIn;
+$('usersBtn').onclick = toggleUsers; $('usersView').onclick = usersClick; $('usersView').onchange = usersChange; $('lpass').onkeydown = e => { if (e.key === 'Enter') signIn(); };
+$('logout').onclick = signOut;
+$('opSel').onchange = () => { fillFilters(); render(); };
+['fChain', 'fRep', 'fBucket', 'fStatus', 'fFlag'].forEach(i => $(i).onchange = render); $('fText').oninput = render;
+$('tb').onclick = e => { const tr = e.target.closest('tr.row'); if (tr) openPanel(tr.dataset.id); };
+if (sess) start();
+</script></body></html>
