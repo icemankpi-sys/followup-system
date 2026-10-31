@@ -1,57 +1,89 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Iceman Follow-Up</title>
+<title>Iceman Follow-Up System</title>
+<link rel="icon" href="data:image/png;base64,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">
 <style>
-:root{--ink:#1d2b36;--mut:#5b6b78;--line:#dde3e8;--bg:#f4f6f8;--card:#fff;--navy:#0b3c5d;--red:#c0392b;--amb:#d68910;--grn:#1e8449}
-*{box-sizing:border-box}body{margin:0;font:14px/1.45 'Segoe UI',Arial,sans-serif;color:var(--ink);background:var(--bg)}
-button,input,select,textarea{font:inherit}
-header{background:var(--navy);color:#fff;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-header h1{font-size:17px;margin:0;flex:1;min-width:160px}header select,header button{padding:5px 8px;border-radius:5px;border:0}
-header .who{font-size:12px;opacity:.85}
-main{padding:12px 16px;max-width:1500px;margin:auto}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px}
-.tile{background:var(--card);border-radius:8px;padding:8px 10px;border-left:5px solid var(--navy)}
-.tile b{display:block;font-size:17px}.tile span{font-size:11.5px;color:var(--mut)}
-.tile.r{border-color:var(--red)}.tile.a{border-color:var(--amb)}.tile.g{border-color:var(--grn)}
+:root{
+  --bg:#f3f5f9;--surface:#fff;--surface2:#f7f9fc;--ink:#0f1b2d;--ink2:#334155;--muted:#64748b;--line:#e2e8f0;--line2:#cbd5e1;
+  --primary:#2e3192;--primary-ink:#fff;--primary-soft:#e9e9f7;--accent:#e8590c;--accent-soft:#fff1e8;
+  --ok:#0f7a55;--ok-soft:#e5f6ef;--warn:#b45309;--warn-soft:#fdf3e2;--danger:#b42318;--danger-soft:#fdecea;
+  --head:#1d1f63;--head-ink:#eef0ff;--head-chip:#2a2d7d;--shadow:0 1px 2px rgba(15,27,45,.06),0 4px 14px rgba(15,27,45,.06);--radius:12px;
+  color-scheme:light}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#0b1220;--surface:#121b2b;--surface2:#0f1726;--ink:#e6edf7;--ink2:#c3cfdf;--muted:#8b9bb2;--line:#22314a;--line2:#2e4060;
+  --primary:#8e92f2;--primary-ink:#0b0d2e;--primary-soft:#1f2257;--accent:#ff8a3d;--accent-soft:#2a1a10;
+  --ok:#34c391;--ok-soft:#0f2a22;--warn:#f0a94a;--warn-soft:#2b210f;--danger:#f17066;--danger-soft:#2c1414;
+  --head:#0d0e33;--head-ink:#e6e8ff;--head-chip:#1c1f55;--shadow:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.35);color-scheme:dark}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,"Noto Sans Sinhala",Arial,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{background:var(--surface);border:1px solid var(--line2);border-radius:8px;padding:6px 9px;min-width:0}
+header{background:var(--head);color:var(--head-ink);padding:10px max(16px,env(safe-area-inset-left));display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:200px}
+.mark{width:42px;height:42px;border-radius:10px;background:#fff;display:grid;place-items:center;padding:4px}.mark img{max-width:100%;max-height:100%}
+header h1{font-size:16px;margin:0;font-weight:700}header .sub{font-size:12px;opacity:.7}
+.pill{background:var(--head-chip);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:5px 12px;font-size:12px;max-width:50vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbtn{background:transparent;border:1px solid rgba(255,255,255,.35);color:var(--head-ink);border-radius:8px;padding:5px 11px;cursor:pointer}
+#tabs{background:var(--surface);border-bottom:1px solid var(--line);display:flex;gap:2px;padding:0 max(16px,env(safe-area-inset-left));overflow-x:auto}
+#tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:11px 16px;cursor:pointer;color:var(--muted);font-weight:600;white-space:nowrap}
+#tabs button.on{color:var(--primary);border-color:var(--primary)}
+.shell{display:flex;align-items:flex-start;min-height:calc(100vh - 120px)}
+aside{width:236px;flex:none;background:var(--surface);border-right:1px solid var(--line);padding:12px 10px;position:sticky;top:0;align-self:stretch}
+.sh{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin:2px 8px 8px}
+.mod{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:9px 10px;cursor:pointer;color:var(--ink2);margin-bottom:2px}
+.mod:hover{background:var(--surface2)}.mod.on{background:var(--primary-soft);color:var(--primary);font-weight:700}
+.mod .ic{width:30px;height:30px;border-radius:8px;background:var(--primary);color:var(--primary-ink);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
+.mod.soon .ic{background:var(--line2);color:var(--surface)}.mod .tx{flex:1;min-width:0}.mod .tx small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+.cnt{background:var(--accent);color:#fff;border-radius:10px;padding:0 7px;font-size:11px;font-weight:700}
+#content{flex:1;min-width:0;padding:14px max(16px,env(safe-area-inset-right)) 30px 16px}
+#bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+h2.pt{margin:0 0 2px;font-size:20px;color:var(--ink)}.hint{color:var(--muted);font-size:12.5px;margin:3px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:10px 0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+.card{background:var(--surface);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow);min-width:0}
+.card h3{margin:0 0 8px;font-size:14px;color:var(--primary)}
+.tile{background:var(--surface);border-radius:var(--radius);padding:10px 12px;border-left:5px solid var(--primary);box-shadow:var(--shadow)}
+.tile b{display:block;font-size:19px}.tile span{font-size:12px;color:var(--muted)}
+.tile.r{border-color:var(--danger)}.tile.a{border-color:var(--accent)}.tile.g{border-color:var(--ok)}
+.mcard{cursor:pointer}.mcard:hover{outline:2px solid var(--primary)}
+.badge{display:inline-block;border-radius:10px;padding:0 8px;font-size:11px;font-weight:700}.b-live{background:var(--ok-soft);color:var(--ok)}.b-soon{background:var(--warn-soft);color:var(--warn)}
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-.filters select,.filters input{padding:5px 8px;border:1px solid var(--line);border-radius:5px;background:#fff;min-width:0}
-.wrap{overflow-x:auto;background:var(--card);border-radius:8px}
-table{border-collapse:collapse;width:100%;min-width:1000px}
-th{background:var(--navy);color:#fff;text-align:left;padding:6px 8px;font-size:12px;white-space:nowrap;position:sticky;top:0}
-td{padding:5px 8px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+.wrap{overflow-x:auto;background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%}
+th{background:var(--head);color:var(--head-ink);text-align:left;padding:7px 9px;font-size:12px;white-space:nowrap}
+td{padding:6px 9px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-tr.row{cursor:pointer}tr.row:hover{background:#eef4f8}
+tr.row{cursor:pointer}tr.row:hover td{background:var(--primary-soft)}
 .tag{display:inline-block;border-radius:10px;padding:0 7px;font-size:11px;color:#fff;margin-right:3px;white-space:nowrap}
-.t-r{background:var(--red)}.t-a{background:var(--amb)}.t-g{background:var(--grn)}.t-b{background:#5b6b78}
-.st{font-size:11.5px;border:1px solid var(--line);border-radius:10px;padding:0 7px;white-space:nowrap}
-.hint{color:var(--mut);font-size:12px;margin:6px 0}
-#login{max-width:340px;margin:12vh auto;background:#fff;padding:22px;border-radius:10px;box-shadow:0 2px 10px #0002}
-#login h2{margin:0 0 4px;color:var(--navy)}#login input{width:100%;padding:8px;margin:6px 0;border:1px solid var(--line);border-radius:5px}
-#login button{width:100%;padding:9px;border:0;border-radius:5px;background:var(--navy);color:#fff;margin-top:6px;cursor:pointer}
-.err{color:var(--red);font-size:13px;min-height:18px}
-#panel{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:#fff;box-shadow:-3px 0 14px #0004;padding:14px;overflow-y:auto;transform:translateX(105%);transition:transform .2s;z-index:5}
-#panel.open{transform:none}
-#panel h3{margin:0 0 2px;color:var(--navy)}#panel label{display:block;font-size:12px;color:var(--mut);margin-top:8px}
-#panel select,#panel input,#panel textarea{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:5px;background:#fff}
-.pbtn{padding:8px 14px;border:0;border-radius:5px;background:var(--navy);color:#fff;cursor:pointer;margin-top:10px}
-.pbtn.s{background:#fff;color:var(--navy);border:1px solid var(--navy)}
-.ev{border-left:3px solid var(--line);padding:2px 8px;margin:6px 0;font-size:12.5px}.ev small{color:var(--mut)}
-#usersView{padding:12px 16px;max-width:1200px;margin:auto}
-#usersView .card{background:#fff;border-radius:8px;padding:12px;margin-bottom:12px}
-#usersView h3{margin:0 0 8px;color:var(--navy)}
-#usersView input,#usersView select{padding:5px 8px;border:1px solid var(--line);border-radius:5px;background:#fff;min-width:0}
+.t-r{background:var(--danger)}.t-a{background:var(--accent)}.t-g{background:var(--ok)}.t-b{background:var(--muted)}
+.st{font-size:11.5px;border:1px solid var(--line2);border-radius:10px;padding:0 7px;white-space:nowrap}
+.bar{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12.5px}
+.bl{width:38%;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt{flex:1;background:var(--surface2);border-radius:5px;height:14px;overflow:hidden}.bt i{display:block;height:100%;border-radius:5px;background:var(--primary)}
+.bv{width:92px;text-align:right;font-variant-numeric:tabular-nums}
+.btn{padding:6px 12px;border:1px solid var(--primary);border-radius:8px;background:var(--surface);color:var(--primary);cursor:pointer}
+.btn.p{background:var(--primary);color:var(--primary-ink)}.btn.d{border-color:var(--danger);color:var(--danger)}
+.lv{display:inline-block;border-radius:10px;padding:0 8px;font-size:11.5px;color:#fff}.lv-view{background:var(--muted)}.lv-edit{background:var(--accent)}.lv-full{background:var(--ok)}
 .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
-.btn{padding:5px 10px;border:1px solid var(--navy);border-radius:5px;background:#fff;color:var(--navy);cursor:pointer}
-.btn.p{background:var(--navy);color:#fff}.btn.d{border-color:var(--red);color:var(--red)}
-.lv{display:inline-block;border-radius:10px;padding:0 8px;font-size:11.5px;color:#fff}.lv-view{background:#5b6b78}.lv-edit{background:var(--amb)}.lv-full{background:var(--grn)}
-@media(max-width:600px){main{padding:8px}}
+.err{color:var(--danger);font-size:13px;min-height:18px}
+#login{max-width:350px;margin:10vh auto;background:var(--surface);padding:24px;border-radius:14px;box-shadow:var(--shadow);text-align:center}
+#login .mark{margin:0 auto 8px;width:64px;height:64px;border:1px solid var(--line)}#login h2{margin:0;color:var(--primary)}
+#login input{width:100%;margin:6px 0}#login button{width:100%;padding:10px;border:0;border-radius:8px;background:var(--primary);color:var(--primary-ink);margin-top:6px;cursor:pointer;font-weight:700}
+#panel{position:fixed;top:0;right:0;bottom:0;width:min(450px,100%);background:var(--surface);box-shadow:-3px 0 14px #0005;padding:14px;overflow-y:auto;transform:translateX(105%);transition:transform .2s;z-index:30}
+#panel.open{transform:none}#panel h3{margin:0 0 2px;color:var(--primary)}#panel label{display:block;font-size:12px;color:var(--muted);margin-top:8px}
+#panel select,#panel input,#panel textarea{width:100%}
+.ev{border-left:3px solid var(--line2);padding:2px 8px;margin:6px 0;font-size:12.5px}.ev small{color:var(--muted)}
+@media(max-width:820px){.shell{display:block}aside{width:auto;position:static;border-right:0;border-bottom:1px solid var(--line);display:flex;gap:6px;overflow-x:auto;padding:8px}
+  aside .sh{display:none}.mod{width:auto;white-space:nowrap;margin:0}.mod .tx small{display:none}}
+@media print{header,#tabs,aside,#bar,.noprint,#panel{display:none!important}.shell{display:block}#content{padding:0}body{background:#fff}.card,.tile{box-shadow:none;border:1px solid #ccc}}
 </style></head><body>
 
 <div id="login">
-  <h2>Iceman Follow-Up</h2>
-  <div style="color:var(--mut);font-size:13px">Sign in with your account</div>
-  <input id="lemail" type="email" placeholder="Email" autocomplete="username">
+  <div class="mark"><img alt="Iceman" src="data:image/png;base64,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"></div>
+  <h2>Iceman Follow-Up System</h2>
+  <div class="hint" style="margin-bottom:8px">Sign in with your account</div>
+  <input id="lemail" type="email" placeholder="Email or username" autocomplete="username">
   <input id="lpass" type="password" placeholder="Password" autocomplete="current-password">
   <div class="err" id="lerr"></div>
   <button id="lbtn">Sign in</button>
@@ -59,24 +91,14 @@ tr.row{cursor:pointer}tr.row:hover{background:#eef4f8}
 
 <div id="app" hidden>
   <header>
-    <h1>Iceman Follow-Up &middot; Outstanding over 90</h1>
-    <select id="opSel" title="Operation"></select>
-    <span class="who" id="who"></span><button id="usersBtn" hidden>Users &amp; Access</button>
-    <button id="logout">Sign out</button>
+    <div class="brand"><div class="mark"><img alt="Iceman" src="data:image/png;base64,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"></div><div><h1>Iceman Follow-Up System</h1><div class="sub">Operations follow-up in one place</div></div></div>
+    <span class="pill" id="who"></span><button class="hbtn" id="logout">Sign out</button>
   </header>
-  <main>
-    <div class="tiles" id="tiles"></div>
-    <div class="filters">
-      <select id="fChain"></select><select id="fRep"></select><select id="fBucket"></select>
-      <select id="fStatus"></select><select id="fFlag"></select>
-      <input id="fText" placeholder="Search outlet / memo" style="flex:1;min-width:160px">
-    </div>
-    <div class="hint" id="count"></div>
-    <div class="wrap"><table>
-      <thead><tr><th>Chain</th><th>Outlet</th><th>Memo</th><th>Sales rep</th><th class="n">Days</th><th class="n">To 120</th><th class="n">Balance</th><th>Reason</th><th>Next step</th><th>Next date</th><th>Status</th><th>Flags</th></tr></thead>
-      <tbody id="tb"></tbody></table></div>
-  </main>
-  <div id="usersView" hidden></div>
+  <nav id="tabs"></nav>
+  <div class="shell">
+    <aside><div class="sh">Follow-up items</div><div id="mods"></div></aside>
+    <section id="content"><div id="bar"></div><div id="page"></div></section>
+  </div>
   <div id="panel"></div>
 </div>
 
@@ -84,13 +106,25 @@ tr.row{cursor:pointer}tr.row:hover{background:#eef4f8}
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
 const STATUS = {open:'Open',promised:'Promised',dispute:'Dispute',action_pending:'Action pending',settled:'Settled',written_off:'Written off'};
+const MODS = [
+  {id:'receivable', name:'Outstanding', sub:'Over 30 / 60 / 90 / 120 / 240', ic:'OS', ready:true},
+  {id:'foc', name:'FOC Report', sub:'Free of charge stock', ic:'FC', ready:false},
+  {id:'short_expiry', name:'Short Expiry', sub:'Stock near expiry', ic:'SE', ready:false},
+  {id:'grn', name:'GRN Outstanding', sub:'GRN pending and errors', ic:'GR', ready:false},
+  {id:'kpi', name:'KPI', sub:'KPI documents', ic:'KP', ready:false}];
+const PAGES = [['home','Home'],['items','Follow-up'],['dash','Dashboard'],['report','Report'],['perm','Permission']];
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const money = v => Number(v || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-let access = [], allowedOps = [];
-let sess = null, me = null, ops = [], lists = {reason: [], next_step: []}, rows = [], cur = null;
+const money0 = v => Number(v || 0).toLocaleString('en-US', {maximumFractionDigits: 0});
+const sum = a => a.reduce((s, r) => s + Number(r.amount || 0), 0);
+const isActive = r => !['settled', 'written_off'].includes(r.status);
+const RANK = {view: 1, edit: 2, full: 3}, rank = l => RANK[l] || 0;
+let sess = null, me = null, ops = [], access = [], lists = {reason: [], next_step: []}, rows = [], cur = null;
+let page = 'home', mod = 'receivable', op = '', F = {chain: '', rep: '', bucket: '', status: 'active', flag: '', text: ''};
 try { sess = JSON.parse(localStorage.getItem('fu_session') || 'null'); } catch (e) {}
 
+// ---------- API ----------
 async function raw(path, opt) {
   opt = opt || {};
   const h = Object.assign({apikey: KEY, 'Content-Type': 'application/json'}, opt.headers || {});
@@ -109,104 +143,179 @@ async function api(path, opt) {
   if (!r.ok) { let m = ''; try { m = (await r.json()).message || ''; } catch (e) {} throw new Error(m || ('HTTP ' + r.status)); }
   return r.status === 204 ? null : r.json().catch(() => null);
 }
-
-const RANK = {view: 1, edit: 2, full: 3};
-const rank = l => RANK[l] || 0;
-function lvl(op) {
-  if (me && me.role === 'admin') return 'full';
-  let best = 0;
-  access.forEach(a => { if (['receivable', '*'].includes(a.module) && (a.operation === op || a.operation === '*')) best = Math.max(best, rank(a.level)); });
-  return ['', 'view', 'edit', 'full'][best];
-}
 async function signIn() {
   $('lerr').textContent = '';
-  const r = await fetch(URL_ + '/auth/v1/token?grant_type=password', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({email: $('lemail').value.trim(), password: $('lpass').value})});
+  let em = $('lemail').value.trim(); if (em && !em.includes('@')) em += '@iceman-followup.local';
+  const r = await fetch(URL_ + '/auth/v1/token?grant_type=password', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({email: em, password: $('lpass').value})});
   const j = await r.json();
   if (!r.ok) { $('lerr').textContent = j.error_description || j.msg || 'Sign in failed'; return; }
   sess = j; localStorage.setItem('fu_session', JSON.stringify(j)); $('lpass').value = ''; start();
 }
 function signOut() { sess = null; localStorage.removeItem('fu_session'); location.reload(); }
 
+// ---------- access ----------
+function lvl(o, m) {
+  if (me && me.role === 'admin') return 'full';
+  let best = 0;
+  access.forEach(a => { if ([m || mod, '*'].includes(a.module) && (a.operation === o || a.operation === '*')) best = Math.max(best, rank(a.level)); });
+  return ['', 'view', 'edit', 'full'][best];
+}
+const opsFor = m => ops.filter(o => rank(lvl(o.code, m)) > 0);
+const visibleMods = () => MODS.filter(m => me.role === 'admin' || opsFor(m.id).length);
+const modOf = id => MODS.find(m => m.id === id);
+const myRows = () => rows.filter(r => !op || r.operation === op);
+
 async function start() {
   try {
     const uid = sess.user.id;
-    const p = await api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role,operation');
+    const p = await api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role');
     me = p[0]; if (!me) throw new Error('No profile');
     access = me.role === 'admin' ? [] : await api('/rest/v1/fu_access?user_id=eq.' + uid + '&select=module,operation,level');
     ops = await api('/rest/v1/operations?select=code,name&order=sort');
     const l = await api('/rest/v1/fu_lists?module=eq.receivable&order=sort&select=kind,value');
     lists = {reason: l.filter(x => x.kind === 'reason').map(x => x.value), next_step: l.filter(x => x.kind === 'next_step').map(x => x.value)};
   } catch (e) { $('lerr').textContent = 'Could not load: ' + e.message; sess = null; localStorage.removeItem('fu_session'); return; }
+  if (!visibleMods().length) { $('lerr').textContent = 'Your account has no access yet. Ask the Admin.'; sess = null; localStorage.removeItem('fu_session'); return; }
   $('login').hidden = true; $('app').hidden = false;
-  $('who').textContent = (me.full_name || me.username) + ' (' + (me.role === 'admin' ? 'Admin, full access' : allowedOps.map(o => o.code + ': ' + lvl(o.code)).join(', ')) + ')';
-  allowedOps = ops.filter(o => rank(lvl(o.code)) > 0);
-  if (!allowedOps.length) { $('login').hidden = false; $('app').hidden = true; $('lerr').textContent = 'Your account has no access yet. Ask the Admin.'; sess = null; localStorage.removeItem('fu_session'); return; }
-  $('opSel').innerHTML = (allowedOps.length > 1 ? '<option value="">All my operations</option>' : '') + allowedOps.map(o => '<option value="' + o.code + '">' + esc(o.code + ' - ' + o.name) + '</option>').join('');
-  $('opSel').hidden = allowedOps.length < 2;
-  $('usersBtn').hidden = me.role !== 'admin';
-  await load();
+  $('who').textContent = (me.full_name || me.username) + ' · ' + (me.role === 'admin' ? 'Admin' : 'User');
+  mod = visibleMods()[0].id;
+  await loadRows(); go();
+}
+async function loadRows() {
+  rows = opsFor('receivable').length ? await api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000') : [];
 }
 
-async function load() {
-  rows = await api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000');
-  if (!$('fChain').options.length) fillFilters();
-  render();
+// ---------- navigation ----------
+function go(p, m) {
+  if (p) page = p; if (m) mod = m;
+  if (page === 'perm' && me.role !== 'admin') page = 'home';
+  $('panel').classList.remove('open');
+  $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === page ? 'on' : '') + '">' + x[1] + '</button>').join('');
+  const act = rows.filter(isActive);
+  $('mods').innerHTML = visibleMods().map(m => {
+    const n = m.ready ? act.length : 0;
+    return '<button class="mod ' + (m.id === mod && ['items', 'dash', 'report'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
+  }).join('');
+  const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
+  const my = opsFor(mod);
+  if (needOp && my.length === 1) op = my[0].code; else if (!needOp || my.length > 1) { if (!my.some(o => o.code === op)) op = ''; }
+  $('bar').innerHTML = needOp && my.length > 1 ? '<select id="opSel"><option value="">All my operations</option>' + my.map(o => '<option value="' + o.code + '"' + (o.code === op ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>' : '';
+  ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm})[page]();
 }
-function opts(sel, label, vals) { sel.innerHTML = '<option value="">' + label + '</option>' + vals.map(v => '<option>' + esc(v) + '</option>').join(''); }
-function fillFilters() {
-  const op = $('opSel').value, base = rows.filter(r => !op || r.operation === op);
-  const u = k => [...new Set(base.map(r => r[k]).filter(Boolean))].sort();
-  opts($('fChain'), 'All chains', u('party')); opts($('fRep'), 'All sales reps', u('owner_name'));
-  opts($('fBucket'), 'All buckets', ['91-120', '121-240', 'Over 240', '0-30', '31-60', '61-90']);
-  $('fStatus').innerHTML = '<option value="active">Active (not settled)</option><option value="">All statuses</option>' + Object.keys(STATUS).map(k => '<option value="' + k + '">' + STATUS[k] + '</option>').join('');
-  $('fFlag').innerHTML = '<option value="">All items</option><option value="incomplete">Incomplete (no reason / next step / date)</option><option value="overdue">Action overdue</option><option value="broken">Promise broken</option><option value="soon">Crossing 120 within 30 days</option>';
+
+// ---------- Home ----------
+function pgHome() {
+  const act = rows.filter(isActive);
+  const cards = visibleMods().map(m => {
+    if (!m.ready) return '<div class="card mcard" data-mod="' + m.id + '" data-go="items"><b>' + esc(m.name) + '</b> <span class="badge b-soon">Coming soon</span><div class="hint">' + esc(m.sub) + '</div></div>';
+    return '<div class="card mcard" data-mod="' + m.id + '" data-go="items"><b>' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">' + esc(m.sub) + '</div>'
+      + '<div style="font-size:20px;font-weight:700;margin-top:6px">' + money0(sum(act)) + '</div><div class="hint">' + act.length + ' active items · ' + act.filter(r => r.action_overdue).length + ' overdue · ' + act.filter(r => r.incomplete).length + ' incomplete</div></div>';
+  }).join('');
+  const att = act.filter(r => r.promise_broken || r.action_overdue || (r.days_to_120 > 0 && r.days_to_120 <= 14))
+    .sort((a, b) => (b.promise_broken - a.promise_broken) || (b.action_overdue - a.action_overdue) || (b.amount - a.amount)).slice(0, 8);
+  $('page').innerHTML = '<h2 class="pt">Welcome, ' + esc(me.full_name || me.username) + '</h2><div class="hint">' + new Date().toDateString() + ' · ' + (me.role === 'admin' ? 'Admin: full access to everything' : 'Your access is listed below') + '</div>'
+    + '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' + cards + '</div>'
+    + '<div class="card"><h3>Needs attention now</h3>' + (att.length ? '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Outlet</th><th>Chain</th><th class="n">Balance</th><th class="n">Days</th><th>Why</th></tr></thead><tbody>'
+      + att.map(r => '<tr class="row" data-open="' + r.id + '"><td>' + esc(r.outlet) + '</td><td>' + esc(r.party) + '</td><td class="n">' + money(r.amount) + '</td><td class="n">' + r.aging_days + '</td><td>'
+        + (r.promise_broken ? '<span class="tag t-r">promise broken</span>' : '') + (r.action_overdue ? '<span class="tag t-r">action overdue</span>' : '') + (r.days_to_120 > 0 && r.days_to_120 <= 14 ? '<span class="tag t-a">120 days in ' + (r.days_to_120 + 1) + 'd</span>' : '') + '</td></tr>').join('') + '</tbody></table></div>'
+      : '<div class="hint">Nothing urgent. Items with no next date still need a plan: see Follow-up, filter "Incomplete".</div>') + '</div>'
+    + (me.role === 'admin' ? '' : '<div class="card" style="margin-top:12px"><h3>My access</h3>' + (access.map(a => '<div>' + esc((modOf(a.module) || {name: 'All modules'}).name) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + ' <span class="lv lv-' + a.level + '">' + a.level + '</span></div>').join('') || '<div class="hint">No access rows</div>') + '</div>');
 }
-const isActive = r => !['settled', 'written_off'].includes(r.status);
+
+// ---------- Follow-up list ----------
+function soon(m) { return '<h2 class="pt">' + esc(m.name) + '</h2><div class="card"><span class="badge b-soon">Coming soon</span><p>' + esc(m.sub) + ' is planned. Send the sample sheet the operations use today, and this section will be built the same way as Outstanding: weekly upload, reason, next step, dates, history and reports.</p></div>'; }
+function pgItems() {
+  const m = modOf(mod); if (!m.ready) { $('page').innerHTML = soon(m); return; }
+  const base = myRows(), u = k => [...new Set(base.map(r => r[k]).filter(Boolean))].sort();
+  const sel = (id, label, vals, v) => '<select id="' + id + '"><option value="">' + label + '</option>' + vals.map(x => '<option' + (x === v ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>';
+  $('page').innerHTML = '<h2 class="pt">' + esc(m.name) + ' <span class="hint">' + esc(m.sub) + '</span></h2><div class="grid" id="tiles"></div>'
+    + '<div class="filters">' + sel('fChain', 'All chains', u('party'), F.chain) + sel('fRep', 'All sales reps', u('owner_name'), F.rep) + sel('fBucket', 'All buckets', ['0-30', '31-60', '61-90', '91-120', '121-240', 'Over 240'], F.bucket)
+    + '<select id="fStatus"><option value="active"' + (F.status === 'active' ? ' selected' : '') + '>Active (not settled)</option><option value=""' + (F.status === '' ? ' selected' : '') + '>All statuses</option>' + Object.keys(STATUS).map(k => '<option value="' + k + '"' + (F.status === k ? ' selected' : '') + '>' + STATUS[k] + '</option>').join('') + '</select>'
+    + '<select id="fFlag">' + [['', 'All items'], ['incomplete', 'Incomplete (no reason / next step / date)'], ['overdue', 'Action overdue'], ['broken', 'Promise broken'], ['soon', 'Crossing 120 within 30 days']].map(x => '<option value="' + x[0] + '"' + (F.flag === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select>'
+    + '<input id="fText" placeholder="Search outlet / memo" value="' + esc(F.text) + '" style="flex:1;min-width:160px"></div>'
+    + '<div class="hint" id="count"></div><div class="wrap"><table style="min-width:1000px"><thead><tr><th>Chain</th><th>Outlet</th><th>Memo</th><th>Sales rep</th><th class="n">Days</th><th class="n">To 120</th><th class="n">Balance</th><th>Reason</th><th>Next step</th><th>Next date</th><th>Status</th><th>Flags</th></tr></thead><tbody id="tb"></tbody></table></div>';
+  renderItems();
+}
 function filtered() {
-  const op = $('opSel').value, ch = $('fChain').value, rep = $('fRep').value, bu = $('fBucket').value, st = $('fStatus').value, fl = $('fFlag').value, tx = $('fText').value.trim().toLowerCase();
-  return rows.filter(r => (!op || r.operation === op) && (!ch || r.party === ch) && (!rep || r.owner_name === rep) && (!bu || r.bucket === bu)
-    && (st === 'active' ? isActive(r) : (!st || r.status === st))
-    && (!fl || (fl === 'incomplete' && r.incomplete) || (fl === 'overdue' && r.action_overdue) || (fl === 'broken' && r.promise_broken) || (fl === 'soon' && isActive(r) && r.days_to_120 > 0 && r.days_to_120 <= 30))
+  const tx = F.text.toLowerCase();
+  return myRows().filter(r => (!F.chain || r.party === F.chain) && (!F.rep || r.owner_name === F.rep) && (!F.bucket || r.bucket === F.bucket)
+    && (F.status === 'active' ? isActive(r) : (!F.status || r.status === F.status))
+    && (!F.flag || (F.flag === 'incomplete' && r.incomplete) || (F.flag === 'overdue' && r.action_overdue) || (F.flag === 'broken' && r.promise_broken) || (F.flag === 'soon' && isActive(r) && r.days_to_120 > 0 && r.days_to_120 <= 30))
     && (!tx || (r.outlet || '').toLowerCase().includes(tx) || (r.ref_key || '').toLowerCase().includes(tx)));
 }
-function render() {
-  const op = $('opSel').value, act = rows.filter(r => (!op || r.operation === op) && isActive(r));
-  const sum = a => a.reduce((s, r) => s + Number(r.amount || 0), 0);
-  const o120 = act.filter(r => r.aging_days > 120), b91 = act.filter(r => r.aging_days <= 120);
-  $('tiles').innerHTML = [
-    ['', money(sum(act)), 'Active balance (' + act.length + ' items)'],
-    ['r', money(sum(o120)), 'Over 120 days (' + o120.length + ')'],
-    ['a', money(sum(b91)), 'Up to 120 days (' + b91.length + '), will roll to over 120'],
-    ['a', act.filter(r => r.incomplete).length, 'Incomplete: need reason, next step, date'],
-    ['r', act.filter(r => r.action_overdue).length, 'Action overdue'],
-    ['r', act.filter(r => r.promise_broken).length, 'Promise broken'],
-    ['g', rows.filter(r => (!op || r.operation === op) && !isActive(r)).length, 'Settled / closed']
-  ].map(t => '<div class="tile ' + t[0] + '"><b>' + t[1] + '</b><span>' + t[2] + '</span></div>').join('');
-  const f = filtered();
-  $('count').textContent = f.length + ' items, balance ' + money(sum(f));
-  $('tb').innerHTML = f.map(r => '<tr class="row" data-id="' + r.id + '"><td>' + esc(r.party) + '</td><td>' + esc(r.outlet) + (!op && r.operation ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.ref_key) + '</td><td>' + esc(r.owner_name) + '</td>'
-    + '<td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + (r.days_to_120 == null ? '' : r.days_to_120) + '</td><td class="n"><b>' + money(r.amount) + '</b></td>'
-    + '<td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td><td><span class="st">' + STATUS[r.status] + '</span></td>'
-    + '<td>' + (r.action_overdue ? '<span class="tag t-r">overdue</span>' : '') + (r.promise_broken ? '<span class="tag t-r">promise broken</span>' : '') + (r.incomplete && isActive(r) ? '<span class="tag t-a">incomplete</span>' : '') + '</td></tr>').join('');
+function renderItems() {
+  const act = myRows().filter(isActive), o120 = act.filter(r => r.aging_days > 120), b91 = act.filter(r => r.aging_days <= 120);
+  $('tiles').innerHTML = [['', money(sum(act)), 'Active balance (' + act.length + ' items)'], ['r', money(sum(o120)), 'Over 120 days (' + o120.length + ')'], ['a', money(sum(b91)), 'Up to 120 days (' + b91.length + '), will roll over'],
+    ['a', act.filter(r => r.incomplete).length, 'Incomplete: need reason, next step, date'], ['r', act.filter(r => r.action_overdue).length, 'Action overdue'], ['r', act.filter(r => r.promise_broken).length, 'Promise broken'],
+    ['g', myRows().filter(r => !isActive(r)).length, 'Settled / closed']].map(t => '<div class="tile ' + t[0] + '"><b>' + t[1] + '</b><span>' + t[2] + '</span></div>').join('');
+  const f = filtered(); $('count').textContent = f.length + ' items, balance ' + money(sum(f));
+  $('tb').innerHTML = f.map(r => '<tr class="row" data-open="' + r.id + '"><td>' + esc(r.party) + '</td><td>' + esc(r.outlet) + (!op && r.operation ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.ref_key) + '</td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + (r.days_to_120 == null ? '' : r.days_to_120) + '</td><td class="n"><b>' + money(r.amount) + '</b></td>'
+    + '<td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td><td><span class="st">' + STATUS[r.status] + '</span></td><td>' + (r.action_overdue ? '<span class="tag t-r">overdue</span>' : '') + (r.promise_broken ? '<span class="tag t-r">promise broken</span>' : '') + (r.incomplete && isActive(r) ? '<span class="tag t-a">incomplete</span>' : '') + '</td></tr>').join('');
 }
 
+// ---------- Dashboard ----------
+function group(arr, kf, vf) { const m = {}; arr.forEach(r => { const k = kf(r) || '(none)'; m[k] = (m[k] || 0) + vf(r); }); return Object.entries(m).sort((a, b) => b[1] - a[1]); }
+function bars(entries, fmt) {
+  const mx = Math.max(1, ...entries.map(e => e[1]));
+  return entries.map(e => '<div class="bar"><span class="bl" title="' + esc(e[0]) + '">' + esc(e[0]) + '</span><span class="bt"><i style="width:' + (100 * e[1] / mx) + '%;' + (e[2] ? 'background:' + e[2] : '') + '"></i></span><span class="bv">' + fmt(e[1]) + '</span></div>').join('') || '<div class="hint">No data</div>';
+}
+function pgDash() {
+  const m = modOf(mod); if (!m.ready) { $('page').innerHTML = soon(m); return; }
+  const act = myRows().filter(isActive), amt = r => Number(r.amount || 0);
+  const order = ['0-30', '31-60', '61-90', '91-120', '121-240', 'Over 240'];
+  const bk = order.map(b => [b, sum(act.filter(r => r.bucket === b))]).filter(e => e[1] > 0).map(e => [e[0], e[1], ['121-240', 'Over 240'].includes(e[0]) ? 'var(--danger)' : 'var(--accent)']);
+  const roll = [['In 7 days', 0, 7], ['8 to 14 days', 8, 14], ['15 to 30 days', 15, 30], ['After 30 days', 31, 999]].map(x => [x[0], sum(act.filter(r => r.aging_days <= 120 && r.days_to_120 >= x[1] && r.days_to_120 <= x[2])), 'var(--accent)']);
+  const health = [['Planned (reason, step, date)', act.filter(r => !r.incomplete).length, 'var(--ok)'], ['Incomplete', act.filter(r => r.incomplete).length, 'var(--accent)'], ['Action overdue', act.filter(r => r.action_overdue).length, 'var(--danger)'], ['Promise broken', act.filter(r => r.promise_broken).length, 'var(--danger)']];
+  $('page').innerHTML = '<h2 class="pt">' + esc(m.name) + ' dashboard</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' · active items only</div><div class="grid2" style="margin-top:10px">'
+    + '<div class="card"><h3>Balance by age bucket</h3>' + bars(bk, money0) + '</div>'
+    + '<div class="card"><h3>Will cross 120 days (up to 120 now)</h3>' + bars(roll, money0) + '<div class="hint">Balance still collectable before it turns into Over 120.</div></div>'
+    + '<div class="card"><h3>By customer chain</h3>' + bars(group(act, r => r.party, amt), money0) + '</div>'
+    + '<div class="card"><h3>By reason</h3>' + bars(group(act, r => r.reason || '(no reason yet)', amt), money0) + '</div>'
+    + '<div class="card"><h3>By sales rep (top 8)</h3>' + bars(group(act, r => r.owner_name, amt).slice(0, 8), money0) + '</div>'
+    + '<div class="card"><h3>Follow-up health (items)</h3>' + bars(health, v => v) + '<div class="hint">Every item should be planned: a reason, a next step and a next date.</div></div>'
+    + '<div class="card"><h3>By status (items)</h3>' + bars(group(act, r => STATUS[r.status], () => 1), v => v) + '</div>'
+    + (opsFor(mod).length > 1 ? '<div class="card"><h3>By operation</h3>' + bars(group(act, r => r.operation, amt), money0) + '</div>' : '') + '</div>';
+}
+
+// ---------- Report ----------
+function pgReport() {
+  const m = modOf(mod); if (!m.ready) { $('page').innerHTML = soon(m); return; }
+  const act = myRows().filter(isActive), o120 = act.filter(r => r.aging_days > 120), b91 = act.filter(r => r.aging_days <= 120);
+  const g2 = kf => { const m2 = {}; act.forEach(r => { const k = kf(r) || '(none)'; m2[k] = m2[k] || [k, 0, 0]; m2[k][1] += Number(r.amount); m2[k][2]++; }); return Object.values(m2).sort((a, b) => b[1] - a[1]); };
+  const tbl = (title, g) => '<div class="card"><h3>' + title + '</h3><table><thead><tr><th></th><th class="n">Items</th><th class="n">Balance</th><th class="n">Share</th></tr></thead><tbody>' + g.map(e => '<tr><td>' + esc(e[0]) + '</td><td class="n">' + e[2] + '</td><td class="n">' + money(e[1]) + '</td><td class="n">' + (100 * e[1] / (sum(act) || 1)).toFixed(1) + '%</td></tr>').join('') + '</tbody></table></div>';
+  const top = act.slice().sort((a, b) => b.amount - a.amount).slice(0, 10), prob = act.filter(r => r.promise_broken || r.action_overdue);
+  $('page').innerHTML = '<div class="noprint row2"><button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="rCsv">Download Excel (CSV)</button></div>'
+    + '<h2 class="pt">' + esc(m.name) + ' report</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' · as at ' + new Date().toISOString().slice(0, 10) + ' · active items only · Iceman Follow-Up System</div>'
+    + '<div class="grid"><div class="tile"><b>' + money(sum(act)) + '</b><span>Total active (' + act.length + ' items)</span></div><div class="tile r"><b>' + money(sum(o120)) + '</b><span>Over 120 days (' + o120.length + ')</span></div><div class="tile a"><b>' + money(sum(b91)) + '</b><span>Up to 120 days (' + b91.length + ')</span></div><div class="tile a"><b>' + act.filter(r => r.incomplete).length + '</b><span>Incomplete follow-ups</span></div></div>'
+    + '<div class="grid2">' + tbl('By customer chain', g2(r => r.party)) + tbl('By reason', g2(r => r.reason || '(no reason yet)')) + tbl('By age bucket', g2(r => r.bucket)) + tbl('By sales rep', g2(r => r.owner_name)) + '</div>'
+    + '<div class="card" style="margin-top:12px"><h3>Ten largest items</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Outlet</th><th>Memo</th><th class="n">Days</th><th class="n">Balance</th><th>Reason</th><th>Next step</th><th>Next date</th></tr></thead><tbody>'
+    + top.map(r => '<tr><td>' + esc(r.outlet) + '</td><td>' + esc(r.ref_key) + '</td><td class="n">' + r.aging_days + '</td><td class="n">' + money(r.amount) + '</td><td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td></tr>').join('') + '</tbody></table></div></div>'
+    + '<div class="card" style="margin-top:12px"><h3>Broken promises and overdue actions (' + prob.length + ')</h3>' + (prob.length ? '<table><thead><tr><th>Outlet</th><th class="n">Balance</th><th>Promise date</th><th>Next date</th><th>Who</th></tr></thead><tbody>' + prob.map(r => '<tr><td>' + esc(r.outlet) + '</td><td class="n">' + money(r.amount) + '</td><td>' + esc(r.promised_date) + '</td><td>' + esc(r.next_date) + '</td><td>' + esc(r.next_owner) + '</td></tr>').join('') + '</tbody></table>' : '<div class="hint">None.</div>') + '</div>';
+}
+function exportCsv() {
+  const cols = [['Operation', 'operation'], ['Chain', 'party'], ['Outlet', 'outlet'], ['Memo', 'ref_key'], ['Sales rep', 'owner_name'], ['Invoice date', 'base_date'], ['Days', 'aging_days'], ['Bucket', 'bucket'], ['Balance', 'amount'], ['Reason', 'reason'], ['Next step', 'next_step'], ['Who', 'next_owner'], ['Next date', 'next_date'], ['Promise date', 'promised_date'], ['Status', 'status'], ['Remarks', 'remarks']];
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const csv = '﻿' + cols.map(c => q(c[0])).join(',') + '\r\n' + myRows().filter(isActive).map(r => cols.map(c => q(r[c[1]])).join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'})); a.download = 'Outstanding ' + (op || 'all') + ' ' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ---------- item panel ----------
 function selOpts(arr, val, blank) { return (blank ? '<option value=""></option>' : '') + arr.map(v => '<option' + (v === val ? ' selected' : '') + '>' + esc(v) + '</option>').join(''); }
 async function openPanel(id) {
   cur = rows.find(r => r.id === id); if (!cur) return;
-  const r = cur, canEdit = rank(lvl(r.operation)) >= 2, canFull = rank(lvl(r.operation)) >= 3;
-  const reasonList = lists.reason.includes(r.reason) || !r.reason ? lists.reason : lists.reason.concat([r.reason]);
-  const stepList = lists.next_step.includes(r.next_step) || !r.next_step ? lists.next_step : lists.next_step.concat([r.next_step]);
-  const dis = canEdit ? '' : ' disabled';
-  $('panel').innerHTML = '<div style="display:flex;justify-content:space-between"><h3>' + esc(r.outlet) + '</h3><button class="pbtn s" style="margin:0" id="pClose">Close</button></div>'
-    + '<div class="hint">' + esc(r.party) + ' &middot; ' + esc(r.ref_key) + ' &middot; ' + esc(r.owner_name) + '<br><b>' + money(r.amount) + '</b> &middot; invoice ' + esc(r.base_date) + ' &middot; ' + r.aging_days + ' days (' + esc(r.bucket) + ')' + (r.days_to_120 > 0 ? ', ' + r.days_to_120 + ' days to 120' : '') + '</div>'
+  const r = cur, canEdit = rank(lvl(r.operation, 'receivable')) >= 2, canFull = rank(lvl(r.operation, 'receivable')) >= 3, dis = canEdit ? '' : ' disabled';
+  const rl = lists.reason.includes(r.reason) || !r.reason ? lists.reason : lists.reason.concat([r.reason]);
+  const sl = lists.next_step.includes(r.next_step) || !r.next_step ? lists.next_step : lists.next_step.concat([r.next_step]);
+  $('panel').innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px"><h3>' + esc(r.outlet) + '</h3><button class="btn" style="align-self:flex-start" id="pClose">Close</button></div>'
+    + '<div class="hint">' + esc(r.party) + ' · ' + esc(r.ref_key) + ' · ' + esc(r.owner_name) + '<br><b>' + money(r.amount) + '</b> · invoice ' + esc(r.base_date) + ' · ' + r.aging_days + ' days (' + esc(r.bucket) + ')' + (r.days_to_120 > 0 ? ', ' + r.days_to_120 + ' days to 120' : '') + '</div>'
     + '<label>Status</label><select id="eStatus"' + dis + '>' + Object.keys(STATUS).map(k => '<option value="' + k + '"' + (k === r.status ? ' selected' : '') + (k === 'written_off' && !canFull ? ' disabled' : '') + '>' + STATUS[k] + (k === 'written_off' && !canFull ? ' (Full access only)' : '') + '</option>').join('') + '</select>'
-    + '<label>Reason</label><select id="eReason"' + dis + '>' + selOpts(reasonList, r.reason, true) + '</select>'
-    + '<label>Next step</label><select id="eStep"' + dis + '>' + selOpts(stepList, r.next_step, true) + '</select>'
+    + '<label>Reason</label><select id="eReason"' + dis + '>' + selOpts(rl, r.reason, true) + '</select>'
+    + '<label>Next step</label><select id="eStep"' + dis + '>' + selOpts(sl, r.next_step, true) + '</select>'
     + '<label>Who does it</label><input id="eOwner" value="' + esc(r.next_owner) + '"' + dis + '>'
     + '<label>Next action date</label><input id="eNext" type="date" value="' + esc(r.next_date) + '"' + dis + '>'
     + '<label>Customer promise date</label><input id="ePromise" type="date" value="' + esc(r.promised_date) + '"' + dis + '>'
     + '<label>Remarks</label><textarea id="eRem" rows="2"' + dis + '>' + esc(r.remarks) + '</textarea>'
-    + (canEdit ? '<button class="pbtn" id="pSave">Save</button> <span class="err" id="pErr"></span><hr><label>Add a note</label><input id="eNote" placeholder="e.g. Spoke to Arpico accounts, payment by 12 Nov"><button class="pbtn s" id="pNote">Add note</button>' : '<div class="hint">View only: you cannot change this item.</div>')
+    + (canEdit ? '<div class="row2"><button class="btn p" id="pSave">Save</button><span class="err" id="pErr"></span></div><hr><label>Add a note</label><input id="eNote" placeholder="e.g. Spoke to Arpico accounts, payment by 12 Nov"><div class="row2"><button class="btn" id="pNote">Add note</button></div>' : '<div class="hint">View only: you cannot change this item.</div>')
     + '<h4 style="margin:14px 0 2px">History</h4><div id="hist">Loading...</div>';
   $('panel').classList.add('open');
   $('pClose').onclick = () => $('panel').classList.remove('open');
@@ -216,8 +325,7 @@ async function openPanel(id) {
 async function loadHist() {
   try {
     const ev = await api('/rest/v1/fu_events?item_id=eq.' + cur.id + '&order=at.desc&limit=50&select=at,by_name,kind,field,old_value,new_value,note');
-    $('hist').innerHTML = ev.length ? ev.map(e => '<div class="ev"><small>' + esc(new Date(e.at).toLocaleString('en-GB')) + ' &middot; ' + esc(e.by_name || '') + '</small><br>'
-      + (e.field ? esc(e.field) + ': ' + esc(e.old_value || '(blank)') + ' &rarr; <b>' + esc(e.new_value || '(blank)') + '</b>' : '') + esc(e.note || '') + '</div>').join('') : '<div class="hint">No history</div>';
+    $('hist').innerHTML = ev.length ? ev.map(e => '<div class="ev"><small>' + esc(new Date(e.at).toLocaleString('en-GB')) + ' · ' + esc(e.by_name || '') + '</small><br>' + (e.field ? esc(e.field) + ': ' + esc(e.old_value || '(blank)') + ' &rarr; <b>' + esc(e.new_value || '(blank)') + '</b>' : '') + esc(e.note || '') + '</div>').join('') : '<div class="hint">No history</div>';
   } catch (e) { $('hist').textContent = e.message; }
 }
 async function save() {
@@ -225,78 +333,78 @@ async function save() {
   if (v.status === 'promised' && !v.promised_date) { $('pErr').textContent = 'Promised needs a promise date'; return; }
   const ch = {}; Object.keys(v).forEach(k => { if ((cur[k] || null) !== v[k]) ch[k] = v[k]; });
   if (!Object.keys(ch).length) { $('pErr').textContent = 'Nothing changed'; return; }
-  try { await api('/rest/v1/fu_items?id=eq.' + cur.id, {method: 'PATCH', body: ch, headers: {Prefer: 'return=minimal'}}); $('pErr').textContent = ''; await load(); cur = rows.find(r => r.id === cur.id); $('pErr').textContent = 'Saved'; loadHist(); }
-  catch (e) { $('pErr').textContent = e.message; }
+  try {
+    await api('/rest/v1/fu_items?id=eq.' + cur.id, {method: 'PATCH', body: ch, headers: {Prefer: 'return=minimal'}});
+    const id = cur.id; await loadRows(); cur = rows.find(r => r.id === id); rerender(); $('pErr').textContent = 'Saved'; loadHist();
+  } catch (e) { $('pErr').textContent = e.message; }
 }
 async function addNote() {
   const t = $('eNote').value.trim(); if (!t) return;
   try { await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: t}}); $('eNote').value = ''; loadHist(); } catch (e) { $('pErr').textContent = e.message; }
 }
+function rerender() { const open = $('panel').classList.contains('open'), html = $('panel').innerHTML; go(); if (open) { $('panel').innerHTML = html; $('panel').classList.add('open'); $('pClose').onclick = () => $('panel').classList.remove('open'); if ($('pSave')) { $('pSave').onclick = save; $('pNote').onclick = addNote; } } }
 
-// ---------- Users & Access (admin only) ----------
-const MODS = [['*', 'All modules'], ['receivable', 'Receivables (over 30 to 240)'], ['foc', 'FOC report'], ['short_expiry', 'Short expiry'], ['grn', 'GRN outstanding'], ['kpi', 'KPI']];
-const modName = m => (MODS.find(x => x[0] === m) || [m, m])[1];
+// ---------- Permission (admin) ----------
+const PMODS = [['*', 'All modules']].concat(MODS.map(m => [m.id, m.name]));
+const pmName = id => (PMODS.find(x => x[0] === id) || [id, id])[1];
 let uData = {users: [], access: []}, uSel = null;
 async function fn(body) {
-  const go = () => fetch(URL_ + '/functions/v1/admin-users', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json', Authorization: 'Bearer ' + sess.access_token}, body: JSON.stringify(body)});
-  let r = await go(); if (r.status === 401 && await refresh()) r = await go();
+  const go_ = () => fetch(URL_ + '/functions/v1/admin-users', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json', Authorization: 'Bearer ' + sess.access_token}, body: JSON.stringify(body)});
+  let r = await go_(); if (r.status === 401 && await refresh()) r = await go_();
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || j.message || ('HTTP ' + r.status)); return j;
 }
-function toggleUsers() {
-  const show = $('usersView').hidden;
-  $('usersView').hidden = !show; document.querySelector('main').hidden = show; $('panel').classList.remove('open');
-  $('usersBtn').textContent = show ? 'Back to follow-up' : 'Users & Access';
-  if (show) loadUsers();
-}
-async function loadUsers() {
-  try { uData = await fn({action: 'list'}); renderUsers(''); } catch (e) { $('usersView').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; }
-}
+async function pgPerm() { $('page').innerHTML = '<div class="hint">Loading users...</div>'; try { uData = await fn({action: 'list'}); renderUsers(''); } catch (e) { $('page').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; } }
 const lvTag = l => '<span class="lv lv-' + l + '">' + l + '</span>';
 function renderUsers(msg) {
   const opsOpt = '<option value="*">All operations</option>' + ops.map(o => '<option value="' + o.code + '">' + esc(o.code + ' - ' + o.name) + '</option>').join('');
-  const modOpt = MODS.map(m => '<option value="' + m[0] + '">' + esc(m[1]) + '</option>').join('');
-  let h = '<div class="card"><h3>Users &amp; Access</h3><div class="hint">Levels: <b>view</b> = read only &middot; <b>edit</b> = update follow-up fields and add notes &middot; <b>full</b> = edit + upload weekly lists + write off + change data. Admin sees and does everything. Access is per module and per operation.</div><div class="err" id="uMsg">' + esc(msg) + '</div></div>';
-  h += '<div class="card"><h3>New user</h3><div class="row2"><input id="nName" placeholder="Full name"><input id="nUser" placeholder="Username or email"><input id="nPass" type="password" placeholder="Password (8+ characters)" autocomplete="new-password"><select id="nRole"><option value="user">User</option><option value="admin">Admin</option></select><button class="btn p" data-act="create">Create user</button></div></div>';
-  h += '<div class="card"><h3>Users</h3><div class="wrap"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>'
-    + uData.users.map(u => {
-      const ac = uData.access.filter(a => a.user_id === u.id);
-      return '<tr><td>' + esc(u.full_name) + (u.active ? '' : ' <span class="tag t-b">off</span>') + '</td><td>' + esc(u.username) + '</td><td>' + esc(u.role) + '</td><td>'
-        + (u.role === 'admin' ? '<i>Everything</i>' : (ac.map(a => esc(modName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + ' ' + lvTag(a.level)).join('<br>') || '<span class="hint">no access yet</span>'))
-        + '</td><td style="white-space:nowrap"><button class="btn" data-act="acc" data-id="' + u.id + '">Access</button> <button class="btn" data-act="pwd" data-id="' + u.id + '">Password</button> <button class="btn" data-act="role" data-id="' + u.id + '">' + (u.role === 'admin' ? 'Make User' : 'Make Admin') + '</button> <button class="btn d" data-act="act" data-id="' + u.id + '">' + (u.active ? 'Switch off' : 'Switch on') + '</button></td></tr>';
-    }).join('') + '</tbody></table></div></div>';
+  const modOpt = PMODS.map(m => '<option value="' + m[0] + '">' + esc(m[1]) + '</option>').join('');
+  let h = '<h2 class="pt">Permission</h2><div class="card"><div class="hint">Levels: <b>view</b> = read only · <b>edit</b> = update follow-up fields and add notes · <b>full</b> = edit + upload weekly lists + write off + change data. Admin does everything. Access is per follow-up type and per operation.</div><div class="err" id="uMsg">' + esc(msg) + '</div></div>';
+  h += '<div class="card" style="margin-top:12px"><h3>New user</h3><div class="row2"><input id="nName" placeholder="Full name"><input id="nUser" placeholder="Username or email"><input id="nPass" type="password" placeholder="Password (8+ characters)" autocomplete="new-password"><select id="nRole"><option value="user">User</option><option value="admin">Admin</option></select><button class="btn p" data-uact="create">Create user</button></div></div>';
+  h += '<div class="card" style="margin-top:12px"><h3>Users</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>' + uData.users.map(u => {
+    const ac = uData.access.filter(a => a.user_id === u.id);
+    return '<tr><td>' + esc(u.full_name) + (u.active ? '' : ' <span class="tag t-b">off</span>') + '</td><td>' + esc(u.username) + '</td><td>' + esc(u.role) + '</td><td>' + (u.role === 'admin' ? '<i>Everything</i>' : (ac.map(a => esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + ' ' + lvTag(a.level)).join('<br>') || '<span class="hint">no access yet</span>'))
+      + '</td><td style="white-space:nowrap"><button class="btn" data-uact="acc" data-id="' + u.id + '">Access</button> <button class="btn" data-uact="pwd" data-id="' + u.id + '">Password</button> <button class="btn" data-uact="role" data-id="' + u.id + '">' + (u.role === 'admin' ? 'Make User' : 'Make Admin') + '</button> <button class="btn d" data-uact="act" data-id="' + u.id + '">' + (u.active ? 'Switch off' : 'Switch on') + '</button></td></tr>';
+  }).join('') + '</tbody></table></div></div>';
   if (uSel) {
     const u = uData.users.find(x => x.id === uSel), ac = uData.access.filter(a => a.user_id === uSel);
-    h += '<div class="card"><h3>Access for ' + esc(u ? (u.full_name || u.username) : '') + '</h3>'
-      + (u && u.role === 'admin' ? '<div class="hint">Admins have full access to everything. Make the user a normal User to give limited access.</div>' : '')
-      + ac.map(a => '<div class="row2"><span style="min-width:230px">' + esc(modName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + '</span><select data-act="lv" data-id="' + a.id + '">' + ['view', 'edit', 'full'].map(l => '<option' + (l === a.level ? ' selected' : '') + '>' + l + '</option>').join('') + '</select><button class="btn d" data-act="rm" data-id="' + a.id + '">Remove</button></div>').join('')
-      + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-act="add">Add access</button></div></div>';
+    h += '<div class="card" style="margin-top:12px"><h3>Access for ' + esc(u ? (u.full_name || u.username) : '') + '</h3>' + (u && u.role === 'admin' ? '<div class="hint">Admins have full access to everything. Make the user a normal User to give limited access.</div>' : '')
+      + ac.map(a => '<div class="row2"><span style="min-width:230px">' + esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + '</span><select data-uact="lv" data-id="' + a.id + '">' + ['view', 'edit', 'full'].map(l => '<option' + (l === a.level ? ' selected' : '') + '>' + l + '</option>').join('') + '</select><button class="btn d" data-uact="rm" data-id="' + a.id + '">Remove</button></div>').join('')
+      + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-uact="add">Add access</button></div></div>';
   }
-  $('usersView').innerHTML = h;
+  $('page').innerHTML = h;
 }
-async function usersClick(e) {
-  const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'SELECT') return;
-  const act = b.dataset.act, id = b.dataset.id;
+async function permClick(b) {
+  const act = b.dataset.uact, id = b.dataset.id, reload = async msg => { uData = await fn({action: 'list'}); renderUsers(msg || ''); };
   try {
-    if (act === 'create') {
-      const v = {action: 'create', full_name: $('nName').value.trim(), username: $('nUser').value.trim(), password: $('nPass').value, role: $('nRole').value};
-      await fn(v); uSel = null; await loadUsers(); $('uMsg').textContent = 'User created. Now press Access to give operations and levels.';
-    } else if (act === 'acc') { uSel = id; renderUsers(''); window.scrollTo(0, document.body.scrollHeight); }
+    if (act === 'create') { await fn({action: 'create', full_name: $('nName').value.trim(), username: $('nUser').value.trim(), password: $('nPass').value, role: $('nRole').value}); uSel = null; await reload('User created. Press Access to give follow-up types, operations and levels.'); }
+    else if (act === 'acc') { uSel = id; renderUsers(''); window.scrollTo(0, document.body.scrollHeight); }
     else if (act === 'pwd') { const p = prompt('New password (8+ characters)'); if (!p) return; await fn({action: 'set_password', id, password: p}); $('uMsg').textContent = 'Password changed.'; }
-    else if (act === 'role') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, role: u.role === 'admin' ? 'user' : 'admin'}); await loadUsers(); }
-    else if (act === 'act') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, active: !u.active}); await loadUsers(); }
-    else if (act === 'add') { await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: $('aMod').value, operation: $('aOp').value, level: $('aLv').value}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}}); await loadUsers(); }
-    else if (act === 'rm') { await api('/rest/v1/fu_access?id=eq.' + id, {method: 'DELETE', headers: {Prefer: 'return=minimal'}}); await loadUsers(); }
+    else if (act === 'role') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, role: u.role === 'admin' ? 'user' : 'admin'}); await reload(); }
+    else if (act === 'act') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, active: !u.active}); await reload(); }
+    else if (act === 'add') { await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: $('aMod').value, operation: $('aOp').value, level: $('aLv').value}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}}); await reload(); }
+    else if (act === 'rm') { await api('/rest/v1/fu_access?id=eq.' + id, {method: 'DELETE', headers: {Prefer: 'return=minimal'}}); await reload(); }
   } catch (er) { const m = $('uMsg'); if (m) m.textContent = er.message; }
 }
-async function usersChange(e) {
-  const s = e.target; if (s.dataset.act !== 'lv') return;
-  try { await api('/rest/v1/fu_access?id=eq.' + s.dataset.id, {method: 'PATCH', body: {level: s.value}, headers: {Prefer: 'return=minimal'}}); await loadUsers(); } catch (er) { $('uMsg').textContent = er.message; }
-}
-$('lbtn').onclick = signIn;
-$('usersBtn').onclick = toggleUsers; $('usersView').onclick = usersClick; $('usersView').onchange = usersChange; $('lpass').onkeydown = e => { if (e.key === 'Enter') signIn(); };
+
+// ---------- events ----------
+$('lbtn').onclick = signIn; $('lpass').onkeydown = e => { if (e.key === 'Enter') signIn(); };
 $('logout').onclick = signOut;
-$('opSel').onchange = () => { fillFilters(); render(); };
-['fChain', 'fRep', 'fBucket', 'fStatus', 'fFlag'].forEach(i => $(i).onchange = render); $('fText').oninput = render;
-$('tb').onclick = e => { const tr = e.target.closest('tr.row'); if (tr) openPanel(tr.dataset.id); };
+$('tabs').onclick = e => { const b = e.target.closest('button[data-page]'); if (b) go(b.dataset.page); };
+$('mods').onclick = e => { const b = e.target.closest('button[data-mod]'); if (b) go(['items', 'dash', 'report'].includes(page) ? page : 'items', b.dataset.mod); };
+$('bar').onchange = e => { if (e.target.id === 'opSel') { op = e.target.value; go(); } };
+$('page').onclick = e => {
+  const u = e.target.closest('[data-uact]'); if (u && u.tagName !== 'SELECT') return permClick(u);
+  if (e.target.id === 'rPrint') return window.print();
+  if (e.target.id === 'rCsv') return exportCsv();
+  const o = e.target.closest('[data-open]'); if (o) return openPanel(o.dataset.open);
+  const c = e.target.closest('[data-go]'); if (c) go(c.dataset.go, c.dataset.mod);
+};
+$('page').onchange = async e => {
+  const s = e.target;
+  if (s.dataset && s.dataset.uact === 'lv') { try { await api('/rest/v1/fu_access?id=eq.' + s.dataset.id, {method: 'PATCH', body: {level: s.value}, headers: {Prefer: 'return=minimal'}}); uData = await fn({action: 'list'}); renderUsers(''); } catch (er) { $('uMsg').textContent = er.message; } return; }
+  const map = {fChain: 'chain', fRep: 'rep', fBucket: 'bucket', fStatus: 'status', fFlag: 'flag'};
+  if (map[s.id]) { F[map[s.id]] = s.value; renderItems(); }
+};
+$('page').oninput = e => { if (e.target.id === 'fText') { F.text = e.target.value; renderItems(); } };
 if (sess) start();
 </script></body></html>
