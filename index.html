@@ -126,6 +126,12 @@ aside.col .sbt{margin:0 auto 8px}
 #toast.on{opacity:1}
 .flash .bub{animation:fl 1.6s ease-out}@keyframes fl{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
 @media(max-width:900px){.rgrid{grid-template-columns:1fr}.rgrid .plan{order:-1}}
+body.present header,body.present #tabs,body.present aside,body.present #bar,body.present .crumb{display:none!important}
+body.present .shell{display:block}body.present #content{max-width:1280px;margin:0 auto}
+body.present .rgrid{grid-template-columns:minmax(0,1fr) minmax(0,300px)}
+body.present .bh{font-size:15px}body.present .btx{font-size:17px;line-height:1.5}body.present .av{width:42px;height:42px;font-size:14px}
+body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present h2.pt{font-size:26px}
+@media(max-width:900px){body.present .rgrid{grid-template-columns:1fr}body.present .rgrid .plan{order:0}}
 @media(max-width:820px){.sbt{display:none}aside.col{width:auto;padding:8px}}
 @media(prefers-reduced-motion:reduce){.fc{animation:none}}
 @media print{#ice{display:none}}
@@ -466,7 +472,7 @@ function renderRecord() {
     + '<div class="row2 noprint"><button class="btn" data-back="1">&larr; Back to list</button><button class="btn" data-rec="' + (prev ? prev.id : '') + '"' + (prev ? '' : ' disabled') + '>&lsaquo; Previous</button><button class="btn" data-rec="' + (next ? next.id : '') + '"' + (next ? '' : ' disabled') + '>Next &rsaquo;</button></div></div>'
     + '<div class="grid"><div class="tile"><b>' + money(r.amount) + '</b><span>Balance</span></div><div class="tile"><b>' + esc(r.base_date) + '</b><span>Invoice date</span></div><div class="tile ' + (r.aging_days > 120 ? 'r' : 'a') + '"><b>' + r.aging_days + ' days</b><span>Age (' + esc(r.bucket) + ')</span></div>'
     + '<div class="tile ' + (r.days_to_120 > 0 ? 'a' : 'r') + '"><b>' + (r.days_to_120 > 0 ? r.days_to_120 + ' days' : 'Over 120') + '</b><span>' + (r.days_to_120 > 0 ? 'Left before 120 days' : 'Already past 120 days') + '</span></div><div class="tile"><b>' + STATUS[r.status] + '</b><span>Status</span></div><div class="tile"><b style="font-size:14px">' + flags + '</b><span>Flags</span></div></div>'
-    + '<div class="rgrid"><div class="card"><div class="tlh"><h3>Timeline</h3><div class="chips noprint" id="tlChips"></div><button class="btn p noprint" data-ract="note">+ Add remark</button></div>'
+    + '<div class="rgrid"><div class="card"><div class="tlh"><h3>Timeline</h3><div class="chips noprint" id="tlChips"></div><button class="btn noprint" data-ract="present" title="Big timeline for a meeting screen (Esc to exit)">' + (document.body.classList.contains('present') ? 'Exit present' : '&#x26F6; Present') + '</button><button class="btn p noprint" data-ract="note">+ Add remark</button></div>'
     + '<div class="hint">Every remark and change on this item, oldest first, with who added it and when.</div><div id="hist" class="tl">Loading...</div>'
     + '<button class="fake noprint" data-ract="note">Write a remark for everyone following this item...</button></div>'
     + '<div class="card plan"><div class="tlh"><h3>Current follow-up</h3>' + (c.edit ? '<button class="btn noprint" data-ract="edit">&#9998; Update</button>' : '') + '</div>' + planHtml(r)
@@ -594,7 +600,7 @@ $('page').onclick = e => {
   if (e.target.id === 'rPrint') return window.print();
   if (e.target.id === 'rCsv') return exportCsv();
   const q = e.target.closest('[data-quick]'); if (q) return openPanel(q.dataset.quick);
-  const ra = e.target.closest('[data-ract]'); if (ra) return drawer(ra.dataset.ract, false);
+  const ra = e.target.closest('[data-ract]'); if (ra) { if (ra.dataset.ract === 'present') return setPresent(!document.body.classList.contains('present')); return drawer(ra.dataset.ract, false); }
   const tf = e.target.closest('[data-tlf]'); if (tf) { tlF = tf.dataset.tlf; return paintTl(); }
   const bk = e.target.closest('[data-back]'); if (bk) { clearHash(); return go('items'); }
   const rc = e.target.closest('[data-rec]'); if (rc) { if (!rc.disabled) location.replace('#item/' + rc.dataset.rec); return; }
@@ -615,7 +621,13 @@ $('panel').onclick = e => {
   if (k === 'close') closeDrawer(); else if (k === 'save') save(); else if (k === 'post') postNote(); else drawer(k, fl);
 };
 $('panel').onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.id === 'dNote') { e.preventDefault(); const b = document.querySelector('#panel [data-pact="save"],#panel [data-pact="post"]'); if (b) b.click(); } };
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('panel').classList.contains('open')) closeDrawer(); });
+function setPresent(on) {
+  document.body.classList.toggle('present', on);
+  const b = document.querySelector('[data-ract="present"]'); if (b) b.innerHTML = on ? 'Exit present' : '&#x26F6; Present';
+  window.scrollTo(0, 0);
+}
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if ($('panel').classList.contains('open')) closeDrawer(); else if (document.body.classList.contains('present')) setPresent(false); });
+window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#item/')) setPresent(false); });
 window.addEventListener('hashchange', () => { if (me) route(); });
 if (sess) start();
 </script></body></html>
