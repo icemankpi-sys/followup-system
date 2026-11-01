@@ -170,7 +170,8 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-rep.js?v=3"></script>
 <script src="ims-outlet.js?v=3"></script>
 <script src="ims-handover.js?v=2"></script>
-<script src="ims-expiry.js?v=1"></script>
+<script src="ims-expiry.js?v=2"></script>
+<script src="ims-osupload.js?v=1"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -324,7 +325,7 @@ function pgItems() {
   const m = modOf(mod); if (!m.ready) { $('page').innerHTML = soon(m); return; }
   const base = myRows(), u = k => [...new Set(base.map(r => r[k]).filter(Boolean))].sort();
   const sel = (id, label, vals, v) => '<select id="' + id + '"><option value="">' + label + '</option>' + vals.map(x => '<option' + (x === v ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>';
-  $('page').innerHTML = '<h2 class="pt">' + esc(m.name) + ' <span class="hint">' + esc(m.sub) + '</span></h2><div class="grid" id="tiles"></div>'
+  $('page').innerHTML = '<div class="row2" style="justify-content:space-between"><h2 class="pt">' + esc(m.name) + ' <span class="hint">' + esc(m.sub) + '</span></h2>' + (mod === 'receivable' && window.canUploadOs && canUploadOs() ? '<button class="btn p" data-uact2="open">&#8679; Upload Outstanding List</button>' : '') + '</div><div class="grid" id="tiles"></div>'
     + '<div class="filters">' + sel('fChain', 'All chains', u('party'), F.chain) + sel('fRep', 'All sales reps', u('owner_name'), F.rep) + sel('fBucket', 'All buckets', ['0-30', '31-60', '61-90', '91-120', '121-240', 'Over 240'], F.bucket)
     + '<select id="fStatus"><option value="active"' + (F.status === 'active' ? ' selected' : '') + '>Active (not settled)</option><option value=""' + (F.status === '' ? ' selected' : '') + '>All statuses</option>' + Object.keys(STATUS).map(k => '<option value="' + k + '"' + (F.status === k ? ' selected' : '') + '>' + STATUS[k] + '</option>').join('') + '</select>'
     + '<select id="fFlag">' + [['', 'All items'], ['incomplete', 'Incomplete (no reason / next step / date)'], ['overdue', 'Action overdue'], ['broken', 'Promise broken'], ['soon', 'Crossing 120 within 30 days']].map(x => '<option value="' + x[0] + '"' + (F.flag === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select>'

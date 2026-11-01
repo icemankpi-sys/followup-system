@@ -135,6 +135,7 @@
     const s = String(v).trim(); let m;
     if ((m = s.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/))) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
     if ((m = s.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{4})/))) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+    if ((m = s.match(/^(\d{1,2})[-./ ]([A-Za-z]{3})[A-Za-z]*[-./ ](\d{4})/))) { const mo = 'janfebmaraprmayjunjulaugsepoctnovdec'.indexOf(m[2].toLowerCase()) / 3 + 1; if (mo >= 1) return m[3] + '-' + String(mo).padStart(2, '0') + '-' + m[1].padStart(2, '0'); }
     return '';
   };
   const num = v => { if (v == null || v === '') return null; const n = typeof v === 'number' ? v : Number(String(v).replace(/[, ]/g, '')); return isNaN(n) ? null : n; };
@@ -242,4 +243,5 @@
 
   window.MODULE_PAGES = Object.assign(window.MODULE_PAGES || {}, {short_expiry: {items: () => run(list), dash: () => run(dash), report: () => run(report), record: () => run(record), card}});
   window.seWarm = () => load().catch(() => {});
+  window.IMSX = {loadLib, iso, num};   // Excel reader helpers shared with the Outstanding upload
 })();
