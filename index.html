@@ -129,13 +129,15 @@ aside.col .sbt{margin:0 auto 8px}
   <div id="panel"></div>
 </div>
 
-<script src="ims-cash.js?v=2"></script>
+<script src="ims-cash.js?v=3"></script>
+<script src="ims-rep.js?v=1"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
 const STATUS = {open:'Open',promised:'Promised',dispute:'Dispute',action_pending:'Action pending',settled:'Settled',written_off:'Written off'};
 const MODS = [
   {id:'receivable', name:'Outstanding', sub:'Over 30 / 60 / 90 / 120 / 240', ic:'OS', ready:true},
+  {id:'rep', name:'Sales Reps', sub:'Rep outstanding and to-do', ic:'SR', ready:true},
   {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true},
   {id:'foc', name:'FOC Report', sub:'Free of charge stock', ic:'FC', ready:false},
   {id:'short_expiry', name:'Short Expiry', sub:'Stock near expiry', ic:'SE', ready:false},
@@ -192,14 +194,14 @@ function lvl(o, m) {
   return ['', 'view', 'edit', 'full'][best];
 }
 const opsFor = m => ops.filter(o => rank(lvl(o.code, m)) > 0);
-const visibleMods = () => MODS.filter(m => me.role === 'admin' || opsFor(m.id).length);
+const visibleMods = () => MODS.filter(m => me.role === 'admin' || opsFor(m.id).length || (m.id === 'rep' && opsFor('receivable').length));
 const modOf = id => MODS.find(m => m.id === id);
 const myRows = () => rows.filter(r => !op || r.operation === op);
 
 async function start() {
   try {
     const uid = sess.user.id;
-    const p = await api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role');
+    const p = await api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role,rep_name');
     me = p[0]; if (!me) throw new Error('No profile');
     access = me.role === 'admin' ? [] : await api('/rest/v1/fu_access?user_id=eq.' + uid + '&select=module,operation,level');
     ops = await api('/rest/v1/operations?select=code,name&order=sort');
@@ -213,7 +215,7 @@ async function start() {
   await loadRows(); route();
 }
 async function loadRows() {
-  rows = opsFor('receivable').length ? await api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000') : [];
+  rows = (opsFor('receivable').length || opsFor('rep').length) ? await api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000') : [];
 }
 
 // ---------- navigation ----------
@@ -229,7 +231,7 @@ function go(p, m) {
     return '<button title="' + esc(m.name) + '" class="mod ' + (m.id === mod && ['items', 'dash', 'report', 'record'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
   }).join('');
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
-  const my = opsFor(mod);
+  const my = mod === 'rep' ? ops.filter(o => rank(lvl(o.code, 'rep')) > 0 || rank(lvl(o.code, 'receivable')) > 0) : opsFor(mod);
   if (needOp && my.length === 1) op = my[0].code; else if (!needOp || my.length > 1) { if (!my.some(o => o.code === op)) op = ''; }
   $('bar').innerHTML = needOp && my.length > 1 ? '<select id="opSel"><option value="">All my operations</option>' + my.map(o => '<option value="' + o.code + '"' + (o.code === op ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>' : '';
   const PG = ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm, record: renderRecord});
@@ -351,7 +353,7 @@ function formHtml(r, canEdit, canFull) {
 }
 const noteHtml = canEdit => canEdit ? '<label>Add a note</label><input id="eNote" placeholder="e.g. Spoke to Arpico accounts, payment by 12 Nov"><div class="row2"><button class="btn" id="pNote">Add note</button></div>' : '';
 function bindForm(canEdit) { if (canEdit) { $('pSave').onclick = save; $('pNote').onclick = addNote; } }
-const canOf = r => ({edit: rank(lvl(r.operation, 'receivable')) >= 2, full: rank(lvl(r.operation, 'receivable')) >= 3});
+const canOf = r => { const rv = rank(lvl(r.operation, 'receivable')), mine = me.rep_name && (r.owner_name || '').trim().toLowerCase() === me.rep_name.trim().toLowerCase(), rp = mine ? Math.min(2, rank(lvl(r.operation, 'rep'))) : 0; return {edit: Math.max(rv, rp) >= 2, full: rv >= 3}; };
 async function openPanel(id) {
   cur = rows.find(r => r.id === id); if (!cur) return;
   const r = cur, c = canOf(r);
@@ -411,7 +413,9 @@ let uData = {users: [], access: []}, uSel = null;
 async function fn(body) {
   const go_ = () => fetch(URL_ + '/functions/v1/admin-users', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json', Authorization: 'Bearer ' + sess.access_token}, body: JSON.stringify(body)});
   let r = await go_(); if (r.status === 401 && await refresh()) r = await go_();
-  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || j.message || ('HTTP ' + r.status)); return j;
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || j.message || ('HTTP ' + r.status));
+  if (body.action === 'list' && j.users) { try { const pr = await api('/rest/v1/profiles?select=id,rep_name'), mp = {}; pr.forEach(x => mp[x.id] = x.rep_name || ''); j.users.forEach(u => u.rep_name = mp[u.id] || ''); } catch (e) {} }
+  return j;
 }
 async function pgPerm() { $('page').innerHTML = '<div class="hint">Loading users...</div>'; try { uData = await fn({action: 'list'}); renderUsers(''); } catch (e) { $('page').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; } }
 const lvTag = l => '<span class="lv lv-' + l + '">' + l + '</span>';
@@ -422,14 +426,14 @@ function renderUsers(msg) {
   h += '<div class="card" style="margin-top:12px"><h3>New user</h3><div class="row2"><input id="nName" placeholder="Full name"><input id="nUser" placeholder="Username or email"><input id="nPass" type="password" placeholder="Password (8+ characters)" autocomplete="new-password"><select id="nRole"><option value="user">User</option><option value="admin">Admin</option></select><button class="btn p" data-uact="create">Create user</button></div></div>';
   h += '<div class="card" style="margin-top:12px"><h3>Users</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>' + uData.users.map(u => {
     const ac = uData.access.filter(a => a.user_id === u.id);
-    return '<tr><td>' + esc(u.full_name) + (u.active ? '' : ' <span class="tag t-b">off</span>') + '</td><td>' + esc(u.username) + '</td><td>' + esc(u.role) + '</td><td>' + (u.role === 'admin' ? '<i>Everything</i>' : (ac.map(a => esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + ' ' + lvTag(a.level)).join('<br>') || '<span class="hint">no access yet</span>'))
+    return '<tr><td>' + esc(u.full_name) + (u.active ? '' : ' <span class="tag t-b">off</span>') + '</td><td>' + esc(u.username) + (u.rep_name ? '<br><span class="hint">rep: ' + esc(u.rep_name) + '</span>' : '') + '</td><td>' + esc(u.role) + '</td><td>' + (u.role === 'admin' ? '<i>Everything</i>' : (ac.map(a => esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + ' ' + lvTag(a.level)).join('<br>') || '<span class="hint">no access yet</span>'))
       + '</td><td style="white-space:nowrap"><button class="btn" data-uact="acc" data-id="' + u.id + '">Access</button> <button class="btn" data-uact="pwd" data-id="' + u.id + '">Password</button> <button class="btn" data-uact="role" data-id="' + u.id + '">' + (u.role === 'admin' ? 'Make User' : 'Make Admin') + '</button> <button class="btn d" data-uact="act" data-id="' + u.id + '">' + (u.active ? 'Switch off' : 'Switch on') + '</button></td></tr>';
   }).join('') + '</tbody></table></div></div>';
   if (uSel) {
     const u = uData.users.find(x => x.id === uSel), ac = uData.access.filter(a => a.user_id === uSel);
-    h += '<div class="card" style="margin-top:12px"><h3>Access for ' + esc(u ? (u.full_name || u.username) : '') + '</h3>' + (u && u.role === 'admin' ? '<div class="hint">Admins have full access to everything. Make the user a normal User to give limited access.</div>' : '')
+    h += '<div class="card" style="margin-top:12px"><h3>Access for ' + esc(u ? (u.full_name || u.username) : '') + '</h3>' + '<div class="row2"><b>Sales rep name:</b><input id="repName" list="repList" value="' + esc(u && u.rep_name || '') + '" placeholder="as in the outstanding list, e.g. Prabash Rashintha" style="min-width:280px"><datalist id="repList">' + [...new Set(rows.map(r => r.owner_name).filter(Boolean))].sort().map(n => '<option value="' + esc(n) + '">').join('') + '</datalist><button class="btn" data-uact="repname">Save rep name</button><span class="hint">Needed for the Sales rep role</span></div>' + (u && u.role === 'admin' ? '<div class="hint">Admins have full access to everything. Make the user a normal User to give limited access.</div>' : '')
       + ac.map(a => '<div class="row2"><span style="min-width:230px">' + esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + '</span><select data-uact="lv" data-id="' + a.id + '">' + ['view', 'edit', 'full'].map(l => '<option' + (l === a.level ? ' selected' : '') + '>' + l + '</option>').join('') + '</select><button class="btn d" data-uact="rm" data-id="' + a.id + '">Remove</button></div>').join('')
-      + '<div class="row2"><b>Quick role:</b><select id="pRole"><option value="officer">Operation data entry (Daily Collection: edit, this operation)</option><option value="manager">Operation viewer (Daily Collection: view, this operation)</option><option value="finance">Finance (Daily Collection: full, all operations)</option><option value="ophead">Operation head (Outstanding: edit, Collection: view)</option><option value="director">Director (everything: view)</option></select><select id="pOp">' + opsOpt + '</select><button class="btn p" data-uact="preset">Apply role</button></div>' + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-uact="add">Add access</button></div></div>';
+      + '<div class="row2"><b>Quick role:</b><select id="pRole"><option value="officer">Operation data entry (Daily Collection: edit, this operation)</option><option value="manager">Operation viewer (Daily Collection: view, this operation)</option><option value="finance">Finance (Daily Collection: full, Outstanding and reps: view)</option><option value="rep">Sales rep (own outstanding and to-do)</option><option value="ophead">Operation head (Outstanding: edit, Collection: view)</option><option value="director">Director (everything: view)</option></select><select id="pOp">' + opsOpt + '</select><button class="btn p" data-uact="preset">Apply role</button></div>' + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-uact="add">Add access</button></div></div>';
   }
   $('page').innerHTML = h;
 }
@@ -441,7 +445,8 @@ async function permClick(b) {
     else if (act === 'pwd') { const p = prompt('New password (8+ characters)'); if (!p) return; await fn({action: 'set_password', id, password: p}); $('uMsg').textContent = 'Password changed.'; }
     else if (act === 'role') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, role: u.role === 'admin' ? 'user' : 'admin'}); await reload(); }
     else if (act === 'act') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, active: !u.active}); await reload(); }
-    else if (act === 'preset') { const P = {officer: [['collection', 'edit']], manager: [['collection', 'view']], finance: [['collection', 'full']], ophead: [['receivable', 'edit'], ['collection', 'view']], director: [['*', 'view']]}; for (const x of P[$('pRole').value]) await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: x[0], operation: $('pOp').value, level: x[1]}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}}); await reload('Role applied.'); }
+    else if (act === 'repname') { await api('/rest/v1/profiles?id=eq.' + uSel, {method: 'PATCH', body: {rep_name: $('repName').value.trim() || null}, headers: {Prefer: 'return=minimal'}}); await reload('Rep name saved.'); }
+    else if (act === 'preset') { const P = {officer: [['collection', 'edit']], manager: [['collection', 'view']], finance: [['collection', 'full'], ['receivable', 'view']], rep: [['rep', 'edit']], ophead: [['receivable', 'edit'], ['collection', 'view']], director: [['*', 'view']]}; for (const x of P[$('pRole').value]) await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: x[0], operation: $('pOp').value, level: x[1]}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}}); await reload('Role applied.'); }
     else if (act === 'add') { await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: $('aMod').value, operation: $('aOp').value, level: $('aLv').value}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}}); await reload(); }
     else if (act === 'rm') { await api('/rest/v1/fu_access?id=eq.' + id, {method: 'DELETE', headers: {Prefer: 'return=minimal'}}); await reload(); }
   } catch (er) { const m = $('uMsg'); if (m) m.textContent = er.message; }
