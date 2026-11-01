@@ -17,7 +17,8 @@
   function picker() {
     if (!isMgr()) return '';
     const names = repNames();
-    return '<div class="filters noprint"><select id="rpSel"><option value="">All reps (overview)</option>' + names.map(n => '<option' + (n === R.rep ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></div>';
+    return '<div class="filters noprint row2"><select id="rpSel"><option value="">All reps (overview)</option>' + names.map(n => '<option' + (n === R.rep ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select>'
+      + (window.canHandover && canHandover() ? '<button class="btn" data-hact="open">&#8644; Rep handover</button>' : '') + '</div>';
   }
   function bindPicker(again) { const s = $('rpSel'); if (s) s.onchange = () => { R.rep = s.value; again(); }; }
   const stats = list => { const a = list.filter(isActive); return {a, bal: sum(a), o120: sum(a.filter(r => r.aging_days > 120)), b91: sum(a.filter(r => r.aging_days <= 120)), soon: a.filter(r => r.days_to_120 > 0 && r.days_to_120 <= 30), over: a.filter(r => r.action_overdue), broken: a.filter(r => r.promise_broken), inc: a.filter(r => r.incomplete), old: Math.max(0, ...a.map(r => r.aging_days || 0))}; };

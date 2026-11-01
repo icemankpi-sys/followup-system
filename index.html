@@ -167,8 +167,9 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 </div>
 
 <script src="ims-cash.js?v=3"></script>
-<script src="ims-rep.js?v=1"></script>
-<script src="ims-outlet.js?v=1"></script>
+<script src="ims-rep.js?v=2"></script>
+<script src="ims-outlet.js?v=2"></script>
+<script src="ims-handover.js?v=1"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -410,7 +411,7 @@ const fmtT = d => d.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-dig
 const fmtD = d => d.toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'});
 const ini = n => String(n || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
 const tcls = t => { t = String(t || '').toLowerCase(); return /rep|sales/.test(t) ? 'c-rep' : /legal|lawyer/.test(t) ? 'c-leg' : /director/.test(t) ? 'c-dir' : /account|finance|cashier/.test(t) ? 'c-acc' : /head|manager|hod/.test(t) ? 'c-head' : /admin/.test(t) ? 'c-adm' : 'c-oth'; };
-const FLD = {status: 'Status', reason: 'Reason', next_step: 'Next step', next_owner: 'Who does it', next_date: 'Next action date', promised_date: 'Promise date', remarks: 'Short remark'};
+const FLD = {status: 'Status', reason: 'Reason', next_step: 'Next step', next_owner: 'Who does it', next_date: 'Next action date', promised_date: 'Promise date', remarks: 'Short remark', owner_name: 'Sales rep'};
 const fv = (f, v) => v == null || v === '' ? '(blank)' : f === 'status' ? (STATUS[v] || v) : v;
 let tlEv = [], tlF = 'all', tlFlash = null, tlItem = null;
 function tlGroups(ev) {

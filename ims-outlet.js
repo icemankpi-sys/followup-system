@@ -5,7 +5,7 @@
   const O = {f: {text: '', chain: '', terms: '', gap: ''}, notes: [], ev: [], key: null, pos: null, tlF: 'all'};
   const lc = s => String(s || '').trim().toLowerCase();
   const TERMS = {cash: 'Cash', credit: 'Credit', both: 'Cash and credit'};
-  const FLD = {chain: 'Chain', phone: 'Contact no', address: 'Address', br_no: 'BR no', credit_ref: 'Credit policy reference', credit_no: 'Credit policy no', pay_terms: 'Cash / credit'};
+  const FLD = {chain: 'Chain', phone: 'Contact no', address: 'Address', br_no: 'BR no', credit_ref: 'Credit policy reference', credit_no: 'Credit policy no', pay_terms: 'Cash / credit', rep: 'Sales rep'};
   const opsAll = () => ops.filter(o => rank(lvl(o.code, 'receivable')) > 0 || rank(lvl(o.code, 'rep')) > 0);
   const canMgr = o => rank(lvl(o, 'receivable')) >= 2;
   const canAdd = o => canMgr(o) || rank(lvl(o, 'rep')) >= 2;
@@ -46,7 +46,7 @@
     L.sort((a, b) => b.bal - a.bal || a.outlet.localeCompare(b.outlet));
     const chains = [...new Set(all.map(x => x.chain).filter(Boolean))].sort(), addOps = opsAll().filter(o => canAdd(o.code));
     $('page').innerHTML = '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Outlets</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' · ' : '') + all.length + ' outlets · ' + all.filter(x => x.prof).length + ' with a profile · ' + all.filter(x => x.prof && x.prof.lat != null).length + ' with a location</div></div>'
-      + (addOps.length ? '<button class="btn p" data-oact="new">+ New outlet</button>' : '') + '</div>'
+      + '<div class="row2">' + (window.canHandover && canHandover() ? '<button class="btn" data-hact="open">&#8644; Rep handover</button>' : '') + (addOps.length ? '<button class="btn p" data-oact="new">+ New outlet</button>' : '') + '</div></div>'
       + '<div class="filters row2"><input id="olText" placeholder="Search outlet, chain, phone, BR no" value="' + esc(F.text) + '" style="min-width:220px"><select id="olChain"><option value="">All chains</option>' + chains.map(c => '<option' + (c === F.chain ? ' selected' : '') + '>' + esc(c) + '</option>').join('') + '</select>'
       + '<select id="olTerms">' + [['', 'Cash and credit: all'], ['cash', 'Cash'], ['credit', 'Credit'], ['both', 'Cash and credit'], ['none', 'Not set']].map(o => '<option value="' + o[0] + '"' + (o[0] === F.terms ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>'
       + '<select id="olGap">' + [['', 'All outlets'], ['missing', 'Profile not complete'], ['noprof', 'No profile yet'], ['noloc', 'No location']].map(o => '<option value="' + o[0] + '"' + (o[0] === F.gap ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></div>'
