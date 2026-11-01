@@ -94,6 +94,7 @@ aside.col .sbt{margin:0 auto 8px}
 .rhero{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
 .two{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:12px;margin-top:4px}
 .frm label{display:block;font-size:12px;color:var(--muted);margin-top:8px}.frm select,.frm input,.frm textarea{width:100%}
+tr.tot td{background:var(--primary-soft);border-top:2px solid var(--primary);font-size:13.5px}
 .btn.q{padding:2px 8px}.btn[disabled]{opacity:.4;cursor:default}
 @media(max-width:900px){.two{grid-template-columns:1fr}}
 .rgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,330px);gap:12px;margin-top:4px;align-items:start}
@@ -330,7 +331,7 @@ function pgItems() {
     + '<select id="fStatus"><option value="active"' + (F.status === 'active' ? ' selected' : '') + '>Active (not settled)</option><option value=""' + (F.status === '' ? ' selected' : '') + '>All statuses</option>' + Object.keys(STATUS).map(k => '<option value="' + k + '"' + (F.status === k ? ' selected' : '') + '>' + STATUS[k] + '</option>').join('') + '</select>'
     + '<select id="fFlag">' + [['', 'All items'], ['incomplete', 'Incomplete (no reason / next step / date)'], ['overdue', 'Action overdue'], ['broken', 'Promise broken'], ['soon', 'Crossing 120 within 30 days']].map(x => '<option value="' + x[0] + '"' + (F.flag === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select>'
     + '<input id="fText" placeholder="Search outlet / memo" value="' + esc(F.text) + '" style="flex:1;min-width:160px"></div>'
-    + '<div class="hint" id="count"></div><div class="wrap"><table style="min-width:1000px"><thead><tr><th>Chain</th><th>Outlet</th><th>Memo</th><th>Sales rep</th><th class="n">Days</th><th class="n">To 120</th><th class="n">Balance</th><th>Reason</th><th>Next step</th><th>Next date</th><th>Status</th><th>Flags</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>';
+    + '<div class="hint" id="count"></div><div class="wrap"><table style="min-width:1000px"><thead><tr><th>Chain</th><th>Outlet</th><th>Memo</th><th>Sales rep</th><th class="n">Days</th><th class="n">To 120</th><th class="n">Balance</th><th>Reason</th><th>Next step</th><th>Next date</th><th>Status</th><th>Flags</th><th></th></tr></thead><tbody id="tb"></tbody><tfoot id="tf"></tfoot></table></div>';
   renderItems();
 }
 function filtered() {
@@ -349,6 +350,9 @@ function renderItems() {
   $('count').innerHTML = '<b>' + esc(on ? 'Showing ' + on.code + ' - ' + on.name + ' only' : 'Showing all my operations') + '</b> · ' + f.length + ' items in the list, balance ' + money(sum(f));
   $('tb').innerHTML = f.map(r => '<tr class="row" data-open="' + r.id + '"><td>' + esc(r.party) + '</td><td>' + esc(r.outlet) + (!op && r.operation ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.ref_key) + '</td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + (r.days_to_120 == null ? '' : r.days_to_120) + '</td><td class="n"><b>' + money(r.amount) + '</b></td>'
     + '<td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td><td><span class="st">' + STATUS[r.status] + '</span></td><td>' + (r.action_overdue ? '<span class="tag t-r">overdue</span>' : '') + (r.promise_broken ? '<span class="tag t-r">promise broken</span>' : '') + (r.incomplete && isActive(r) ? '<span class="tag t-a">incomplete</span>' : '') + '</td><td><button class="btn q" data-quick="' + r.id + '" title="Quick edit">&#9998;</button></td></tr>').join('');
+  // total of the rows shown (follows every filter)
+  const fo = f.filter(r => r.aging_days > 120), fu = f.filter(r => r.aging_days <= 120);
+  $('tf').innerHTML = f.length ? '<tr class="tot"><td colspan="4"><b>Total of ' + f.length + ' items shown</b><br><span class="hint">Over 120: ' + money(sum(fo)) + ' (' + fo.length + ') · Up to 120: ' + money(sum(fu)) + ' (' + fu.length + ')</span></td><td></td><td></td><td class="n"><b>' + money(sum(f)) + '</b></td><td colspan="6"></td></tr>' : '<tr><td colspan="13" class="hint">No items match the filters.</td></tr>';
 }
 
 // ---------- Dashboard ----------
