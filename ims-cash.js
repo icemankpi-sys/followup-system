@@ -127,7 +127,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       h += '<tr><td><b>' + esc(l.name) + '</b> <span class="tag t-b">' + esc(l.operation) + '</span></td><td>' + esc(l.officer || '') + '</td>'
         + days.map(d => {
           const k = ymd(d), r = C.dmap[l.id + '|' + k], v = r && r.amount != null ? r.amount : '', old = (new Date() - d) / 864e5 > 7.99, lock = k > today || (old && !f);
-          return '<td class="n">' + (e && !lock ? '<input class="cin" type="number" step="0.01" min="0" data-l="' + l.id + '" data-d="' + k + '" value="' + v + '"' + (r && r.customers ? ' title="' + esc(r.customers) + '"' : '') + '>' : (v === '' ? '<span class="hint">' + (k > today ? '' : '-') + '</span>' : money0(v))) + '</td>';
+          return '<td class="n">' + (e && !lock ? '<input class="cin" type="number" step="0.01" min="0" data-l="' + l.id + '" data-d="' + k + '" value="' + v + '"' + (v === '' && k < today ? ' style="background:var(--danger-soft)" placeholder="not entered"' : '') + (r && r.customers ? ' title="' + esc(r.customers) + '"' : '') + '>' : (v === '' ? '<span class="hint">' + (k > today ? '' : '-') + '</span>' : money0(v))) + '</td>';
         }).join('')
         + '<td class="n"><b id="ccT' + l.id + '"></b></td><td class="n">' + (f ? '<input class="tin" type="number" step="1" min="0" data-l="' + l.id + '" value="' + (t == null ? '' : t) + '">' : (t == null ? '<span class="hint">not set</span>' : money0(t))) + '</td>'
         + '<td class="n" id="ccX' + l.id + '"></td><td class="n" id="ccP' + l.id + '"></td><td><button class="btn q" data-cdet="' + l.id + '" title="Customers and notes for the week">&#128221;</button></td></tr>';
@@ -205,48 +205,69 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     };
   }
 
+  function unitStats(units, W, full) {
+    return units.map(u => {
+      const p = W.map(ws => { const t = wkTgt(u.lanes, ws); return t ? 100 * wkSum(u.lanes, ws) / t : null; });
+      const fp = full.map(i => p[i]), c = sumA(full.map(i => wkSum(u.lanes, W[i]))), t = sumA(full.map(i => wkTgt(u.lanes, W[i])));
+      return {u, p, slope: slope(fp.slice(-8)), ach: t ? 100 * c / t : null, c, t, last3: fp.slice(-3)};
+    });
+  }
+  function lastWorkDay(d) { let x = addD(d, -1); while (x.getDay() === 0) x = addD(x, -1); return x; }
   function cDash() {
-    const ls = lanesF(), W = weeksBack(C.n), cur = ymd(monday(new Date())), today = new Date();
+    const my = opsFor('collection'), main = !op && my.length > 1, word = main ? 'operation' : 'line';
+    const baseL = C.lanes.filter(l => l.active && (!op || l.operation === op)), ls = main ? baseL : lanesF();
+    const units = main ? my.map(o => ({name: o.code, title: o.name, code: o.code, lanes: baseL.filter(l => l.operation === o.code)})).filter(u => u.lanes.length)
+                       : ls.map(l => ({name: l.name, title: l.officer || '', lanes: [l]}));
+    const W = weeksBack(C.n), cur = ymd(monday(new Date())), today = new Date(), tk = ymd(today);
     const col = W.map(ws => wkSum(ls, ws)), tgt = W.map(ws => wkTgt(ls, ws));
     const full = W.map((ws, i) => ymd(ws) !== cur ? i : -1).filter(i => i >= 0);
     const pCol = sumA(full.map(i => col[i])), pTgt = sumA(full.map(i => tgt[i]));
     const wd = Math.min(6, (today.getDay() + 6) % 7 + 1), curCol = col[col.length - 1], curTgt = tgt[tgt.length - 1], pace = curTgt * wd / 6;
-    // daily trend, last 42 days, with 7-day average
-    const D = [...Array(42)].map((_, i) => addD(today, i - 41)), dv = D.map(d => { const k = ymd(d); const s = ls.map(l => amt(l, k)).filter(v => v != null); return s.length ? sumA(s) : null; });
+    const D = [...Array(42)].map((_, i) => addD(today, i - 41)), dv = D.map(d => { const k = ymd(d), s = ls.map(l => amt(l, k)).filter(v => v != null); return s.length ? sumA(s) : null; });
     const ma = dv.map((_, i) => { const w = dv.slice(Math.max(0, i - 6), i + 1).filter(v => v != null); return w.length ? sumA(w) / w.length : null; });
-    // weekday pattern over the period
     const wdSum = [0, 0, 0, 0, 0, 0, 0], wdCnt = [0, 0, 0, 0, 0, 0, 0];
-    W.forEach(ws => { for (let i = 0; i < 7; i++) { const k = ymd(addD(ws, i)); const s = ls.map(l => amt(l, k)).filter(v => v != null); if (s.length) { wdSum[i] += sumA(s); wdCnt[i]++; } } });
-    // per line achievement by week
-    const per = ls.map(l => { const p = W.map(ws => { const t = C.tmap[l.id + '|' + ymd(ws)]; return t ? 100 * wkSum([l], ws) / t : null; }); const fp = full.map(i => p[i]); const c = sumA(full.map(i => wkSum([l], W[i]))), t = sumA(full.map(i => C.tmap[l.id + '|' + ymd(W[i])] || 0)); return {l, p, slope: slope(fp.slice(-8)), ach: t ? 100 * c / t : null, c, t, last3: fp.slice(-3)}; });
-    const hc = v => v == null ? 'h-n' : v >= 100 ? 'h-g' : v >= 80 ? 'h-a' : 'h-r';
-    const standing = per.filter(x => x.last3.length === 3 && x.last3.every(v => v != null && v < 80));
-    const rising = per.filter(x => x.slope > 3), falling = per.filter(x => x.slope < -3);
+    W.forEach(ws => { for (let i = 0; i < 7; i++) { const k = ymd(addD(ws, i)), s = ls.map(l => amt(l, k)).filter(v => v != null); if (s.length) { wdSum[i] += sumA(s); wdCnt[i]++; } } });
+    const per = unitStats(units, W, full), hc = v => v == null ? 'h-n' : v >= 100 ? 'h-g' : v >= 80 ? 'h-a' : 'h-r';
+    const standing = per.filter(x => x.last3.length === 3 && x.last3.every(v => v != null && v < 80)), rising = per.filter(x => x.slope > 3), falling = per.filter(x => x.slope < -3);
     const bestWd = wdSum.map((s, i) => [i, wdCnt[i] ? s / wdCnt[i] : 0]).sort((a, b) => b[1] - a[1]), wkd = bestWd.filter(a => a[0] < 6 && a[1] > 0), weak = wkd.length > 1 ? wkd[wkd.length - 1][0] : null;
+    const yd = lastWorkDay(today), ydk = ymd(yd), missing = ls.filter(l => amt(l, ydk) == null);
     const pOpts = [[4, 'Last 4 weeks'], [8, 'Last 8 weeks'], [13, 'Last 13 weeks'], [26, 'Last 26 weeks'], [52, 'Last 52 weeks']];
-    let h = '<h2 class="pt">Daily Collection dashboard</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' &middot; period figures use full weeks only; the current week is shown as "this week"</div>'
-      + '<div class="filters">' + sel('ccN', '', pOpts, C.n) + '</div>' + cFilters(true)
+    const opName = op ? ((ops.find(o => o.code === op) || {}).name || op) : '';
+    let h = (my.length > 1 ? '<div class="subtabs noprint"><button data-dop="" class="' + (main ? 'on' : '') + '">Main dashboard</button>' + my.map(o => '<button data-dop="' + o.code + '" class="' + (op === o.code ? 'on' : '') + '" title="' + esc(o.name) + '">' + o.code + '</button>').join('') + '</div>' : '')
+      + '<h2 class="pt">' + (main ? 'Main dashboard &middot; all operations' : 'Operation dashboard &middot; ' + esc(opName || 'my operation')) + '</h2><div class="hint">Daily Collection &middot; figures come from what each operation enters &middot; period figures use full weeks only</div>'
+      + '<div class="filters">' + sel('ccN', '', pOpts, C.n) + '</div>' + (main ? '' : cFilters(true))
       + '<div class="grid"><div class="tile"><b>' + money0(pCol) + '</b><span>Collected (' + full.length + ' full weeks)</span></div><div class="tile"><b>' + money0(pTgt) + '</b><span>Target (same weeks)</span></div>'
       + '<div class="tile ' + (pCol >= pTgt ? 'g' : 'r') + '"><b>' + (pTgt ? Math.round(100 * pCol / pTgt) + '%' : '-') + '</b><span>Achievement</span></div><div class="tile ' + (pCol - pTgt >= 0 ? 'g' : 'r') + '"><b>' + money0(pCol - pTgt) + '</b><span>Excess / (Short)</span></div>'
-      + '<div class="tile ' + (curCol >= pace ? 'g' : 'a') + '"><b>' + money0(curCol) + '</b><span>This week so far (pace ' + money0(pace) + ' of ' + money0(curTgt) + ')</span></div></div>'
+      + '<div class="tile ' + (curCol >= pace ? 'g' : 'a') + '"><b>' + money0(curCol) + '</b><span>This week so far (pace ' + money0(pace) + ' of ' + money0(curTgt) + ')</span></div>'
+      + '<div class="tile ' + (missing.length ? 'r' : 'g') + '"><b>' + (ls.length - missing.length) + ' of ' + ls.length + '</b><span>Lines entered for ' + DOW[(yd.getDay() + 6) % 7] + ' ' + fmtD(yd) + '</span></div></div>'
       + '<div class="card" style="margin-bottom:12px"><h3>What the figures say</h3>'
-      + (standing.length ? '<div class="ins r"><b>Below 80% for 3 weeks in a row:</b> ' + standing.map(x => esc(x.l.name)).join(', ') + '</div>' : '<div class="ins g">No line has been below 80% for 3 weeks in a row.</div>')
-      + (falling.length ? '<div class="ins a"><b>Falling trend (last 8 weeks):</b> ' + falling.map(x => esc(x.l.name)).join(', ') + '</div>' : '')
-      + (rising.length ? '<div class="ins g"><b>Improving trend:</b> ' + rising.map(x => esc(x.l.name)).join(', ') + '</div>' : '')
+      + (standing.length ? '<div class="ins r"><b>Below 80% for 3 weeks in a row (' + word + 's):</b> ' + standing.map(x => esc(x.u.name)).join(', ') + '</div>' : '<div class="ins g">No ' + word + ' has been below 80% for 3 weeks in a row.</div>')
+      + (falling.length ? '<div class="ins a"><b>Falling trend, last 8 weeks:</b> ' + falling.map(x => esc(x.u.name)).join(', ') + '</div>' : '')
+      + (rising.length ? '<div class="ins g"><b>Improving trend:</b> ' + rising.map(x => esc(x.u.name)).join(', ') + '</div>' : '')
+      + (missing.length ? '<div class="ins r"><b>Not entered for ' + fmtD(yd) + ':</b> ' + missing.map(l => esc(l.name) + (main ? ' (' + l.operation + ')' : '')).join(', ') + '</div>' : '')
       + (bestWd[0][1] ? '<div class="ins">Strongest collection day: <b>' + DOW[bestWd[0][0]] + '</b>' + (weak != null ? '; weakest working day: <b>' + DOW[weak] + '</b>' : '') + '.</div>' : '')
-      + (curTgt ? '<div class="ins ' + (curCol >= pace ? 'g' : 'a') + '">This week: ' + money0(curCol) + ' collected after ' + wd + ' working day(s); ' + (curCol >= pace ? 'on pace' : 'behind pace by ' + money0(pace - curCol)) + ' for the ' + money0(curTgt) + ' target.</div>' : '<div class="ins a">No target set for this week yet.</div>')
-      + '</div><div class="grid2">'
+      + (curTgt ? '<div class="ins ' + (curCol >= pace ? 'g' : 'a') + '">This week: ' + money0(curCol) + ' after ' + wd + ' working day(s); ' + (curCol >= pace ? 'on pace' : 'behind pace by ' + money0(pace - curCol)) + ' for the ' + money0(curTgt) + ' target.</div>' : '<div class="ins a">No target set for this week yet.</div>')
+      + '</div>';
+    if (main) {
+      const wsC = W[W.length - 1];
+      h += '<div class="card" style="margin-bottom:12px"><h3>Operations this week</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Operation</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th>Pace</th><th class="n">Period %</th><th>Trend</th><th class="n">Entered ' + fmtD(yd) + '</th></tr></thead><tbody>'
+        + per.map(x => { const tg = wkTgt(x.u.lanes, wsC), c = wkSum(x.u.lanes, wsC), pv = tg * wd / 6, ent = x.u.lanes.filter(l => amt(l, ydk) != null).length;
+          return '<tr class="row" data-dop="' + x.u.code + '"><td><b>' + esc(x.u.code) + '</b> ' + esc(x.u.title) + '</td><td class="n">' + money0(tg) + '</td><td class="n">' + money0(c) + '</td><td class="n">' + (tg ? pct(c, tg) + '%' : '') + '</td><td>' + (tg ? (c >= pv ? '<span class="up">on pace</span>' : '<span class="down">behind ' + money0(pv - c) + '</span>') : '<span class="hint">no target</span>') + '</td><td class="n">' + (x.ach == null ? '' : Math.round(x.ach) + '%') + '</td><td>' + (x.slope > 3 ? '<span class="up">&#9650; rising</span>' : x.slope < -3 ? '<span class="down">&#9660; falling</span>' : '<span class="hint">steady</span>') + '</td><td class="n"><span class="' + (ent < x.u.lanes.length ? 'down' : 'up') + '">' + ent + ' / ' + x.u.lanes.length + '</span></td></tr>'; }).join('')
+        + '</tbody></table></div><div class="hint">Click an operation to open its dashboard.</div></div>';
+    }
+    h += '<div class="grid2">'
       + '<div class="card"><h3>Weekly collection vs target</h3>' + svgCombo(W.map(wkLabel), col, tgt, {pct: true}) + legend([['Collected (met target)', 'var(--primary)'], ['Collected (below target)', 'var(--accent)'], ['Target', 'var(--danger)']]) + '</div>'
       + '<div class="card"><h3>Daily collection, last 6 weeks</h3>' + svgLines(D.map(fmtD), [{name: 'Daily', v: dv, cls: 's1'}, {name: '7-day average', v: ma, cls: 's2'}]) + legend([['Daily total', 'var(--primary)'], ['7-day average', 'var(--accent)']]) + '</div>'
-      + '<div class="card"><h3>Achievement by line (period)</h3>' + bars(per.filter(x => x.ach != null).sort((a, b) => b.ach - a.ach).map(x => [x.l.name, Math.round(x.ach), x.ach >= 100 ? 'var(--ok)' : x.ach >= 80 ? 'var(--accent)' : 'var(--danger)']), v => v + '%') + '</div>'
+      + '<div class="card"><h3>Achievement by ' + word + ' (period)</h3>' + bars(per.filter(x => x.ach != null).sort((a, b) => b.ach - a.ach).map(x => [x.u.name, Math.round(x.ach), x.ach >= 100 ? 'var(--ok)' : x.ach >= 80 ? 'var(--accent)' : 'var(--danger)']), v => v + '%') + '</div>'
+      + '<div class="card"><h3>Collected by ' + word + ' (period)</h3>' + bars(per.filter(x => x.c).sort((a, b) => b.c - a.c).map(x => [x.u.name, x.c]), money0) + '</div>'
       + '<div class="card"><h3>Average by weekday</h3>' + bars(DOW.map((d, i) => [d, wdCnt[i] ? Math.round(wdSum[i] / wdCnt[i]) : 0]), money0) + '</div></div>'
-      + '<div class="card" style="margin-top:12px"><h3>Achievement % by line and week</h3><div class="wrap" style="box-shadow:none"><table class="hm"><thead><tr><th>Line</th>' + W.map(ws => '<th>' + wkLabel(ws) + '</th>').join('') + '<th>Trend</th></tr></thead><tbody>'
-      + per.map(x => '<tr><td style="text-align:left;white-space:nowrap">' + esc(x.l.name) + '</td>' + x.p.map(v => '<td class="' + hc(v) + '">' + (v == null ? '-' : Math.round(v)) + '</td>').join('') + '<td>' + (x.slope > 3 ? '<span class="up">&#9650; rising</span>' : x.slope < -3 ? '<span class="down">&#9660; falling</span>' : '<span class="hint">steady</span>') + '</td></tr>').join('')
+      + '<div class="card" style="margin-top:12px"><h3>Achievement % by ' + word + ' and week</h3><div class="wrap" style="box-shadow:none"><table class="hm"><thead><tr><th>' + (main ? 'Operation' : 'Line') + '</th>' + W.map(ws => '<th>' + wkLabel(ws) + '</th>').join('') + '<th>Trend</th></tr></thead><tbody>'
+      + per.map(x => '<tr' + (main ? ' class="row" data-dop="' + x.u.code + '"' : '') + '><td style="text-align:left;white-space:nowrap">' + esc(x.u.name) + '</td>' + x.p.map(v => '<td class="' + hc(v) + '">' + (v == null ? '-' : Math.round(v)) + '</td>').join('') + '<td>' + (x.slope > 3 ? '<span class="up">&#9650; rising</span>' : x.slope < -3 ? '<span class="down">&#9660; falling</span>' : '<span class="hint">steady</span>') + '</td></tr>').join('')
       + '</tbody></table></div><div class="hint">Green 100% or more, amber 80 to 99%, red below 80%, "-" no target.</div></div>';
     $('page').innerHTML = h;
     $('ccN').onchange = () => { C.n = Number($('ccN').value); cDash(); }; bindCF(cDash);
+    document.querySelectorAll('#page [data-dop]').forEach(b => b.onclick = () => { op = b.dataset.dop; C.lane = ''; C.mgr = ''; go(); });
   }
-
   function cReport() {
     const ls = lanesF(), W = weeksBack(26), ws = C.rwk || (W.length > 1 ? W[W.length - 2] : W[0]); C.rwk = ws;
     const prev = addD(ws, -7), groups = {};
@@ -379,7 +400,6 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   }
 
   window.MODULE_PAGES = {
-    collection: {items: () => run(cLoad, cEntry), dash: () => run(cLoad, cDash), report: () => run(cLoad, cReport), card: cCard},
-    cashflow: {items: () => run(fLoad, fItems), dash: () => run(fLoad, fDash), report: () => run(fLoad, fReport), card: fCard}
+    collection: {items: () => run(cLoad, cEntry), dash: () => run(cLoad, cDash), report: () => run(cLoad, cReport), card: cCard}
   };
 })();
