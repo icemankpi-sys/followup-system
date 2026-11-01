@@ -3,13 +3,12 @@
 // isActive, loadRows, go, toast, closeDrawer, fmtDT).
 (function () {
   const H = {op: '', from: '', all: true, picked: {}, past: [], maps: []};
-  const lc = s => String(s || '').trim().toLowerCase();
   const fullOps = () => ops.filter(o => rank(lvl(o.code, 'receivable')) >= 3);
   window.canHandover = () => fullOps().length > 0;
   const openRows = () => rows.filter(r => r.operation === H.op && isActive(r));
   const reps = () => { const m = {}; openRows().forEach(r => { const n = (r.owner_name || '').trim(); if (!n) return; m[n] = m[n] || {n, c: 0, b: 0}; m[n].c++; m[n].b += Number(r.amount); }); return Object.values(m).sort((a, b) => a.n.localeCompare(b.n)); };
   function outletsOf(name) {
-    const m = {}; openRows().filter(r => lc(r.owner_name) === lc(name)).forEach(r => { const k = lc(r.outlet); m[k] = m[k] || {k, name: (r.outlet || '').trim(), chain: r.party, c: 0, b: 0}; m[k].c++; m[k].b += Number(r.amount); });
+    const m = {}; openRows().filter(r => nk(r.owner_name) === nk(name)).forEach(r => { const k = nk(r.outlet); m[k] = m[k] || {k, name: (r.outlet || '').trim(), chain: r.party, c: 0, b: 0}; m[k].c++; m[k].b += Number(r.amount); });
     return Object.values(m).sort((a, b) => b.b - a.b);
   }
 
@@ -49,14 +48,14 @@
   async function run() {
     const to = $('hTo').value.trim().replace(/\s+/g, ' '), err = $('hErr'); H.to = to; H.note = $('hNote').value;
     if (!to) { err.textContent = 'Write the new rep name'; return; }
-    if (lc(to) === lc(H.from)) { err.textContent = 'The new rep is the same as the old rep'; return; }
+    if (nk(to) === nk(H.from)) { err.textContent = 'The new rep is the same as the old rep'; return; }
     if (!$('hOk').checked) { err.textContent = 'Tick "I checked" first'; return; }
     const outs = outletsOf(H.from), keys = H.all ? null : outs.filter(o => H.picked[o.k]).map(o => o.k);
     if (keys && !keys.length) { err.textContent = 'Tick at least one outlet'; return; }
     try {
       const r = await api('/rest/v1/rpc/fu_rep_handover', {method: 'POST', body: {p_op: H.op, p_from: H.from, p_to: to, p_outlets: keys, p_note: H.note.trim() || null}});
       await loadRows(); closeDrawer(); go(); H.from = ''; H.to = ''; H.note = ''; H.picked = {};
-      toast('Handover #' + r.id + ': ' + r.items + ' invoices, ' + r.outlets + ' outlets, ' + r.todos + ' to-dos moved to ' + to);
+      toast('Handover #' + r.id + ': ' + r.items + ' invoices, ' + r.outlets + ' outlets, ' + r.todos + ' to-dos moved to ' + (r.to || to));
     } catch (e) { err.textContent = e.message; }
   }
 
@@ -65,7 +64,7 @@
     const k = b.dataset.hact;
     if (k === 'open') openHandover();
     else if (k === 'close') closeDrawer();
-    else if (k === 'go') run();
+    else if (k === 'go') guard(run);
     else if (k === 'unmap') { try { await api('/rest/v1/rpc/fu_rep_map_remove', {method: 'POST', body: {p_op: H.op, p_from: b.dataset.from, p_outlet: b.dataset.outlet}}); H.maps = await api('/rest/v1/fu_rep_map?select=*&order=created_at.desc') || []; paint('Mapping removed'); } catch (er) { $('hErr').textContent = er.message; } }
   });
   document.addEventListener('change', e => {

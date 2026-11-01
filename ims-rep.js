@@ -2,7 +2,7 @@
 // Loaded before the main script; uses the main script's globals at run time (api, $, esc, money, money0, rows, op, me, ops, lvl, rank, opsFor, bars, isActive, sum, go).
 (function () {
   const R = {rep: '', todos: [], loaded: false};
-  const lc = s => String(s || '').trim().toLowerCase();
+  const lc = s => nk(s);   // rep names compare without case, spaces or punctuation (main script's nk)
   const isMgr = () => me.role === 'admin' || opsFor('receivable').length > 0;
   const myRep = () => (me.rep_name || '').trim();
   const pad = n => String(n).padStart(2, '0'), ymd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());

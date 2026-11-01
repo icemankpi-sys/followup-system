@@ -10,7 +10,7 @@
   const canMgr = o => rank(lvl(o, 'receivable')) >= 2;
   const canAdd = o => canMgr(o) || rank(lvl(o, 'rep')) >= 2;
   const uid = () => sess && sess.user && sess.user.id;
-  const myRepRows = (o, name) => rows.filter(r => r.operation === o && lc(r.outlet) === lc(name) && me.rep_name && lc(r.owner_name) === lc(me.rep_name));
+  const myRepRows = (o, name) => rows.filter(r => r.operation === o && nk(r.outlet) === nk(name) && me.rep_name && nk(r.owner_name) === nk(me.rep_name));
   const canEdit = x => canMgr(x.operation) || (rank(lvl(x.operation, 'rep')) >= 2 && (myRepRows(x.operation, x.outlet).length > 0 || (x.prof && x.prof.created_by === uid())));
   const idOf = (o, key) => encodeURIComponent(o + '|' + key);
   const mapUrl = p => 'https://www.google.com/maps?q=' + p.lat + ',' + p.lng;
@@ -21,8 +21,8 @@
     Object.values(CO).forEach(p => { if (!op || p.operation === op) m[p.operation + '|' + p.outlet_key] = {operation: p.operation, key: p.outlet_key, outlet: p.outlet, chain: p.chain, prof: p, recs: []}; });
     rows.forEach(r => {
       if (op && r.operation !== op) return;
-      const k = r.operation + '|' + lc(r.outlet);
-      if (!m[k]) m[k] = {operation: r.operation, key: lc(r.outlet), outlet: (r.outlet || '').trim(), chain: r.party, prof: null, recs: []};
+      const k = r.operation + '|' + nk(r.outlet);
+      if (!m[k]) m[k] = {operation: r.operation, key: nk(r.outlet), outlet: (r.outlet || '').trim(), chain: r.party, prof: null, recs: []};
       if (!m[k].chain) m[k].chain = r.party;
       m[k].recs.push(r);
     });
@@ -122,6 +122,7 @@
       + '<label>Credit policy no</label><input id="oCno" maxlength="60" value="' + esc(p.credit_no || '') + '">';
   }
   function editDrawer(x) {
+    O.simFor = null;
     open(head(x ? 'Edit outlet profile' : 'New outlet', x) + profForm(x) + '<div class="stamp">Every change is written to the outlet history with your name and the time.</div>'
       + '<div class="row2"><button class="btn p" data-oact="saveprof">Save</button><button class="btn" data-oact="close">Cancel</button></div><div class="err" id="oErr"></div></div>');
   }
@@ -146,16 +147,27 @@
     {enableHighAccuracy: true, timeout: 25000, maximumAge: 0});
   }
 
+  // outlets in the operation whose name contains the other, or shares at least two words (3+ letters) with it
+  function similar(o, name) {
+    const k = nk(name), words = s => lc(s).split(/[^a-z0-9]+/).filter(w => w.length >= 3), w = words(name);
+    const s = op; op = ''; const all = outlets(); op = s;
+    return all.filter(x => x.operation === o && x.key !== k && (x.key.includes(k) || k.includes(x.key) || words(x.outlet).filter(v => w.includes(v)).length >= 2)).map(x => x.outlet).slice(0, 6);
+  }
   async function upsert(body) { await api('/rest/v1/fu_outlets?on_conflict=operation,outlet_key', {method: 'POST', headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}, body}); }
   async function refresh(id, msg) { await loadContacts(); closeDrawer(); if (id) { window.OUTLET_ID = id; if (location.hash !== '#outlet/' + id) location.hash = 'outlet/' + id; else go('outlet', 'outlets'); } else go(); toast(msg); }
   async function saveProf() {
     const x = O.cur, err = $('oErr'), terms = (document.querySelector('input[name="oTerms"]:checked') || {}).value || null;
     const o = x ? x.operation : $('oOp').value, name = x ? x.outlet : $('oName').value.trim().replace(/\s+/g, ' ');
     if (!name) { err.textContent = 'Write the outlet name'; return; }
-    if (!x && CO[ck(o, name)]) { err.textContent = 'This outlet already has a profile. Open it from the list.'; return; }
-    const body = {operation: o, outlet_key: lc(name), outlet: name, chain: $('oChain').value.trim() || null, phone: $('oPhone').value.trim() || null, address: $('oAddr').value.trim() || null,
+    if (!x && CO[ck(o, name)]) { err.textContent = 'This outlet already has a profile (' + CO[ck(o, name)].outlet + '). Open it from the list.'; return; }
+    if (!x) {
+      // similar names in the same operation: show them once, a second press saves anyway
+      const sim = similar(o, name);
+      if (sim.length && O.simFor !== o + '|' + nk(name)) { O.simFor = o + '|' + nk(name); err.innerHTML = 'Similar outlets already exist: <b>' + sim.map(esc).join('</b>, <b>') + '</b>. If it is one of these, cancel and open it from the list. If it is really a new outlet, press Save again.'; return; }
+    }
+    const body = {operation: o, outlet_key: nk(name), outlet: name, chain: $('oChain').value.trim() || null, phone: $('oPhone').value.trim() || null, address: $('oAddr').value.trim() || null,
       br_no: $('oBr').value.trim() || null, pay_terms: terms, credit_ref: $('oCref').value.trim() || null, credit_no: $('oCno').value.trim() || null};
-    try { await upsert(body); await refresh(idOf(o, lc(name)), 'Outlet profile saved'); } catch (e) { err.textContent = e.message; }
+    try { await upsert(body); await refresh(idOf(o, nk(name)), 'Outlet profile saved'); } catch (e) { err.textContent = e.message; }
   }
   async function saveLoc() {
     const x = O.cur; if (!O.pos) return;
@@ -213,11 +225,11 @@
     else if (k === 'edit') editDrawer(x);
     else if (k === 'note') noteDrawer(x);
     else if (k === 'loc') locDrawer(x);
-    else if (k === 'saveprof') saveProf();
-    else if (k === 'saveloc') saveLoc();
-    else if (k === 'postnote') postNote();
+    else if (k === 'saveprof') guard(saveProf);
+    else if (k === 'saveloc') guard(saveLoc);
+    else if (k === 'postnote') guard(postNote);
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.id === 'oNote') { e.preventDefault(); postNote(); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.id === 'oNote') { e.preventDefault(); guard(postNote); } });
   document.addEventListener('input', e => { if (e.target.id === 'olText') { O.f.text = e.target.value; const s = e.target.selectionStart; list(); const t = $('olText'); t.focus(); t.setSelectionRange(s, s); } });
   document.addEventListener('change', e => { const m = {olChain: 'chain', olTerms: 'terms', olGap: 'gap'}[e.target.id]; if (m) { O.f[m] = e.target.value; list(); } });
 

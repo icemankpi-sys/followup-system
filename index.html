@@ -167,9 +167,9 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 </div>
 
 <script src="ims-cash.js?v=3"></script>
-<script src="ims-rep.js?v=2"></script>
-<script src="ims-outlet.js?v=2"></script>
-<script src="ims-handover.js?v=1"></script>
+<script src="ims-rep.js?v=3"></script>
+<script src="ims-outlet.js?v=3"></script>
+<script src="ims-handover.js?v=2"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -260,7 +260,11 @@ async function loadRows() {
 }
 // contacts: rep phone once per rep, outlet address / contact no once per outlet; shown on every record of that rep / outlet
 let CO = {}, CR = {};
-const ck = (o, n) => o + '|' + String(n || '').trim().toLowerCase();
+// match key: case, spaces and punctuation do not count ("ARPICO DAILY - MATTEGODA" = "Arpico Daily-Mattegoda"); same rule as public.nk() in the database
+const nk = s => { const t = String(s || ''), k = t.toLowerCase().replace(/[^a-z0-9]+/g, ''); return k || t.trim().toLowerCase(); };
+const ck = (o, n) => o + '|' + nk(n);
+// one save at a time: a double click or a slow network cannot save the same thing twice
+async function guard(fn) { if (guard.busy) return; guard.busy = true; try { await fn(); } finally { guard.busy = false; } }
 async function loadContacts() {
   CO = {}; CR = {}; if (!rows.length) return;
   try {
@@ -402,7 +406,7 @@ function formHtml(r, canEdit, canFull) {
     + '<label>Customer promise date</label><input id="ePromise" type="date" value="' + esc(r.promised_date) + '"' + dis + '>'
     + '<label>Short remark (shown in the list)</label><textarea id="eRem" rows="2"' + dis + '>' + esc(r.remarks) + '</textarea>';
 }
-const canOf = r => { const rv = rank(lvl(r.operation, 'receivable')), mine = me.rep_name && (r.owner_name || '').trim().toLowerCase() === me.rep_name.trim().toLowerCase(), rp = mine ? Math.min(2, rank(lvl(r.operation, 'rep'))) : 0; return {edit: Math.max(rv, rp) >= 2, full: rv >= 3}; };
+const canOf = r => { const rv = rank(lvl(r.operation, 'receivable')), mine = me.rep_name && nk(r.owner_name) === nk(me.rep_name), rp = mine ? Math.min(2, rank(lvl(r.operation, 'rep'))) : 0; return {edit: Math.max(rv, rp) >= 2, full: rv >= 3}; };
 
 // ---------- timeline (one per follow-up item, every module) ----------
 const myTitle = () => (me.job_title || '').trim() || (me.rep_name ? 'Sales Rep' : me.role === 'admin' ? 'Admin' : '');
@@ -477,7 +481,7 @@ function contactHtml(r) {
   const o = CO[ck(r.operation, r.outlet)], p = CR[ck(r.operation, r.owner_name)];
   return '<dl><dt>Sales rep</dt><dd>' + (r.owner_name ? esc(r.owner_name) : '<span class="hint">not set</span>') + '</dd><dt>Rep phone</dt><dd>' + telA(r.rep_phone) + '</dd>'
     + '<dt>Outlet address</dt><dd>' + (r.outlet_address ? esc(r.outlet_address).replace(/\n/g, '<br>') : '<span class="hint">not set</span>') + '</dd><dt>Outlet contact no</dt><dd>' + telA(r.outlet_phone) + '</dd></dl>'
-    + '<div class="row2 noprint"><button class="btn" data-outlet="' + encodeURIComponent(r.operation + '|' + String(r.outlet || '').trim().toLowerCase()) + '">Open outlet profile and history</button></div>'
+    + '<div class="row2 noprint"><button class="btn" data-outlet="' + encodeURIComponent(r.operation + '|' + nk(r.outlet)) + '">Open outlet profile and history</button></div>'
     + (o || p ? '<div class="hint" style="margin-top:6px">Last changed ' + [o, p].filter(Boolean).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 1).map(x => 'by ' + esc(x.by_name || '') + ', ' + esc(fmtDT(new Date(x.updated_at)))).join('') + '</div>' : '');
 }
 function contactDrawer() {
@@ -495,9 +499,9 @@ async function saveContact() {
   const up = {Prefer: 'resolution=merge-duplicates,return=minimal'};
   try {
     if (ad !== (r.outlet_address || '') || ph !== (r.outlet_phone || ''))
-      await api('/rest/v1/fu_outlets?on_conflict=operation,outlet_key', {method: 'POST', headers: up, body: {operation: r.operation, outlet_key: r.outlet.trim().toLowerCase(), outlet: r.outlet.trim(), address: ad || null, phone: ph || null}});
+      await api('/rest/v1/fu_outlets?on_conflict=operation,outlet_key', {method: 'POST', headers: up, body: {operation: r.operation, outlet_key: nk(r.outlet), outlet: r.outlet.trim(), address: ad || null, phone: ph || null}});
     if (r.owner_name && rp !== (r.rep_phone || ''))
-      await api('/rest/v1/fu_reps?on_conflict=operation,rep_key', {method: 'POST', headers: up, body: {operation: r.operation, rep_key: r.owner_name.trim().toLowerCase(), rep_name: r.owner_name.trim(), phone: rp || null}});
+      await api('/rest/v1/fu_reps?on_conflict=operation,rep_key', {method: 'POST', headers: up, body: {operation: r.operation, rep_key: nk(r.owner_name), rep_name: r.owner_name.trim(), phone: rp || null}});
     const id = r.id; await loadContacts(); cur = rows.find(x => x.id === id) || cur; closeDrawer(); if (page === 'record') renderRecord(); else go(); toast('Contacts saved');
   } catch (e) { $('pErr').textContent = e.message; }
 }
@@ -587,7 +591,12 @@ function renderUsers(msg) {
 async function permClick(b) {
   const act = b.dataset.uact, id = b.dataset.id, reload = async msg => { uData = await fn({action: 'list'}); renderUsers(msg || ''); };
   try {
-    if (act === 'create') { await fn({action: 'create', full_name: $('nName').value.trim(), username: $('nUser').value.trim(), password: $('nPass').value, role: $('nRole').value}); uSel = null; await reload('User created. Press Access to give follow-up types, operations and levels.'); }
+    if (act === 'create' && !permClick.dupOk) {
+      // the same person twice: warn once, a second press creates anyway
+      const nm = nk($('nName').value), un = $('nUser').value.trim().toLowerCase(), same = uData.users.filter(u => (nm && nk(u.full_name) === nm) || (un && String(u.username || '').toLowerCase().split('@')[0] === un.split('@')[0]));
+      if (same.length) { permClick.dupOk = true; $('uMsg').textContent = 'A user with this name or username already exists: ' + same.map(u => (u.full_name || '') + ' (' + u.username + ')').join(', ') + '. Press Create user again only if this is a different person.'; return; }
+    }
+    if (act === 'create') { permClick.dupOk = false; await fn({action: 'create', full_name: $('nName').value.trim(), username: $('nUser').value.trim(), password: $('nPass').value, role: $('nRole').value}); uSel = null; await reload('User created. Press Access to give follow-up types, operations and levels.'); }
     else if (act === 'acc') { uSel = id; renderUsers(''); window.scrollTo(0, document.body.scrollHeight); }
     else if (act === 'pwd') { const p = prompt('New password (8+ characters)'); if (!p) return; await fn({action: 'set_password', id, password: p}); $('uMsg').textContent = 'Password changed.'; }
     else if (act === 'role') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, role: u.role === 'admin' ? 'user' : 'admin'}); await reload(); }
@@ -667,7 +676,7 @@ $('sbToggle').onclick = () => { sbCol = !sbCol; try { localStorage.setItem('fu_s
 $('panel').onclick = e => {
   const b = e.target.closest('[data-recpage]'); if (b) { closeDrawer(); openRecord(b.dataset.recpage); return; }
   const a = e.target.closest('[data-pact]'); if (!a) return; const k = a.dataset.pact, fl = $('panel').dataset.from === '1';
-  if (k === 'close') closeDrawer(); else if (k === 'save') save(); else if (k === 'post') postNote(); else if (k === 'savecontact') saveContact(); else if (k === 'contact') contactDrawer(); else drawer(k, fl);
+  if (k === 'close') closeDrawer(); else if (k === 'save') guard(save); else if (k === 'post') guard(postNote); else if (k === 'savecontact') guard(saveContact); else if (k === 'contact') contactDrawer(); else drawer(k, fl);
 };
 $('panel').onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.id === 'dNote') { e.preventDefault(); const b = document.querySelector('#panel [data-pact="save"],#panel [data-pact="post"]'); if (b) b.click(); } };
 function setPresent(on) {
