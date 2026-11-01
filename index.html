@@ -287,7 +287,7 @@ function go(p, m) {
   $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + x[1] + '</button>').join('');
   const act = rows.filter(isActive);
   $('mods').innerHTML = visibleMods().map(m => {
-    const n = m.id === 'receivable' ? act.length : 0;
+    const n = m.id === 'receivable' ? act.filter(r => !op || r.operation === op).length : 0;
     return '<button title="' + esc(m.name) + '" class="mod ' + (m.id === mod && ['items', 'dash', 'report', 'record', 'outlet'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
   }).join('');
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
@@ -345,7 +345,8 @@ function renderItems() {
   $('tiles').innerHTML = [['', money(sum(act)), 'Active balance (' + act.length + ' items)'], ['r', money(sum(o120)), 'Over 120 days (' + o120.length + ')'], ['a', money(sum(b91)), 'Up to 120 days (' + b91.length + '), will roll over'],
     ['a', act.filter(r => r.incomplete).length, 'Incomplete: need reason, next step, date'], ['r', act.filter(r => r.action_overdue).length, 'Action overdue'], ['r', act.filter(r => r.promise_broken).length, 'Promise broken'],
     ['g', myRows().filter(r => !isActive(r)).length, 'Settled / closed']].map(t => '<div class="tile ' + t[0] + '"><b>' + t[1] + '</b><span>' + t[2] + '</span></div>').join('');
-  const f = filtered(); $('count').textContent = f.length + ' items, balance ' + money(sum(f));
+  const f = filtered(), on = op ? ops.find(o => o.code === op) : null;
+  $('count').innerHTML = '<b>' + esc(on ? 'Showing ' + on.code + ' - ' + on.name + ' only' : 'Showing all my operations') + '</b> · ' + f.length + ' items in the list, balance ' + money(sum(f));
   $('tb').innerHTML = f.map(r => '<tr class="row" data-open="' + r.id + '"><td>' + esc(r.party) + '</td><td>' + esc(r.outlet) + (!op && r.operation ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.ref_key) + '</td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + (r.days_to_120 == null ? '' : r.days_to_120) + '</td><td class="n"><b>' + money(r.amount) + '</b></td>'
     + '<td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td><td><span class="st">' + STATUS[r.status] + '</span></td><td>' + (r.action_overdue ? '<span class="tag t-r">overdue</span>' : '') + (r.promise_broken ? '<span class="tag t-r">promise broken</span>' : '') + (r.incomplete && isActive(r) ? '<span class="tag t-a">incomplete</span>' : '') + '</td><td><button class="btn q" data-quick="' + r.id + '" title="Quick edit">&#9998;</button></td></tr>').join('');
 }
