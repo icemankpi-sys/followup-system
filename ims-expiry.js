@@ -7,7 +7,7 @@
   const ACTIONS = ['Transfer to another operation', 'Rep push (with target)', 'Promotion / markdown', 'Return to supplier', 'Write-off (approval needed)', 'Sold - no action needed', 'Other'];
   const CAUSES = ['Bought outside demand plan', 'Over-receipt at GRN', 'Short shelf life accepted at GRN', 'Piece-order remainder', 'Slow sales / no movement', 'Customer did not take the full order', 'Expired before it could be sold', 'Other'];
   const BANDS = ['Expired', '0-30', '31-60', '61-90', 'Over 90'];
-  const OPMAP = {MT: 'MT', ICE: 'ICE', AMB: 'AMB', PLT: 'PLT', KDY: 'KDY', DEPOT: 'DEP', GOTHATUWA: 'DEP', MDW: 'MDW', CBL_CO: 'CBL', CBL_G: 'CBG', CBL_K: 'CBK', JAFFNA: 'JFN', MNG: 'MNG'};
+  const OPMAP = {MT: 'MT', MT_COLOMBO: 'MT', MT_KANDY: 'MTK', MT_HORECA: 'MTH', MT_HOREKA: 'MTH', MT_HREKA: 'MTH', ICE: 'ICE', AMB: 'AMB', PLT: 'PLT', KDY: 'KDY', DEPOT: 'DEP', GOTHATUWA: 'DEP', MDW: 'MDW', CBL_CO: 'CBL', CBL_G: 'CBG', CBL_K: 'CBK', JAFFNA: 'JFN', MNG: 'MNG'};
   const isOpen = r => !['settled', 'written_off'].includes(r.status);
   const val = l => l.reduce((s, r) => s + Number(r.amount || 0), 0);
   const bandTag = b => b ? '<span class="tag ' + (b === 'Expired' || b === '0-30' ? 't-r' : b === '31-60' ? 't-a' : b === '61-90' ? 't-w' : 't-g') + '">' + (b === 'Expired' ? 'EXPIRED' : b === 'Over 90' ? '> 90' : b + ' days') + '</span>' : '';
@@ -145,7 +145,7 @@
     const ws = wb.Sheets['Short Expiry List'] || wb.Sheets[wb.SheetNames[0]];
     const cell = a => { const c = ws[a]; return c ? c.v : null; }, txt = a => String(cell(a) == null ? '' : cell(a)).trim();
     const opName = txt('C4'), asAt = iso(cell('I4')), head = txt('C5'), officer = txt('I5');
-    const opKey = opName.toUpperCase().replace(/\s+/g, '_'), opCode = OPMAP[opKey] || (ops.some(o => o.code === opName.toUpperCase()) ? opName.toUpperCase() : '');
+    const opKey = opName.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, ''), opCode = OPMAP[opKey] || (ops.some(o => o.code === opName.toUpperCase()) ? opName.toUpperCase() : '');
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:Q207'), lines = [], problems = [], seen = {};
     let examples = 0;
     const today = new Date(); today.setHours(0, 0, 0, 0);
