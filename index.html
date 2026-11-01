@@ -7,13 +7,13 @@
 :root{
   --bg:#f3f5f9;--surface:#fff;--surface2:#f7f9fc;--ink:#0f1b2d;--ink2:#334155;--muted:#64748b;--line:#e2e8f0;--line2:#cbd5e1;
   --primary:#2e3192;--primary-ink:#fff;--primary-soft:#e9e9f7;--accent:#e8590c;--accent-soft:#fff1e8;
-  --ok:#0f7a55;--ok-soft:#e5f6ef;--warn:#b45309;--warn-soft:#fdf3e2;--danger:#b42318;--danger-soft:#fdecea;
+  --ok:#0f7a55;--ok-soft:#e5f6ef;--warn:#b45309;--warn-soft:#fdf3e2;--danger:#b42318;--danger-soft:#fdecea;--violet:#6d28d9;
   --head:#1d1f63;--head-ink:#eef0ff;--head-chip:#2a2d7d;--shadow:0 1px 2px rgba(15,27,45,.06),0 4px 14px rgba(15,27,45,.06);--radius:12px;
   color-scheme:light}
 @media(prefers-color-scheme:dark){:root{
   --bg:#0b1220;--surface:#121b2b;--surface2:#0f1726;--ink:#e6edf7;--ink2:#c3cfdf;--muted:#8b9bb2;--line:#22314a;--line2:#2e4060;
   --primary:#8e92f2;--primary-ink:#0b0d2e;--primary-soft:#1f2257;--accent:#ff8a3d;--accent-soft:#2a1a10;
-  --ok:#34c391;--ok-soft:#0f2a22;--warn:#f0a94a;--warn-soft:#2b210f;--danger:#f17066;--danger-soft:#2c1414;
+  --ok:#34c391;--ok-soft:#0f2a22;--warn:#f0a94a;--warn-soft:#2b210f;--danger:#f17066;--danger-soft:#2c1414;--violet:#b49cff;
   --head:#0d0e33;--head-ink:#e6e8ff;--head-chip:#1c1f55;--shadow:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.35);color-scheme:dark}}
 *{box-sizing:border-box}html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,"Noto Sans Sinhala",Arial,sans-serif}
@@ -96,6 +96,36 @@ aside.col .sbt{margin:0 auto 8px}
 .frm label{display:block;font-size:12px;color:var(--muted);margin-top:8px}.frm select,.frm input,.frm textarea{width:100%}
 .btn.q{padding:2px 8px}.btn[disabled]{opacity:.4;cursor:default}
 @media(max-width:900px){.two{grid-template-columns:1fr}}
+.rgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,330px);gap:12px;margin-top:4px;align-items:start}
+.tlh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}.tlh h3{margin:0;flex:1}
+.chips{display:flex;gap:4px;flex-wrap:wrap}.chips button{border:1px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:14px;padding:2px 10px;font-size:12px;cursor:pointer}
+.chips button.on{background:var(--primary);border-color:var(--primary);color:var(--primary-ink)}
+.tl{display:flex;flex-direction:column;gap:10px;padding:4px 0}
+.tld{align-self:center;font-size:11.5px;color:var(--muted);background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:1px 10px;margin:4px 0}
+.tln{display:flex;gap:9px;align-items:flex-start}
+.av{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:12.5px;font-weight:700;color:var(--surface);background:var(--tc)}
+.bub{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--line);border-radius:4px 12px 12px 12px;padding:7px 11px}
+.tln.me .bub{background:var(--primary-soft)}
+.bh{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:13px}.bh time{margin-left:auto;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.tt{font-size:11px;border:1px solid var(--tc);color:var(--tc);border-radius:10px;padding:0 7px;white-space:nowrap}
+.bn{font-size:11px;color:var(--muted)}
+.btx{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:3px;font-size:13.5px;line-height:1.45}
+.tls{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--muted);padding-left:11px}
+.tls i{flex:none;width:12px;height:12px;border-radius:50%;border:2px solid var(--line2);background:var(--surface);margin-top:2px}
+.tls b{color:var(--ink2);font-weight:600}.tls .chg{display:block}
+.c-rep{--tc:var(--accent)}.c-head{--tc:var(--primary)}.c-acc{--tc:var(--ok)}.c-dir{--tc:var(--danger)}.c-leg{--tc:var(--violet)}.c-adm{--tc:var(--ink2)}.c-oth{--tc:var(--muted)}
+.fake{display:block;width:100%;text-align:left;margin-top:10px;padding:10px 12px;border:1px dashed var(--line2);border-radius:10px;background:var(--surface);color:var(--muted);cursor:pointer;font:inherit}
+.fake:hover{border-color:var(--primary);color:var(--primary)}
+.plan dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 10px;margin:4px 0 0;font-size:13px}.plan dt{color:var(--muted)}.plan dd{margin:0;overflow-wrap:anywhere}
+.plan dd.late{color:var(--danger);font-weight:600}
+.dh{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:4px}
+.dh4{margin:16px 0 4px;font-size:13px;color:var(--muted)}
+.stamp{font-size:12px;color:var(--muted);background:var(--surface2);border-radius:8px;padding:5px 9px;margin-top:6px}
+.tl.sm .bub{padding:5px 9px}.tl.sm .btx{font-size:12.5px}.tl.sm .av{width:28px;height:28px;font-size:11px}
+#toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:8px 16px;border-radius:20px;font-size:13px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.on{opacity:1}
+.flash .bub{animation:fl 1.6s ease-out}@keyframes fl{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
+@media(max-width:900px){.rgrid{grid-template-columns:1fr}.rgrid .plan{order:-1}}
 @media(max-width:820px){.sbt{display:none}aside.col{width:auto;padding:8px}}
 @media(prefers-reduced-motion:reduce){.fc{animation:none}}
 @media print{#ice{display:none}}
@@ -201,7 +231,7 @@ const myRows = () => rows.filter(r => !op || r.operation === op);
 async function start() {
   try {
     const uid = sess.user.id;
-    const p = await api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role,rep_name');
+    const p = await api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role,rep_name,job_title').catch(() => api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role,rep_name'));
     me = p[0]; if (!me) throw new Error('No profile');
     access = me.role === 'admin' ? [] : await api('/rest/v1/fu_access?user_id=eq.' + uid + '&select=module,operation,level');
     ops = await api('/rest/v1/operations?select=code,name&order=sort');
@@ -210,7 +240,7 @@ async function start() {
   } catch (e) { $('lerr').textContent = 'Could not load: ' + e.message; sess = null; localStorage.removeItem('fu_session'); return; }
   if (!visibleMods().length) { $('lerr').textContent = 'Your account has no access yet. Ask the Admin.'; sess = null; localStorage.removeItem('fu_session'); return; }
   $('login').hidden = true; $('app').hidden = false; $('ice').style.display = 'none';
-  $('who').textContent = (me.full_name || me.username) + ' · ' + (me.role === 'admin' ? 'Admin' : 'User');
+  $('who').textContent = (me.full_name || me.username) + ' · ' + (myTitle() || 'User');
   mod = visibleMods()[0].id;
   await loadRows(); route();
 }
@@ -348,22 +378,77 @@ function formHtml(r, canEdit, canFull) {
     + '<label>Who does it</label><input id="eOwner" value="' + esc(r.next_owner) + '"' + dis + '>'
     + '<label>Next action date</label><input id="eNext" type="date" value="' + esc(r.next_date) + '"' + dis + '>'
     + '<label>Customer promise date</label><input id="ePromise" type="date" value="' + esc(r.promised_date) + '"' + dis + '>'
-    + '<label>Remarks</label><textarea id="eRem" rows="2"' + dis + '>' + esc(r.remarks) + '</textarea>'
-    + (canEdit ? '<div class="row2"><button class="btn p" id="pSave">Save</button><span class="err" id="pErr"></span></div>' : '<div class="hint">View only: you cannot change this item.</div>');
+    + '<label>Short remark (shown in the list)</label><textarea id="eRem" rows="2"' + dis + '>' + esc(r.remarks) + '</textarea>';
 }
-const noteHtml = canEdit => canEdit ? '<label>Add a note</label><input id="eNote" placeholder="e.g. Spoke to Arpico accounts, payment by 12 Nov"><div class="row2"><button class="btn" id="pNote">Add note</button></div>' : '';
-function bindForm(canEdit) { if (canEdit) { $('pSave').onclick = save; $('pNote').onclick = addNote; } }
 const canOf = r => { const rv = rank(lvl(r.operation, 'receivable')), mine = me.rep_name && (r.owner_name || '').trim().toLowerCase() === me.rep_name.trim().toLowerCase(), rp = mine ? Math.min(2, rank(lvl(r.operation, 'rep'))) : 0; return {edit: Math.max(rv, rp) >= 2, full: rv >= 3}; };
-async function openPanel(id) {
-  cur = rows.find(r => r.id === id); if (!cur) return;
-  const r = cur, c = canOf(r);
-  $('panel').innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px"><h3>' + esc(r.outlet) + '</h3><button class="btn" style="align-self:flex-start" id="pClose">Close</button></div>'
-    + '<div class="hint">' + esc(r.party) + ' · ' + esc(r.ref_key) + ' · ' + esc(r.owner_name) + '<br><b>' + money(r.amount) + '</b> · invoice ' + esc(r.base_date) + ' · ' + r.aging_days + ' days (' + esc(r.bucket) + ')' + (r.days_to_120 > 0 ? ', ' + r.days_to_120 + ' days to 120' : '') + '</div>'
-    + '<div class="frm">' + formHtml(r, c.edit, c.full) + (c.edit ? '<hr>' + noteHtml(true) : '') + '</div>'
-    + '<div class="row2"><button class="btn" data-recpage="' + r.id + '">Open full page</button></div><h4 style="margin:10px 0 2px">History</h4><div id="hist">Loading...</div>';
-  $('panel').classList.add('open');
-  $('pClose').onclick = () => $('panel').classList.remove('open');
-  bindForm(c.edit); loadHist();
+
+// ---------- timeline (one per follow-up item, every module) ----------
+const myTitle = () => (me.job_title || '').trim() || (me.rep_name ? 'Sales Rep' : me.role === 'admin' ? 'Admin' : '');
+const fmtDT = d => d.toLocaleString('en-GB', {day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true});
+const fmtT = d => d.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit', hour12: true});
+const fmtD = d => d.toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'});
+const ini = n => String(n || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
+const tcls = t => { t = String(t || '').toLowerCase(); return /rep|sales/.test(t) ? 'c-rep' : /legal|lawyer/.test(t) ? 'c-leg' : /director/.test(t) ? 'c-dir' : /account|finance|cashier/.test(t) ? 'c-acc' : /head|manager|hod/.test(t) ? 'c-head' : /admin/.test(t) ? 'c-adm' : 'c-oth'; };
+const FLD = {status: 'Status', reason: 'Reason', next_step: 'Next step', next_owner: 'Who does it', next_date: 'Next action date', promised_date: 'Promise date', remarks: 'Short remark'};
+const fv = (f, v) => v == null || v === '' ? '(blank)' : f === 'status' ? (STATUS[v] || v) : v;
+let tlEv = [], tlF = 'all', tlFlash = null, tlItem = null;
+function tlGroups(ev) {
+  const out = []; let n = 0;
+  ev.forEach(e => {
+    const L = out[out.length - 1];
+    if (e.kind === 'note') out.push({note: true, n: ++n, e});
+    else if (e.field && L && L.sys && L.by === (e.by_name || '') && Math.abs(new Date(e.at) - new Date(L.at)) < 15000) L.items.push(e);
+    else out.push({sys: true, at: e.at, by: e.by_name || '', title: e.by_title, items: [e]});
+  });
+  return out;
+}
+function tlHtml(ev, f, last) {
+  let g = tlGroups(ev).filter(x => f === 'all' || (f === 'note' ? x.note : x.sys));
+  if (last) g = g.slice(-last);
+  if (!g.length) return '<div class="hint">' + (f === 'note' ? 'No remarks yet. Be the first to add one.' : 'Nothing yet.') + '</div>';
+  const uid = sess && sess.user && sess.user.id; let day = '';
+  return g.map(x => {
+    const at = new Date(x.note ? x.e.at : x.at), d = fmtD(at), sep = d !== day ? '<div class="tld">' + esc(d) + '</div>' : ''; day = d;
+    if (x.note) { const e = x.e, t = e.by_title || '', c = tcls(t);
+      return sep + '<div class="tln' + (e.by_user && e.by_user === uid ? ' me' : '') + (tlFlash === e.id ? ' flash' : '') + '"><span class="av ' + c + '">' + esc(ini(e.by_name)) + '</span><div class="bub"><div class="bh"><b>' + esc(e.by_name || 'Unknown') + '</b>' + (t ? '<span class="tt ' + c + '">' + esc(t) + '</span>' : '') + '<span class="bn">#' + x.n + '</span><time title="' + esc(fmtDT(at)) + '">' + esc(fmtT(at)) + '</time></div><div class="btx">' + esc(e.note) + '</div></div></div>'; }
+    return sep + '<div class="tls"><i></i><div><b>' + esc(x.by || 'System') + '</b>' + (x.title ? ' (' + esc(x.title) + ')' : '') + ' · ' + esc(fmtT(at)) + x.items.map(e => '<span class="chg">' + (e.field ? esc(FLD[e.field] || e.field) + ': ' + esc(fv(e.field, e.old_value)) + ' &rarr; <b>' + esc(fv(e.field, e.new_value)) + '</b>' : esc(e.note || e.kind)) + '</span>').join('') + '</div></div>';
+  }).join('');
+}
+function paintTl() {
+  const h = $('hist'); if (h) h.innerHTML = tlHtml(tlEv, tlF);
+  const nn = tlEv.filter(e => e.kind === 'note').length, ch = $('tlChips');
+  if (ch) ch.innerHTML = [['all', 'All', tlEv.length], ['note', 'Remarks', nn], ['sys', 'Changes', tlEv.length - nn]].map(c => '<button data-tlf="' + c[0] + '"' + (tlF === c[0] ? ' class="on"' : '') + '>' + c[1] + ' ' + c[2] + '</button>').join('');
+  const d = $('dTl'); if (d) d.innerHTML = tlHtml(tlEv, 'all', 6);
+  if (tlFlash) { const el = document.querySelector('.flash'); if (el) el.scrollIntoView({block: 'center', behavior: 'smooth'}); tlFlash = null; }
+}
+async function loadHist() {
+  try {
+    let ev; try { ev = await api('/rest/v1/fu_events?item_id=eq.' + cur.id + '&order=at.asc,id.asc&limit=1000&select=id,at,by_name,by_title,by_user,kind,field,old_value,new_value,note'); }
+    catch (e) { ev = await api('/rest/v1/fu_events?item_id=eq.' + cur.id + '&order=at.asc,id.asc&limit=1000&select=id,at,by_name,kind,field,old_value,new_value,note'); }
+    tlEv = ev || []; tlItem = cur.id; paintTl();
+  } catch (e) { const h = $('hist') || $('dTl'); if (h) h.textContent = e.message; }
+}
+function toast(m) { let t = $('toast'); if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); } t.textContent = m; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2200); }
+const closeDrawer = () => $('panel').classList.remove('open');
+const stampLine = () => '<div class="stamp">Logged as <b>' + esc(me.full_name || me.username) + '</b>' + (myTitle() ? ' · ' + esc(myTitle()) : '') + ' · ' + esc(fmtDT(new Date())) + '. Remarks cannot be edited later.</div>';
+// side drawer: 'note' = add a remark, 'edit' = update the follow-up (with an optional remark)
+function drawer(modeIn, fromList) {
+  const r = cur; if (!r) return; const c = canOf(r), mode = modeIn === 'edit' && c.edit ? 'edit' : 'note';
+  let h = '<div class="dh"><div><h3>' + (mode === 'edit' ? 'Update follow-up' : 'Add remark') + '</h3><div class="hint">' + esc(r.outlet) + ' · ' + esc(r.ref_key) + ' · <b>' + money(r.amount) + '</b> · ' + r.aging_days + ' days' + (r.owner_name ? ' · rep ' + esc(r.owner_name) : '') + '</div></div><button class="btn" data-pact="close">Close</button></div><div class="frm">';
+  if (mode === 'edit') h += formHtml(r, true, c.full) + '<label>Remark for the timeline (optional)</label><textarea id="dNote" rows="3" maxlength="2000" placeholder="Why it changed, e.g. Customer promised to pay on 15 Nov in a phone call"></textarea>';
+  else h += '<label>Remark</label><textarea id="dNote" rows="6" maxlength="2000" placeholder="e.g. Visited the shop. The owner will pay in 3 instalments, first one on 10 Nov"></textarea>';
+  h += stampLine() + '<div class="row2"><button class="btn p" data-pact="' + (mode === 'edit' ? 'save' : 'post') + '">' + (mode === 'edit' ? 'Save' : 'Post remark') + '</button><button class="btn" data-pact="close">Cancel</button>'
+    + (mode === 'edit' ? '<button class="btn" data-pact="note">Remark only</button>' : (c.edit ? '<button class="btn" data-pact="edit">&#9998; Update follow-up</button>' : '')) + '<span class="hint">Ctrl + Enter</span></div><div class="err" id="pErr"></div></div>'
+    + (fromList || page !== 'record' ? '<div class="row2"><button class="btn" data-recpage="' + r.id + '">Open full page with the timeline</button></div>' : '')
+    + '<h4 class="dh4">Latest in the timeline</h4><div id="dTl" class="tl sm">Loading...</div>';
+  $('panel').innerHTML = h; $('panel').classList.add('open'); $('panel').dataset.from = fromList ? '1' : '';
+  paintTl(); if (tlItem !== r.id) loadHist();
+  setTimeout(() => { const n = $('dNote'); if (n && mode === 'note') n.focus(); }, 220);
+}
+function openPanel(id) { cur = rows.find(r => r.id === id); if (!cur) return; if (tlItem !== cur.id) { tlEv = []; tlItem = null; } drawer(canOf(cur).edit ? 'edit' : 'note', true); }
+function planHtml(r) {
+  const late = r.next_date && r.next_date < new Date().toISOString().slice(0, 10) && isActive(r), row = (k, v, cls) => '<dt>' + k + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + (v ? esc(v) : '<span class="hint">not set</span>') + '</dd>';
+  return '<dl>' + row('Status', STATUS[r.status]) + row('Reason', r.reason) + row('Next step', r.next_step) + row('Who does it', r.next_owner) + row('Next action date', r.next_date, late ? 'late' : '') + row('Promise date', r.promised_date, r.promise_broken ? 'late' : '') + row('Short remark', r.remarks) + row('Sales rep', r.owner_name) + '</dl>';
 }
 function clearHash() { if (location.hash) history.replaceState(null, '', location.pathname + location.search); }
 function openRecord(id) { location.hash = 'item/' + encodeURIComponent(id); }
@@ -381,30 +466,36 @@ function renderRecord() {
     + '<div class="row2 noprint"><button class="btn" data-back="1">&larr; Back to list</button><button class="btn" data-rec="' + (prev ? prev.id : '') + '"' + (prev ? '' : ' disabled') + '>&lsaquo; Previous</button><button class="btn" data-rec="' + (next ? next.id : '') + '"' + (next ? '' : ' disabled') + '>Next &rsaquo;</button></div></div>'
     + '<div class="grid"><div class="tile"><b>' + money(r.amount) + '</b><span>Balance</span></div><div class="tile"><b>' + esc(r.base_date) + '</b><span>Invoice date</span></div><div class="tile ' + (r.aging_days > 120 ? 'r' : 'a') + '"><b>' + r.aging_days + ' days</b><span>Age (' + esc(r.bucket) + ')</span></div>'
     + '<div class="tile ' + (r.days_to_120 > 0 ? 'a' : 'r') + '"><b>' + (r.days_to_120 > 0 ? r.days_to_120 + ' days' : 'Over 120') + '</b><span>' + (r.days_to_120 > 0 ? 'Left before 120 days' : 'Already past 120 days') + '</span></div><div class="tile"><b>' + STATUS[r.status] + '</b><span>Status</span></div><div class="tile"><b style="font-size:14px">' + flags + '</b><span>Flags</span></div></div>'
-    + '<div class="two"><div class="card frm"><h3>Follow-up</h3>' + formHtml(r, c.edit, c.full) + '</div><div class="card frm"><h3>Notes and history</h3>' + noteHtml(c.edit) + '<h4 style="margin:12px 0 2px">History</h4><div id="hist">Loading...</div></div></div>';
-  bindForm(c.edit); loadHist(); window.scrollTo(0, 0);
+    + '<div class="rgrid"><div class="card"><div class="tlh"><h3>Timeline</h3><div class="chips noprint" id="tlChips"></div><button class="btn p noprint" data-ract="note">+ Add remark</button></div>'
+    + '<div class="hint">Every remark and change on this item, oldest first, with who added it and when.</div><div id="hist" class="tl">Loading...</div>'
+    + '<button class="fake noprint" data-ract="note">Write a remark for everyone following this item...</button></div>'
+    + '<div class="card plan"><div class="tlh"><h3>Current follow-up</h3>' + (c.edit ? '<button class="btn noprint" data-ract="edit">&#9998; Update</button>' : '') + '</div>' + planHtml(r)
+    + (c.edit ? '' : '<div class="hint" style="margin-top:8px">You can add remarks. Only users with edit access change the follow-up fields.</div>') + '</div></div>';
+  if (tlItem !== r.id) { tlEv = []; tlF = 'all'; } paintTl(); loadHist(); window.scrollTo(0, 0);
 }
-async function loadHist() {
-  try {
-    const ev = await api('/rest/v1/fu_events?item_id=eq.' + cur.id + '&order=at.desc&limit=50&select=at,by_name,kind,field,old_value,new_value,note');
-    $('hist').innerHTML = ev.length ? ev.map(e => '<div class="ev"><small>' + esc(new Date(e.at).toLocaleString('en-GB')) + ' · ' + esc(e.by_name || '') + '</small><br>' + (e.field ? esc(e.field) + ': ' + esc(e.old_value || '(blank)') + ' &rarr; <b>' + esc(e.new_value || '(blank)') + '</b>' : '') + esc(e.note || '') + '</div>').join('') : '<div class="hint">No history</div>';
-  } catch (e) { $('hist').textContent = e.message; }
+async function afterWrite(msg, flashNew) {
+  const id = cur.id; await loadRows(); cur = rows.find(r => r.id === id) || cur;
+  closeDrawer(); if (page === 'record') renderRecord(); else go();
+  await loadHist();
+  if (flashNew) { const n = tlEv.filter(e => e.kind === 'note').pop(); if (n) { tlFlash = n.id; if (tlF === 'sys') tlF = 'all'; paintTl(); } }
+  toast(msg);
 }
 async function save() {
   const v = {status: $('eStatus').value, reason: $('eReason').value || null, next_step: $('eStep').value || null, next_owner: $('eOwner').value.trim() || null, next_date: $('eNext').value || null, promised_date: $('ePromise').value || null, remarks: $('eRem').value.trim() || null};
+  const note = $('dNote').value.trim();
   if (v.status === 'promised' && !v.promised_date) { $('pErr').textContent = 'Promised needs a promise date'; return; }
   const ch = {}; Object.keys(v).forEach(k => { if ((cur[k] || null) !== v[k]) ch[k] = v[k]; });
-  if (!Object.keys(ch).length) { $('pErr').textContent = 'Nothing changed'; return; }
+  if (!Object.keys(ch).length && !note) { $('pErr').textContent = 'Nothing changed'; return; }
   try {
-    await api('/rest/v1/fu_items?id=eq.' + cur.id, {method: 'PATCH', body: ch, headers: {Prefer: 'return=minimal'}});
-    const id = cur.id; await loadRows(); cur = rows.find(r => r.id === id); if (page === 'record') { renderRecord(); } else { rerender(); } const pe = $('pErr'); if (pe) pe.textContent = 'Saved'; loadHist();
+    if (Object.keys(ch).length) await api('/rest/v1/fu_items?id=eq.' + cur.id, {method: 'PATCH', body: ch, headers: {Prefer: 'return=minimal'}});
+    if (note) await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: note}});
+    await afterWrite('Saved to the timeline', !!note);
   } catch (e) { $('pErr').textContent = e.message; }
 }
-async function addNote() {
-  const t = $('eNote').value.trim(); if (!t) return;
-  try { await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: t}}); $('eNote').value = ''; loadHist(); } catch (e) { $('pErr').textContent = e.message; }
+async function postNote() {
+  const t = $('dNote').value.trim(); if (!t) { $('pErr').textContent = 'Write the remark first'; return; }
+  try { await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: t}}); await afterWrite('Remark added', true); } catch (e) { $('pErr').textContent = e.message; }
 }
-function rerender() { const open = $('panel').classList.contains('open'), html = $('panel').innerHTML; go(); if (open) { $('panel').innerHTML = html; $('panel').classList.add('open'); $('pClose').onclick = () => $('panel').classList.remove('open'); if ($('pSave')) { $('pSave').onclick = save; $('pNote').onclick = addNote; } } }
 
 // ---------- Permission (admin) ----------
 const PMODS = [['*', 'All modules']].concat(MODS.map(m => [m.id, m.name]));
@@ -414,7 +505,7 @@ async function fn(body) {
   const go_ = () => fetch(URL_ + '/functions/v1/admin-users', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json', Authorization: 'Bearer ' + sess.access_token}, body: JSON.stringify(body)});
   let r = await go_(); if (r.status === 401 && await refresh()) r = await go_();
   const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || j.message || ('HTTP ' + r.status));
-  if (body.action === 'list' && j.users) { try { const pr = await api('/rest/v1/profiles?select=id,rep_name'), mp = {}; pr.forEach(x => mp[x.id] = x.rep_name || ''); j.users.forEach(u => u.rep_name = mp[u.id] || ''); } catch (e) {} }
+  if (body.action === 'list' && j.users) { try { const pr = await api('/rest/v1/profiles?select=id,rep_name,job_title'), mp = {}; pr.forEach(x => mp[x.id] = x); j.users.forEach(u => { u.rep_name = (mp[u.id] || {}).rep_name || ''; u.job_title = (mp[u.id] || {}).job_title || ''; }); } catch (e) {} }
   return j;
 }
 async function pgPerm() { $('page').innerHTML = '<div class="hint">Loading users...</div>'; try { uData = await fn({action: 'list'}); renderUsers(''); } catch (e) { $('page').innerHTML = '<div class="card err">' + esc(e.message) + '</div>'; } }
@@ -426,14 +517,15 @@ function renderUsers(msg) {
   h += '<div class="card" style="margin-top:12px"><h3>New user</h3><div class="row2"><input id="nName" placeholder="Full name"><input id="nUser" placeholder="Username or email"><input id="nPass" type="password" placeholder="Password (8+ characters)" autocomplete="new-password"><select id="nRole"><option value="user">User</option><option value="admin">Admin</option></select><button class="btn p" data-uact="create">Create user</button></div></div>';
   h += '<div class="card" style="margin-top:12px"><h3>Users</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Access</th><th></th></tr></thead><tbody>' + uData.users.map(u => {
     const ac = uData.access.filter(a => a.user_id === u.id);
-    return '<tr><td>' + esc(u.full_name) + (u.active ? '' : ' <span class="tag t-b">off</span>') + '</td><td>' + esc(u.username) + (u.rep_name ? '<br><span class="hint">rep: ' + esc(u.rep_name) + '</span>' : '') + '</td><td>' + esc(u.role) + '</td><td>' + (u.role === 'admin' ? '<i>Everything</i>' : (ac.map(a => esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + ' ' + lvTag(a.level)).join('<br>') || '<span class="hint">no access yet</span>'))
+    return '<tr><td>' + esc(u.full_name) + (u.active ? '' : ' <span class="tag t-b">off</span>') + (u.job_title ? '<br><span class="hint">' + esc(u.job_title) + '</span>' : '') + '</td><td>' + esc(u.username) + (u.rep_name ? '<br><span class="hint">rep: ' + esc(u.rep_name) + '</span>' : '') + '</td><td>' + esc(u.role) + '</td><td>' + (u.role === 'admin' ? '<i>Everything</i>' : (ac.map(a => esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + ' ' + lvTag(a.level)).join('<br>') || '<span class="hint">no access yet</span>'))
       + '</td><td style="white-space:nowrap"><button class="btn" data-uact="acc" data-id="' + u.id + '">Access</button> <button class="btn" data-uact="pwd" data-id="' + u.id + '">Password</button> <button class="btn" data-uact="role" data-id="' + u.id + '">' + (u.role === 'admin' ? 'Make User' : 'Make Admin') + '</button> <button class="btn d" data-uact="act" data-id="' + u.id + '">' + (u.active ? 'Switch off' : 'Switch on') + '</button></td></tr>';
   }).join('') + '</tbody></table></div></div>';
   if (uSel) {
     const u = uData.users.find(x => x.id === uSel), ac = uData.access.filter(a => a.user_id === uSel);
-    h += '<div class="card" style="margin-top:12px"><h3>Access for ' + esc(u ? (u.full_name || u.username) : '') + '</h3>' + '<div class="row2"><b>Sales rep name:</b><input id="repName" list="repList" value="' + esc(u && u.rep_name || '') + '" placeholder="as in the outstanding list, e.g. Prabash Rashintha" style="min-width:280px"><datalist id="repList">' + [...new Set(rows.map(r => r.owner_name).filter(Boolean))].sort().map(n => '<option value="' + esc(n) + '">').join('') + '</datalist><button class="btn" data-uact="repname">Save rep name</button><span class="hint">Needed for the Sales rep role</span></div>' + (u && u.role === 'admin' ? '<div class="hint">Admins have full access to everything. Make the user a normal User to give limited access.</div>' : '')
+    h += '<div class="card" style="margin-top:12px"><h3>Access for ' + esc(u ? (u.full_name || u.username) : '') + '</h3>' + '<div class="row2"><b>Sales rep name:</b><input id="repName" list="repList" value="' + esc(u && u.rep_name || '') + '" placeholder="as in the outstanding list, e.g. Prabash Rashintha" style="min-width:280px"><datalist id="repList">' + [...new Set(rows.map(r => r.owner_name).filter(Boolean))].sort().map(n => '<option value="' + esc(n) + '">').join('') + '</datalist><button class="btn" data-uact="repname">Save rep name</button><span class="hint">Needed for the Sales rep role</span></div>'
+      + '<div class="row2"><b>Job title:</b><input id="jobTitle" list="jobList" value="' + esc(u && u.job_title || '') + '" placeholder="shown on every timeline remark, e.g. Legal Officer" style="min-width:280px"><datalist id="jobList">' + ['Sales Rep', 'Operation Head', 'Operation Officer', 'Accounts', 'Finance Manager', 'Director', 'Legal Officer', 'AM Operations'].map(n => '<option value="' + n + '">').join('') + '</datalist><button class="btn" data-uact="jobtitle">Save job title</button></div>' + (u && u.role === 'admin' ? '<div class="hint">Admins have full access to everything. Make the user a normal User to give limited access.</div>' : '')
       + ac.map(a => '<div class="row2"><span style="min-width:230px">' + esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + '</span><select data-uact="lv" data-id="' + a.id + '">' + ['view', 'edit', 'full'].map(l => '<option' + (l === a.level ? ' selected' : '') + '>' + l + '</option>').join('') + '</select><button class="btn d" data-uact="rm" data-id="' + a.id + '">Remove</button></div>').join('')
-      + '<div class="row2"><b>Quick role:</b><select id="pRole"><option value="officer">Operation data entry (Daily Collection: edit, this operation)</option><option value="manager">Operation viewer (Daily Collection: view, this operation)</option><option value="finance">Finance (Daily Collection: full, Outstanding and reps: view)</option><option value="rep">Sales rep (own outstanding and to-do)</option><option value="ophead">Operation head (Outstanding: edit, Collection: view)</option><option value="director">Director (everything: view)</option></select><select id="pOp">' + opsOpt + '</select><button class="btn p" data-uact="preset">Apply role</button></div>' + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-uact="add">Add access</button></div></div>';
+      + '<div class="row2"><b>Quick role:</b><select id="pRole"><option value="officer">Operation data entry (Daily Collection: edit, this operation)</option><option value="manager">Operation viewer (Daily Collection: view, this operation)</option><option value="finance">Finance (Daily Collection: full, Outstanding and reps: view)</option><option value="rep">Sales rep (own outstanding and to-do)</option><option value="ophead">Operation head (Outstanding: edit, Collection: view)</option><option value="director">Director (everything: view + remarks)</option><option value="legal">Legal Officer (Outstanding: view + remarks)</option></select><select id="pOp">' + opsOpt + '</select><button class="btn p" data-uact="preset">Apply role</button></div>' + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-uact="add">Add access</button></div></div>';
   }
   $('page').innerHTML = h;
 }
@@ -446,7 +538,14 @@ async function permClick(b) {
     else if (act === 'role') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, role: u.role === 'admin' ? 'user' : 'admin'}); await reload(); }
     else if (act === 'act') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, active: !u.active}); await reload(); }
     else if (act === 'repname') { await api('/rest/v1/profiles?id=eq.' + uSel, {method: 'PATCH', body: {rep_name: $('repName').value.trim() || null}, headers: {Prefer: 'return=minimal'}}); await reload('Rep name saved.'); }
-    else if (act === 'preset') { const P = {officer: [['collection', 'edit']], manager: [['collection', 'view']], finance: [['collection', 'full'], ['receivable', 'view']], rep: [['rep', 'edit']], ophead: [['receivable', 'edit'], ['collection', 'view']], director: [['*', 'view']]}; for (const x of P[$('pRole').value]) await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: x[0], operation: $('pOp').value, level: x[1]}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}}); await reload('Role applied.'); }
+    else if (act === 'jobtitle') { await api('/rest/v1/profiles?id=eq.' + uSel, {method: 'PATCH', body: {job_title: $('jobTitle').value.trim() || null}, headers: {Prefer: 'return=minimal'}}); await reload('Job title saved.'); }
+    else if (act === 'preset') {
+      const P = {officer: [['collection', 'edit']], manager: [['collection', 'view']], finance: [['collection', 'full'], ['receivable', 'view']], rep: [['rep', 'edit']], ophead: [['receivable', 'edit'], ['collection', 'view']], director: [['*', 'view']], legal: [['receivable', 'view']]};
+      const T = {officer: 'Operation Officer', finance: 'Accounts', rep: 'Sales Rep', ophead: 'Operation Head', director: 'Director', legal: 'Legal Officer'}, k = $('pRole').value, u = uData.users.find(x => x.id === uSel);
+      for (const x of P[k]) await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: x[0], operation: $('pOp').value, level: x[1]}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}});
+      if (T[k] && u && !u.job_title) await api('/rest/v1/profiles?id=eq.' + uSel, {method: 'PATCH', body: {job_title: T[k]}, headers: {Prefer: 'return=minimal'}});
+      await reload('Role applied.');
+    }
     else if (act === 'add') { await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: $('aMod').value, operation: $('aOp').value, level: $('aLv').value}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}}); await reload(); }
     else if (act === 'rm') { await api('/rest/v1/fu_access?id=eq.' + id, {method: 'DELETE', headers: {Prefer: 'return=minimal'}}); await reload(); }
   } catch (er) { const m = $('uMsg'); if (m) m.textContent = er.message; }
@@ -495,6 +594,8 @@ $('page').onclick = e => {
   if (e.target.id === 'rPrint') return window.print();
   if (e.target.id === 'rCsv') return exportCsv();
   const q = e.target.closest('[data-quick]'); if (q) return openPanel(q.dataset.quick);
+  const ra = e.target.closest('[data-ract]'); if (ra) return drawer(ra.dataset.ract, false);
+  const tf = e.target.closest('[data-tlf]'); if (tf) { tlF = tf.dataset.tlf; return paintTl(); }
   const bk = e.target.closest('[data-back]'); if (bk) { clearHash(); return go('items'); }
   const rc = e.target.closest('[data-rec]'); if (rc) { if (!rc.disabled) location.replace('#item/' + rc.dataset.rec); return; }
   const o = e.target.closest('[data-open]'); if (o) return openRecord(o.dataset.open);
@@ -508,7 +609,13 @@ $('page').onchange = async e => {
 };
 $('page').oninput = e => { if (e.target.id === 'fText') { F.text = e.target.value; renderItems(); } };
 $('sbToggle').onclick = () => { sbCol = !sbCol; try { localStorage.setItem('fu_sb', sbCol ? '1' : '0'); } catch (e) {} go(); };
-$('panel').onclick = e => { const b = e.target.closest('[data-recpage]'); if (b) { $('panel').classList.remove('open'); openRecord(b.dataset.recpage); } };
+$('panel').onclick = e => {
+  const b = e.target.closest('[data-recpage]'); if (b) { closeDrawer(); openRecord(b.dataset.recpage); return; }
+  const a = e.target.closest('[data-pact]'); if (!a) return; const k = a.dataset.pact, fl = $('panel').dataset.from === '1';
+  if (k === 'close') closeDrawer(); else if (k === 'save') save(); else if (k === 'post') postNote(); else drawer(k, fl);
+};
+$('panel').onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.id === 'dNote') { e.preventDefault(); const b = document.querySelector('#panel [data-pact="save"],#panel [data-pact="post"]'); if (b) b.click(); } };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('panel').classList.contains('open')) closeDrawer(); });
 window.addEventListener('hashchange', () => { if (me) route(); });
 if (sess) start();
 </script></body></html>
