@@ -129,12 +129,15 @@ aside.col .sbt{margin:0 auto 8px}
   <div id="panel"></div>
 </div>
 
+<script src="ims-cash.js?v=1"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
 const STATUS = {open:'Open',promised:'Promised',dispute:'Dispute',action_pending:'Action pending',settled:'Settled',written_off:'Written off'};
 const MODS = [
   {id:'receivable', name:'Outstanding', sub:'Over 30 / 60 / 90 / 120 / 240', ic:'OS', ready:true},
+  {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true},
+  {id:'cashflow', name:'Cash Flow', sub:'Payments, FM requirement, cheques', ic:'CF', ready:true},
   {id:'foc', name:'FOC Report', sub:'Free of charge stock', ic:'FC', ready:false},
   {id:'short_expiry', name:'Short Expiry', sub:'Stock near expiry', ic:'SE', ready:false},
   {id:'grn', name:'GRN Outstanding', sub:'GRN pending and errors', ic:'GR', ready:false},
@@ -223,20 +226,23 @@ function go(p, m) {
   $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' ? 'items' : page) ? 'on' : '') + '">' + x[1] + '</button>').join('');
   const act = rows.filter(isActive);
   $('mods').innerHTML = visibleMods().map(m => {
-    const n = m.ready ? act.length : 0;
+    const n = m.id === 'receivable' ? act.length : 0;
     return '<button title="' + esc(m.name) + '" class="mod ' + (m.id === mod && ['items', 'dash', 'report', 'record'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
   }).join('');
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
   const my = opsFor(mod);
   if (needOp && my.length === 1) op = my[0].code; else if (!needOp || my.length > 1) { if (!my.some(o => o.code === op)) op = ''; }
   $('bar').innerHTML = needOp && my.length > 1 ? '<select id="opSel"><option value="">All my operations</option>' + my.map(o => '<option value="' + o.code + '"' + (o.code === op ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>' : '';
-  ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm, record: renderRecord})[page]();
+  const PG = ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm, record: renderRecord});
+  const MP = window.MODULE_PAGES && MODULE_PAGES[mod];
+  if (MP && MP[page] && page !== 'home' && page !== 'perm') MP[page](); else PG[page]();
 }
 
 // ---------- Home ----------
 function pgHome() {
   const act = rows.filter(isActive);
   const cards = visibleMods().map(m => {
+    if (m.ready && m.id !== 'receivable') return (window.MODULE_PAGES && MODULE_PAGES[m.id] && MODULE_PAGES[m.id].card) ? MODULE_PAGES[m.id].card(m) : '';
     if (!m.ready) return '<div class="card mcard" data-mod="' + m.id + '" data-go="items"><b>' + esc(m.name) + '</b> <span class="badge b-soon">Coming soon</span><div class="hint">' + esc(m.sub) + '</div></div>';
     return '<div class="card mcard" data-mod="' + m.id + '" data-go="items"><b>' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">' + esc(m.sub) + '</div>'
       + '<div style="font-size:20px;font-weight:700;margin-top:6px">' + money0(sum(act)) + '</div><div class="hint">' + act.length + ' active items · ' + act.filter(r => r.action_overdue).length + ' overdue · ' + act.filter(r => r.incomplete).length + ' incomplete</div></div>';
@@ -424,7 +430,7 @@ function renderUsers(msg) {
     const u = uData.users.find(x => x.id === uSel), ac = uData.access.filter(a => a.user_id === uSel);
     h += '<div class="card" style="margin-top:12px"><h3>Access for ' + esc(u ? (u.full_name || u.username) : '') + '</h3>' + (u && u.role === 'admin' ? '<div class="hint">Admins have full access to everything. Make the user a normal User to give limited access.</div>' : '')
       + ac.map(a => '<div class="row2"><span style="min-width:230px">' + esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + '</span><select data-uact="lv" data-id="' + a.id + '">' + ['view', 'edit', 'full'].map(l => '<option' + (l === a.level ? ' selected' : '') + '>' + l + '</option>').join('') + '</select><button class="btn d" data-uact="rm" data-id="' + a.id + '">Remove</button></div>').join('')
-      + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-uact="add">Add access</button></div></div>';
+      + '<div class="row2"><b>Quick role:</b><select id="pRole"><option value="officer">Collection officer (Daily Collection: edit)</option><option value="manager">Collection manager (Daily Collection: view)</option><option value="finance">Finance (Daily Collection + Cash Flow: full)</option><option value="ophead">Operation head (Outstanding: edit, Collection: view)</option><option value="director">Director (everything: view)</option></select><select id="pOp">' + opsOpt + '</select><button class="btn p" data-uact="preset">Apply role</button></div>' + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-uact="add">Add access</button></div></div>';
   }
   $('page').innerHTML = h;
 }
@@ -436,6 +442,7 @@ async function permClick(b) {
     else if (act === 'pwd') { const p = prompt('New password (8+ characters)'); if (!p) return; await fn({action: 'set_password', id, password: p}); $('uMsg').textContent = 'Password changed.'; }
     else if (act === 'role') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, role: u.role === 'admin' ? 'user' : 'admin'}); await reload(); }
     else if (act === 'act') { const u = uData.users.find(x => x.id === id); await fn({action: 'set_role', id, active: !u.active}); await reload(); }
+    else if (act === 'preset') { const P = {officer: [['collection', 'edit']], manager: [['collection', 'view']], finance: [['collection', 'full'], ['cashflow', 'full']], ophead: [['receivable', 'edit'], ['collection', 'view']], director: [['*', 'view']]}; for (const x of P[$('pRole').value]) await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: x[0], operation: $('pOp').value, level: x[1]}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}}); await reload('Role applied.'); }
     else if (act === 'add') { await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: $('aMod').value, operation: $('aOp').value, level: $('aLv').value}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}}); await reload(); }
     else if (act === 'rm') { await api('/rest/v1/fu_access?id=eq.' + id, {method: 'DELETE', headers: {Prefer: 'return=minimal'}}); await reload(); }
   } catch (er) { const m = $('uMsg'); if (m) m.textContent = er.message; }
