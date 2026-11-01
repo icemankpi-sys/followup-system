@@ -56,7 +56,7 @@ td{padding:6px 9px;border-bottom:1px solid var(--line);font-size:13px;vertical-a
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 tr.row{cursor:pointer}tr.row:hover td{background:var(--primary-soft)}
 .tag{display:inline-block;border-radius:10px;padding:0 7px;font-size:11px;color:#fff;margin-right:3px;white-space:nowrap}
-.t-r{background:var(--danger)}.t-a{background:var(--accent)}.t-g{background:var(--ok)}.t-b{background:var(--muted)}
+.t-w{background:var(--warn)}.t-r{background:var(--danger)}.t-a{background:var(--accent)}.t-g{background:var(--ok)}.t-b{background:var(--muted)}
 .st{font-size:11.5px;border:1px solid var(--line2);border-radius:10px;padding:0 7px;white-space:nowrap}
 .bar{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12.5px}
 .bl{width:38%;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -170,6 +170,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-rep.js?v=3"></script>
 <script src="ims-outlet.js?v=3"></script>
 <script src="ims-handover.js?v=2"></script>
+<script src="ims-expiry.js?v=1"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -180,7 +181,7 @@ const MODS = [
   {id:'outlets', name:'Outlets', sub:'Outlet profiles, location, history', ic:'OL', ready:true},
   {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true},
   {id:'foc', name:'FOC Report', sub:'Free of charge stock', ic:'FC', ready:false},
-  {id:'short_expiry', name:'Short Expiry', sub:'Stock near expiry', ic:'SE', ready:false},
+  {id:'short_expiry', name:'Short Expiry', sub:'Expired or expiring in 90 days', ic:'SE', ready:true},
   {id:'grn', name:'GRN Outstanding', sub:'GRN pending and errors', ic:'GR', ready:false},
   {id:'kpi', name:'KPI', sub:'KPI documents', ic:'KP', ready:false}];
 const PAGES = [['home','Home'],['items','Follow-up'],['dash','Dashboard'],['report','Report'],['perm','Permission']];
@@ -252,7 +253,9 @@ async function start() {
   $('login').hidden = true; $('app').hidden = false; $('ice').style.display = 'none';
   $('who').textContent = (me.full_name || me.username) + ' · ' + (myTitle() || 'User');
   mod = visibleMods()[0].id;
-  await loadRows(); route();
+  await loadRows();
+  if (window.seWarm && visibleMods().some(m => m.id === 'short_expiry')) await seWarm();
+  route();
 }
 async function loadRows() {
   rows = (opsFor('receivable').length || opsFor('rep').length) ? await api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000') : [];
@@ -509,8 +512,9 @@ function clearHash() { if (location.hash) history.replaceState(null, '', locatio
 function openRecord(id) { location.hash = 'item/' + encodeURIComponent(id); }
 function route() {
   const m = location.hash.match(/^#item\/(.+)$/);
-  const ol = location.hash.match(/^#outlet\/(.+)$/);
+  const ol = location.hash.match(/^#outlet\/(.+)$/), se = location.hash.match(/^#se\/(.+)$/);
   if (m) { recId = decodeURIComponent(m[1]); go('record'); }
+  else if (se) { window.SE_ID = decodeURIComponent(se[1]); go('record', 'short_expiry'); }
   else if (ol) { window.OUTLET_ID = ol[1]; go('outlet', 'outlets'); }
   else go(page === 'record' || page === 'outlet' ? 'items' : undefined);
 }
@@ -584,7 +588,7 @@ function renderUsers(msg) {
     h += '<div class="card" style="margin-top:12px"><h3>Access for ' + esc(u ? (u.full_name || u.username) : '') + '</h3>' + '<div class="row2"><b>Sales rep name:</b><input id="repName" list="repList" value="' + esc(u && u.rep_name || '') + '" placeholder="as in the outstanding list, e.g. Prabash Rashintha" style="min-width:280px"><datalist id="repList">' + [...new Set(rows.map(r => r.owner_name).filter(Boolean))].sort().map(n => '<option value="' + esc(n) + '">').join('') + '</datalist><button class="btn" data-uact="repname">Save rep name</button><span class="hint">Needed for the Sales rep role</span></div>'
       + '<div class="row2"><b>Job title:</b><input id="jobTitle" list="jobList" value="' + esc(u && u.job_title || '') + '" placeholder="shown on every timeline remark, e.g. Legal Officer" style="min-width:280px"><datalist id="jobList">' + ['Sales Rep', 'Operation Head', 'Operation Officer', 'Accounts', 'Finance Manager', 'Director', 'Legal Officer', 'AM Operations'].map(n => '<option value="' + n + '">').join('') + '</datalist><button class="btn" data-uact="jobtitle">Save job title</button></div>' + (u && u.role === 'admin' ? '<div class="hint">Admins have full access to everything. Make the user a normal User to give limited access.</div>' : '')
       + ac.map(a => '<div class="row2"><span style="min-width:230px">' + esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + '</span><select data-uact="lv" data-id="' + a.id + '">' + ['view', 'edit', 'full'].map(l => '<option' + (l === a.level ? ' selected' : '') + '>' + l + '</option>').join('') + '</select><button class="btn d" data-uact="rm" data-id="' + a.id + '">Remove</button></div>').join('')
-      + '<div class="row2"><b>Quick role:</b><select id="pRole"><option value="officer">Operation data entry (Daily Collection: edit, this operation)</option><option value="manager">Operation viewer (Daily Collection: view, this operation)</option><option value="finance">Finance (Daily Collection: full, Outstanding and reps: view)</option><option value="rep">Sales rep (own outstanding and to-do)</option><option value="ophead">Operation head (Outstanding: edit, Collection: view)</option><option value="director">Director (everything: view + remarks)</option><option value="legal">Legal Officer (Outstanding: view + remarks)</option></select><select id="pOp">' + opsOpt + '</select><button class="btn p" data-uact="preset">Apply role</button></div>' + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-uact="add">Add access</button></div></div>';
+      + '<div class="row2"><b>Quick role:</b><select id="pRole"><option value="officer">Operation data entry (Daily Collection: edit, this operation)</option><option value="manager">Operation viewer (Daily Collection: view, this operation)</option><option value="finance">Finance (Daily Collection: full, Outstanding, reps, Short Expiry: view)</option><option value="stores">Stores / Short Expiry officer (Short Expiry: full, uploads the list, this operation)</option><option value="rep">Sales rep (own outstanding and to-do)</option><option value="ophead">Operation head (Outstanding and Short Expiry: edit, Collection: view)</option><option value="director">Director (everything: view + remarks)</option><option value="legal">Legal Officer (Outstanding: view + remarks)</option></select><select id="pOp">' + opsOpt + '</select><button class="btn p" data-uact="preset">Apply role</button></div>' + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-uact="add">Add access</button></div></div>';
   }
   $('page').innerHTML = h;
 }
@@ -604,8 +608,8 @@ async function permClick(b) {
     else if (act === 'repname') { await api('/rest/v1/profiles?id=eq.' + uSel, {method: 'PATCH', body: {rep_name: $('repName').value.trim() || null}, headers: {Prefer: 'return=minimal'}}); await reload('Rep name saved.'); }
     else if (act === 'jobtitle') { await api('/rest/v1/profiles?id=eq.' + uSel, {method: 'PATCH', body: {job_title: $('jobTitle').value.trim() || null}, headers: {Prefer: 'return=minimal'}}); await reload('Job title saved.'); }
     else if (act === 'preset') {
-      const P = {officer: [['collection', 'edit']], manager: [['collection', 'view']], finance: [['collection', 'full'], ['receivable', 'view']], rep: [['rep', 'edit']], ophead: [['receivable', 'edit'], ['collection', 'view']], director: [['*', 'view']], legal: [['receivable', 'view']]};
-      const T = {officer: 'Operation Officer', finance: 'Accounts', rep: 'Sales Rep', ophead: 'Operation Head', director: 'Director', legal: 'Legal Officer'}, k = $('pRole').value, u = uData.users.find(x => x.id === uSel);
+      const P = {officer: [['collection', 'edit']], manager: [['collection', 'view']], finance: [['collection', 'full'], ['receivable', 'view'], ['short_expiry', 'view']], rep: [['rep', 'edit']], ophead: [['receivable', 'edit'], ['collection', 'view'], ['short_expiry', 'edit']], director: [['*', 'view']], legal: [['receivable', 'view']], stores: [['short_expiry', 'full']]};
+      const T = {officer: 'Operation Officer', finance: 'Accounts', rep: 'Sales Rep', ophead: 'Operation Head', director: 'Director', legal: 'Legal Officer', stores: 'Stores Officer'}, k = $('pRole').value, u = uData.users.find(x => x.id === uSel);
       for (const x of P[k]) await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: x[0], operation: $('pOp').value, level: x[1]}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}});
       if (T[k] && u && !u.job_title) await api('/rest/v1/profiles?id=eq.' + uSel, {method: 'PATCH', body: {job_title: T[k]}, headers: {Prefer: 'return=minimal'}});
       await reload('Role applied.');
