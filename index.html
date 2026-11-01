@@ -125,13 +125,14 @@ aside.col .sbt{margin:0 auto 8px}
 #toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:8px 16px;border-radius:20px;font-size:13px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.on{opacity:1}
 .flash .bub{animation:fl 1.6s ease-out}@keyframes fl{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
-@media(max-width:900px){.rgrid{grid-template-columns:1fr}.rgrid .plan{order:-1}}
+.side{display:flex;flex-direction:column;gap:12px;min-width:0}.plan a{color:var(--primary)}
+@media(max-width:900px){.rgrid{grid-template-columns:1fr}.rgrid .side{order:-1}}
 body.present header,body.present #tabs,body.present aside,body.present #bar,body.present .crumb{display:none!important}
 body.present .shell{display:block}body.present #content{max-width:1280px;margin:0 auto}
 body.present .rgrid{grid-template-columns:minmax(0,1fr) minmax(0,300px)}
 body.present .bh{font-size:15px}body.present .btx{font-size:17px;line-height:1.5}body.present .av{width:42px;height:42px;font-size:14px}
 body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present h2.pt{font-size:26px}
-@media(max-width:900px){body.present .rgrid{grid-template-columns:1fr}body.present .rgrid .plan{order:0}}
+@media(max-width:900px){body.present .rgrid{grid-template-columns:1fr}body.present .rgrid .side{order:0}}
 @media(max-width:820px){.sbt{display:none}aside.col{width:auto;padding:8px}}
 @media(prefers-reduced-motion:reduce){.fc{animation:none}}
 @media print{#ice{display:none}}
@@ -252,6 +253,18 @@ async function start() {
 }
 async function loadRows() {
   rows = (opsFor('receivable').length || opsFor('rep').length) ? await api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000') : [];
+  await loadContacts();
+}
+// contacts: rep phone once per rep, outlet address / contact no once per outlet; shown on every record of that rep / outlet
+let CO = {}, CR = {};
+const ck = (o, n) => o + '|' + String(n || '').trim().toLowerCase();
+async function loadContacts() {
+  CO = {}; CR = {}; if (!rows.length) return;
+  try {
+    (await api('/rest/v1/fu_outlets?select=operation,outlet,address,phone,by_name,updated_at') || []).forEach(x => CO[ck(x.operation, x.outlet)] = x);
+    (await api('/rest/v1/fu_reps?select=operation,rep_name,phone,by_name,updated_at') || []).forEach(x => CR[ck(x.operation, x.rep_name)] = x);
+  } catch (e) {}
+  rows.forEach(r => { const o = CO[ck(r.operation, r.outlet)] || {}, p = CR[ck(r.operation, r.owner_name)] || {}; r.outlet_address = o.address || null; r.outlet_phone = o.phone || null; r.rep_phone = p.phone || null; });
 }
 
 // ---------- navigation ----------
@@ -366,7 +379,7 @@ function pgReport() {
     + '<div class="card" style="margin-top:12px"><h3>Broken promises and overdue actions (' + prob.length + ')</h3>' + (prob.length ? '<table><thead><tr><th>Outlet</th><th class="n">Balance</th><th>Promise date</th><th>Next date</th><th>Who</th></tr></thead><tbody>' + prob.map(r => '<tr><td>' + esc(r.outlet) + '</td><td class="n">' + money(r.amount) + '</td><td>' + esc(r.promised_date) + '</td><td>' + esc(r.next_date) + '</td><td>' + esc(r.next_owner) + '</td></tr>').join('') + '</tbody></table>' : '<div class="hint">None.</div>') + '</div>';
 }
 function exportCsv() {
-  const cols = [['Operation', 'operation'], ['Chain', 'party'], ['Outlet', 'outlet'], ['Memo', 'ref_key'], ['Sales rep', 'owner_name'], ['Invoice date', 'base_date'], ['Days', 'aging_days'], ['Bucket', 'bucket'], ['Balance', 'amount'], ['Reason', 'reason'], ['Next step', 'next_step'], ['Who', 'next_owner'], ['Next date', 'next_date'], ['Promise date', 'promised_date'], ['Status', 'status'], ['Remarks', 'remarks']];
+  const cols = [['Operation', 'operation'], ['Chain', 'party'], ['Outlet', 'outlet'], ['Memo', 'ref_key'], ['Sales rep', 'owner_name'], ['Rep phone', 'rep_phone'], ['Outlet address', 'outlet_address'], ['Outlet contact no', 'outlet_phone'], ['Invoice date', 'base_date'], ['Days', 'aging_days'], ['Bucket', 'bucket'], ['Balance', 'amount'], ['Reason', 'reason'], ['Next step', 'next_step'], ['Who', 'next_owner'], ['Next date', 'next_date'], ['Promise date', 'promised_date'], ['Status', 'status'], ['Remarks', 'remarks']];
   const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const csv = '﻿' + cols.map(c => q(c[0])).join(',') + '\r\n' + myRows().filter(isActive).map(r => cols.map(c => q(r[c[1]])).join(',')).join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'})); a.download = 'Outstanding ' + (op || 'all') + ' ' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
@@ -440,7 +453,7 @@ const stampLine = () => '<div class="stamp">Logged as <b>' + esc(me.full_name ||
 // side drawer: 'note' = add a remark, 'edit' = update the follow-up (with an optional remark)
 function drawer(modeIn, fromList) {
   const r = cur; if (!r) return; const c = canOf(r), mode = modeIn === 'edit' && c.edit ? 'edit' : 'note';
-  let h = '<div class="dh"><div><h3>' + (mode === 'edit' ? 'Update follow-up' : 'Add remark') + '</h3><div class="hint">' + esc(r.outlet) + ' · ' + esc(r.ref_key) + ' · <b>' + money(r.amount) + '</b> · ' + r.aging_days + ' days' + (r.owner_name ? ' · rep ' + esc(r.owner_name) : '') + '</div></div><button class="btn" data-pact="close">Close</button></div><div class="frm">';
+  let h = '<div class="dh"><div><h3>' + (mode === 'edit' ? 'Update follow-up' : 'Add remark') + '</h3><div class="hint">' + esc(r.outlet) + ' · ' + esc(r.ref_key) + ' · <b>' + money(r.amount) + '</b> · ' + r.aging_days + ' days' + (r.owner_name ? ' · rep ' + esc(r.owner_name) : '') + (r.rep_phone || r.outlet_phone ? '<br>' + (r.rep_phone ? 'Rep ' + telA(r.rep_phone) : '') + (r.rep_phone && r.outlet_phone ? ' · ' : '') + (r.outlet_phone ? 'Outlet ' + telA(r.outlet_phone) : '') : '') + '</div></div><button class="btn" data-pact="close">Close</button></div><div class="frm">';
   if (mode === 'edit') h += formHtml(r, true, c.full) + '<label>Remark for the timeline (optional)</label><textarea id="dNote" rows="3" maxlength="2000" placeholder="Why it changed, e.g. Customer promised to pay on 15 Nov in a phone call"></textarea>';
   else h += '<label>Remark</label><textarea id="dNote" rows="6" maxlength="2000" placeholder="e.g. Visited the shop. The owner will pay in 3 instalments, first one on 10 Nov"></textarea>';
   h += stampLine() + '<div class="row2"><button class="btn p" data-pact="' + (mode === 'edit' ? 'save' : 'post') + '">' + (mode === 'edit' ? 'Save' : 'Post remark') + '</button><button class="btn" data-pact="close">Cancel</button>'
@@ -454,7 +467,35 @@ function drawer(modeIn, fromList) {
 function openPanel(id) { cur = rows.find(r => r.id === id); if (!cur) return; if (tlItem !== cur.id) { tlEv = []; tlItem = null; } drawer(canOf(cur).edit ? 'edit' : 'note', true); }
 function planHtml(r) {
   const late = r.next_date && r.next_date < new Date().toISOString().slice(0, 10) && isActive(r), row = (k, v, cls) => '<dt>' + k + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + (v ? esc(v) : '<span class="hint">not set</span>') + '</dd>';
-  return '<dl>' + row('Status', STATUS[r.status]) + row('Reason', r.reason) + row('Next step', r.next_step) + row('Who does it', r.next_owner) + row('Next action date', r.next_date, late ? 'late' : '') + row('Promise date', r.promised_date, r.promise_broken ? 'late' : '') + row('Short remark', r.remarks) + row('Sales rep', r.owner_name) + '</dl>';
+  return '<dl>' + row('Status', STATUS[r.status]) + row('Reason', r.reason) + row('Next step', r.next_step) + row('Who does it', r.next_owner) + row('Next action date', r.next_date, late ? 'late' : '') + row('Promise date', r.promised_date, r.promise_broken ? 'late' : '') + row('Short remark', r.remarks) + '</dl>';
+}
+const telA = v => v ? '<a href="tel:' + esc(String(v).replace(/[^\d+]/g, '')) + '">' + esc(v) + '</a>' : '<span class="hint">not set</span>';
+function contactHtml(r) {
+  const o = CO[ck(r.operation, r.outlet)], p = CR[ck(r.operation, r.owner_name)];
+  return '<dl><dt>Sales rep</dt><dd>' + (r.owner_name ? esc(r.owner_name) : '<span class="hint">not set</span>') + '</dd><dt>Rep phone</dt><dd>' + telA(r.rep_phone) + '</dd>'
+    + '<dt>Outlet address</dt><dd>' + (r.outlet_address ? esc(r.outlet_address).replace(/\n/g, '<br>') : '<span class="hint">not set</span>') + '</dd><dt>Outlet contact no</dt><dd>' + telA(r.outlet_phone) + '</dd></dl>'
+    + (o || p ? '<div class="hint" style="margin-top:6px">Last changed ' + [o, p].filter(Boolean).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 1).map(x => 'by ' + esc(x.by_name || '') + ', ' + esc(fmtDT(new Date(x.updated_at)))).join('') + '</div>' : '');
+}
+function contactDrawer() {
+  const r = cur; if (!r) return;
+  $('panel').innerHTML = '<div class="dh"><div><h3>Contacts</h3><div class="hint">' + esc(r.outlet) + ' · operation ' + esc(r.operation) + '</div></div><button class="btn" data-pact="close">Close</button></div><div class="frm">'
+    + '<label>Rep phone no' + (r.owner_name ? ' (' + esc(r.owner_name) + ')' : '') + '</label><input id="cRep" inputmode="tel" maxlength="40" value="' + esc(r.rep_phone) + '"' + (r.owner_name ? '' : ' disabled placeholder="No sales rep on this record"') + ' placeholder="e.g. 077 123 4567">'
+    + '<label>Outlet address</label><textarea id="cAddr" rows="3" maxlength="500" placeholder="No, street, town">' + esc(r.outlet_address) + '</textarea>'
+    + '<label>Outlet contact no</label><input id="cPhone" inputmode="tel" maxlength="40" value="' + esc(r.outlet_phone) + '" placeholder="e.g. 011 234 5678">'
+    + '<div class="stamp">Saved once for the whole system: the rep phone shows on every record of ' + esc(r.owner_name || 'this rep') + ', the address and contact no on every record of this outlet.</div>'
+    + '<div class="row2"><button class="btn p" data-pact="savecontact">Save</button><button class="btn" data-pact="close">Cancel</button></div><div class="err" id="pErr"></div></div>';
+  $('panel').classList.add('open');
+}
+async function saveContact() {
+  const r = cur, rp = $('cRep').value.trim(), ad = $('cAddr').value.trim(), ph = $('cPhone').value.trim();
+  const up = {Prefer: 'resolution=merge-duplicates,return=minimal'};
+  try {
+    if (ad !== (r.outlet_address || '') || ph !== (r.outlet_phone || ''))
+      await api('/rest/v1/fu_outlets?on_conflict=operation,outlet_key', {method: 'POST', headers: up, body: {operation: r.operation, outlet_key: r.outlet.trim().toLowerCase(), outlet: r.outlet.trim(), address: ad || null, phone: ph || null}});
+    if (r.owner_name && rp !== (r.rep_phone || ''))
+      await api('/rest/v1/fu_reps?on_conflict=operation,rep_key', {method: 'POST', headers: up, body: {operation: r.operation, rep_key: r.owner_name.trim().toLowerCase(), rep_name: r.owner_name.trim(), phone: rp || null}});
+    const id = r.id; await loadContacts(); cur = rows.find(x => x.id === id) || cur; closeDrawer(); if (page === 'record') renderRecord(); else go(); toast('Contacts saved');
+  } catch (e) { $('pErr').textContent = e.message; }
 }
 function clearHash() { if (location.hash) history.replaceState(null, '', location.pathname + location.search); }
 function openRecord(id) { location.hash = 'item/' + encodeURIComponent(id); }
@@ -475,8 +516,9 @@ function renderRecord() {
     + '<div class="rgrid"><div class="card"><div class="tlh"><h3>Timeline</h3><div class="chips noprint" id="tlChips"></div><button class="btn noprint" data-ract="present" title="Big timeline for a meeting screen (Esc to exit)">' + (document.body.classList.contains('present') ? 'Exit present' : '&#x26F6; Present') + '</button><button class="btn p noprint" data-ract="note">+ Add remark</button></div>'
     + '<div class="hint">Every remark and change on this item, oldest first, with who added it and when.</div><div id="hist" class="tl">Loading...</div>'
     + '<button class="fake noprint" data-ract="note">Write a remark for everyone following this item...</button></div>'
-    + '<div class="card plan"><div class="tlh"><h3>Current follow-up</h3>' + (c.edit ? '<button class="btn noprint" data-ract="edit">&#9998; Update</button>' : '') + '</div>' + planHtml(r)
-    + (c.edit ? '' : '<div class="hint" style="margin-top:8px">You can add remarks. Only users with edit access change the follow-up fields.</div>') + '</div></div>';
+    + '<div class="side"><div class="card plan"><div class="tlh"><h3>Current follow-up</h3>' + (c.edit ? '<button class="btn noprint" data-ract="edit">&#9998; Update</button>' : '') + '</div>' + planHtml(r)
+    + (c.edit ? '' : '<div class="hint" style="margin-top:8px">You can add remarks. Only users with edit access change the follow-up fields.</div>') + '</div>'
+    + '<div class="card plan"><div class="tlh"><h3>Contacts</h3>' + (c.edit ? '<button class="btn noprint" data-ract="contact">&#9998; Edit</button>' : '') + '</div>' + contactHtml(r) + '</div></div></div>';
   if (tlItem !== r.id) { tlEv = []; tlF = 'all'; } paintTl(); loadHist(); window.scrollTo(0, 0);
 }
 async function afterWrite(msg, flashNew) {
@@ -600,7 +642,7 @@ $('page').onclick = e => {
   if (e.target.id === 'rPrint') return window.print();
   if (e.target.id === 'rCsv') return exportCsv();
   const q = e.target.closest('[data-quick]'); if (q) return openPanel(q.dataset.quick);
-  const ra = e.target.closest('[data-ract]'); if (ra) { if (ra.dataset.ract === 'present') return setPresent(!document.body.classList.contains('present')); return drawer(ra.dataset.ract, false); }
+  const ra = e.target.closest('[data-ract]'); if (ra) { if (ra.dataset.ract === 'present') return setPresent(!document.body.classList.contains('present')); if (ra.dataset.ract === 'contact') return contactDrawer(); return drawer(ra.dataset.ract, false); }
   const tf = e.target.closest('[data-tlf]'); if (tf) { tlF = tf.dataset.tlf; return paintTl(); }
   const bk = e.target.closest('[data-back]'); if (bk) { clearHash(); return go('items'); }
   const rc = e.target.closest('[data-rec]'); if (rc) { if (!rc.disabled) location.replace('#item/' + rc.dataset.rec); return; }
@@ -618,7 +660,7 @@ $('sbToggle').onclick = () => { sbCol = !sbCol; try { localStorage.setItem('fu_s
 $('panel').onclick = e => {
   const b = e.target.closest('[data-recpage]'); if (b) { closeDrawer(); openRecord(b.dataset.recpage); return; }
   const a = e.target.closest('[data-pact]'); if (!a) return; const k = a.dataset.pact, fl = $('panel').dataset.from === '1';
-  if (k === 'close') closeDrawer(); else if (k === 'save') save(); else if (k === 'post') postNote(); else drawer(k, fl);
+  if (k === 'close') closeDrawer(); else if (k === 'save') save(); else if (k === 'post') postNote(); else if (k === 'savecontact') saveContact(); else if (k === 'contact') contactDrawer(); else drawer(k, fl);
 };
 $('panel').onkeydown = e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.id === 'dNote') { e.preventDefault(); const b = document.querySelector('#panel [data-pact="save"],#panel [data-pact="post"]'); if (b) b.click(); } };
 function setPresent(on) {
