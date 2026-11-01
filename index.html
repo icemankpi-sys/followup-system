@@ -168,6 +168,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 
 <script src="ims-cash.js?v=3"></script>
 <script src="ims-rep.js?v=1"></script>
+<script src="ims-outlet.js?v=1"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -175,6 +176,7 @@ const STATUS = {open:'Open',promised:'Promised',dispute:'Dispute',action_pending
 const MODS = [
   {id:'receivable', name:'Outstanding', sub:'Over 30 / 60 / 90 / 120 / 240', ic:'OS', ready:true},
   {id:'rep', name:'Sales Reps', sub:'Rep outstanding and to-do', ic:'SR', ready:true},
+  {id:'outlets', name:'Outlets', sub:'Outlet profiles, location, history', ic:'OL', ready:true},
   {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true},
   {id:'foc', name:'FOC Report', sub:'Free of charge stock', ic:'FC', ready:false},
   {id:'short_expiry', name:'Short Expiry', sub:'Stock near expiry', ic:'SE', ready:false},
@@ -231,7 +233,7 @@ function lvl(o, m) {
   return ['', 'view', 'edit', 'full'][best];
 }
 const opsFor = m => ops.filter(o => rank(lvl(o.code, m)) > 0);
-const visibleMods = () => MODS.filter(m => me.role === 'admin' || opsFor(m.id).length || (m.id === 'rep' && opsFor('receivable').length));
+const visibleMods = () => MODS.filter(m => me.role === 'admin' || opsFor(m.id).length || (m.id === 'rep' && opsFor('receivable').length) || (m.id === 'outlets' && (opsFor('receivable').length || opsFor('rep').length)));
 const modOf = id => MODS.find(m => m.id === id);
 const myRows = () => rows.filter(r => !op || r.operation === op);
 
@@ -261,7 +263,7 @@ const ck = (o, n) => o + '|' + String(n || '').trim().toLowerCase();
 async function loadContacts() {
   CO = {}; CR = {}; if (!rows.length) return;
   try {
-    (await api('/rest/v1/fu_outlets?select=operation,outlet,address,phone,by_name,updated_at') || []).forEach(x => CO[ck(x.operation, x.outlet)] = x);
+    (await api('/rest/v1/fu_outlets?select=*') || []).forEach(x => CO[ck(x.operation, x.outlet)] = x);
     (await api('/rest/v1/fu_reps?select=operation,rep_name,phone,by_name,updated_at') || []).forEach(x => CR[ck(x.operation, x.rep_name)] = x);
   } catch (e) {}
   rows.forEach(r => { const o = CO[ck(r.operation, r.outlet)] || {}, p = CR[ck(r.operation, r.owner_name)] || {}; r.outlet_address = o.address || null; r.outlet_phone = o.phone || null; r.rep_phone = p.phone || null; });
@@ -273,14 +275,14 @@ function go(p, m) {
   if (page === 'perm' && me.role !== 'admin') page = 'home';
   $('panel').classList.remove('open'); if (page === 'record') $('panel').innerHTML = '';
   document.querySelector('aside').classList.toggle('col', sbCol); $('sbToggle').innerHTML = sbCol ? '&rsaquo;' : '&lsaquo;'; $('sbToggle').title = sbCol ? 'Expand menu' : 'Collapse menu';
-  $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' ? 'items' : page) ? 'on' : '') + '">' + x[1] + '</button>').join('');
+  $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + x[1] + '</button>').join('');
   const act = rows.filter(isActive);
   $('mods').innerHTML = visibleMods().map(m => {
     const n = m.id === 'receivable' ? act.length : 0;
-    return '<button title="' + esc(m.name) + '" class="mod ' + (m.id === mod && ['items', 'dash', 'report', 'record'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
+    return '<button title="' + esc(m.name) + '" class="mod ' + (m.id === mod && ['items', 'dash', 'report', 'record', 'outlet'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
   }).join('');
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
-  const my = mod === 'rep' ? ops.filter(o => rank(lvl(o.code, 'rep')) > 0 || rank(lvl(o.code, 'receivable')) > 0) : opsFor(mod);
+  const my = mod === 'rep' || mod === 'outlets' ? ops.filter(o => rank(lvl(o.code, 'rep')) > 0 || rank(lvl(o.code, 'receivable')) > 0) : opsFor(mod);
   if (needOp && my.length === 1) op = my[0].code; else if (!needOp || my.length > 1) { if (!my.some(o => o.code === op)) op = ''; }
   $('bar').innerHTML = needOp && my.length > 1 ? '<select id="opSel"><option value="">All my operations</option>' + my.map(o => '<option value="' + o.code + '"' + (o.code === op ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>' : '';
   const PG = ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm, record: renderRecord});
@@ -474,6 +476,7 @@ function contactHtml(r) {
   const o = CO[ck(r.operation, r.outlet)], p = CR[ck(r.operation, r.owner_name)];
   return '<dl><dt>Sales rep</dt><dd>' + (r.owner_name ? esc(r.owner_name) : '<span class="hint">not set</span>') + '</dd><dt>Rep phone</dt><dd>' + telA(r.rep_phone) + '</dd>'
     + '<dt>Outlet address</dt><dd>' + (r.outlet_address ? esc(r.outlet_address).replace(/\n/g, '<br>') : '<span class="hint">not set</span>') + '</dd><dt>Outlet contact no</dt><dd>' + telA(r.outlet_phone) + '</dd></dl>'
+    + '<div class="row2 noprint"><button class="btn" data-outlet="' + encodeURIComponent(r.operation + '|' + String(r.outlet || '').trim().toLowerCase()) + '">Open outlet profile and history</button></div>'
     + (o || p ? '<div class="hint" style="margin-top:6px">Last changed ' + [o, p].filter(Boolean).sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 1).map(x => 'by ' + esc(x.by_name || '') + ', ' + esc(fmtDT(new Date(x.updated_at)))).join('') + '</div>' : '');
 }
 function contactDrawer() {
@@ -501,7 +504,10 @@ function clearHash() { if (location.hash) history.replaceState(null, '', locatio
 function openRecord(id) { location.hash = 'item/' + encodeURIComponent(id); }
 function route() {
   const m = location.hash.match(/^#item\/(.+)$/);
-  if (m) { recId = decodeURIComponent(m[1]); go('record'); } else go(page === 'record' ? 'items' : undefined);
+  const ol = location.hash.match(/^#outlet\/(.+)$/);
+  if (m) { recId = decodeURIComponent(m[1]); go('record'); }
+  else if (ol) { window.OUTLET_ID = ol[1]; go('outlet', 'outlets'); }
+  else go(page === 'record' || page === 'outlet' ? 'items' : undefined);
 }
 function renderRecord() {
   cur = rows.find(r => r.id === recId);
