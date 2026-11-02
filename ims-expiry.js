@@ -95,13 +95,13 @@
     if (!Object.keys(ch).length && !note) { $('sErr').textContent = 'Nothing changed'; return; }
     try {
       if (Object.keys(ch).length) await api('/rest/v1/fu_items?id=eq.' + r.id, {method: 'PATCH', body: ch, headers: {Prefer: 'return=minimal'}});
-      if (note) await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: r.id, p_note: note}});
-      await after('Saved to the timeline');
+      let res = null; if (note) res = await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: r.id, p_note: note, p_mentions: window.mentionsOf ? mentionsOf($('sNote')) : []}});
+      await after('Saved to the timeline' + (window.mentionResult ? mentionResult(res) : ''));
     } catch (e) { $('sErr').textContent = e.message; }
   }
   async function post() {
     const t = $('sNote').value.trim(); if (!t) { $('sErr').textContent = 'Write the remark first'; return; }
-    try { await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: t}}); await after('Remark added'); } catch (e) { $('sErr').textContent = e.message; }
+    try { const res = await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: t, p_mentions: window.mentionsOf ? mentionsOf($('sNote')) : []}}); await after('Remark added' + (window.mentionResult ? mentionResult(res) : '')); } catch (e) { $('sErr').textContent = e.message; }
   }
 
   // ---------- add one line by hand (same fields as the template) ----------

@@ -49,6 +49,14 @@ h2.pt{margin:0 0 2px;font-size:20px;color:var(--ink)}.hint{color:var(--muted);fo
 .mcard{cursor:pointer}.mcard:hover{outline:2px solid var(--primary)}
 .badge{display:inline-block;border-radius:10px;padding:0 8px;font-size:11px;font-weight:700}.b-live{background:var(--ok-soft);color:var(--ok)}.b-soon{background:var(--warn-soft);color:var(--warn)}
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.mnpick{display:flex;flex-direction:column;gap:2px;border:1px solid var(--primary);border-radius:8px;background:var(--card,#fff);padding:6px;margin-top:4px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+.mnpick button{text-align:left;border:0;background:none;padding:6px 8px;border-radius:6px;cursor:pointer;font:inherit}
+.mnpick button.on,.mnpick button:hover{background:var(--primary-soft)}
+.mnrow{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line,#e5e7eb)}
+.mnmain{flex:1;min-width:0;cursor:pointer}.mnnote{margin:4px 0;white-space:pre-wrap}
+b.mn{color:var(--primary);background:var(--primary-soft);border-radius:4px;padding:0 3px}
+.nbadge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:#e8590c;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.mnwarn{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:560px;background:#7c2d12;color:#fff;padding:12px 16px;border-radius:10px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer}
 td.rno{font-family:Consolas,monospace;font-size:12px;color:var(--muted,#64748b);white-space:nowrap}
 .rtag{display:inline-block;font:600 13px Consolas,monospace;color:var(--primary);background:var(--primary-soft);border-radius:6px;padding:2px 8px;vertical-align:middle}
 .filters select{max-width:230px}.filters select.on{border-color:var(--primary);background:var(--primary-soft);font-weight:600}
@@ -174,11 +182,12 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-rep.js?v=5"></script>
 <script src="ims-outlet.js?v=4"></script>
 <script src="ims-handover.js?v=2"></script>
-<script src="ims-expiry.js?v=7"></script>
+<script src="ims-expiry.js?v=8"></script>
 <script src="ims-osupload.js?v=5"></script>
 <script src="ims-additem.js?v=1"></script>
 <script src="ims-print.js?v=3"></script>
 <script src="ims-ops.js?v=1"></script>
+<script src="ims-mention.js?v=1"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -272,7 +281,7 @@ async function start() {
   $('login').hidden = true; $('app').hidden = false; $('ice').style.display = 'none';
   $('who').textContent = (me.full_name || me.username) + ' · ' + (myTitle() || 'User');
   mod = visibleMods()[0].id;
-  await Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null]);
+  await Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null, window.loadMentions ? loadMentions() : null]);
   route();
 }
 async function loadRows() {
@@ -304,7 +313,7 @@ function go(p, m) {
   if (page === 'perm' && me.role !== 'admin') page = 'home';
   $('panel').classList.remove('open'); if (page === 'record') $('panel').innerHTML = '';
   document.querySelector('aside').classList.toggle('col', sbCol); $('sbToggle').innerHTML = sbCol ? '&rsaquo;' : '&lsaquo;'; $('sbToggle').title = sbCol ? 'Expand menu' : 'Collapse menu';
-  $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + x[1] + '</button>').join('');
+  $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + x[1] + (x[0] === 'home' && window.MY_MENTIONS && MY_MENTIONS.length ? ' <span class="nbadge" title="My to-do">' + MY_MENTIONS.length + '</span>' : '') + '</button>').join('');
   const act = rows.filter(isActive);
   $('mods').innerHTML = visibleMods().map(m => {
     const n = m.id === 'receivable' ? act.filter(r => !op || r.operation === op).length : 0;
@@ -331,6 +340,7 @@ function pgHome() {
   const att = act.filter(r => r.promise_broken || r.action_overdue || (r.days_to_120 > 0 && r.days_to_120 <= 14))
     .sort((a, b) => (b.promise_broken - a.promise_broken) || (b.action_overdue - a.action_overdue) || (b.amount - a.amount)).slice(0, 8);
   $('page').innerHTML = '<h2 class="pt">Welcome, ' + esc(me.full_name || me.username) + '</h2><div class="hint">' + new Date().toDateString() + ' · ' + (me.role === 'admin' ? 'Admin: full access to everything' : 'Your access is listed below') + '</div>'
+    + (window.mentionCard ? mentionCard() : '')
     + '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' + cards + '</div>'
     + '<div class="card"><h3>Needs attention now</h3>' + (att.length ? '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Outlet</th><th>Chain</th><th class="n">Balance</th><th class="n">Days</th><th>Why</th></tr></thead><tbody>'
       + att.map(r => '<tr class="row" data-open="' + r.id + '"><td>' + esc(r.outlet) + '</td><td>' + esc(r.party) + '</td><td class="n">' + money(r.amount) + '</td><td class="n">' + r.aging_days + '</td><td>'
@@ -482,7 +492,7 @@ function tlHtml(ev, f, last) {
   return g.map(x => {
     const at = new Date(x.note ? x.e.at : x.at), d = fmtD(at), sep = d !== day ? '<div class="tld">' + esc(d) + '</div>' : ''; day = d;
     if (x.note) { const e = x.e, t = e.by_title || '', c = tcls(t);
-      return sep + '<div class="tln' + (e.by_user && e.by_user === uid ? ' me' : '') + (tlFlash === e.id ? ' flash' : '') + '"><span class="av ' + c + '">' + esc(ini(e.by_name)) + '</span><div class="bub"><div class="bh"><b>' + esc(e.by_name || 'Unknown') + '</b>' + (t ? '<span class="tt ' + c + '">' + esc(t) + '</span>' : '') + '<span class="bn">#' + x.n + '</span><time title="' + esc(fmtDT(at)) + '">' + esc(fmtT(at)) + '</time></div><div class="btx">' + esc(e.note) + '</div></div></div>'; }
+      return sep + '<div class="tln' + (e.by_user && e.by_user === uid ? ' me' : '') + (tlFlash === e.id ? ' flash' : '') + '"><span class="av ' + c + '">' + esc(ini(e.by_name)) + '</span><div class="bub"><div class="bh"><b>' + esc(e.by_name || 'Unknown') + '</b>' + (t ? '<span class="tt ' + c + '">' + esc(t) + '</span>' : '') + '<span class="bn">#' + x.n + '</span><time title="' + esc(fmtDT(at)) + '">' + esc(fmtT(at)) + '</time></div><div class="btx">' + (window.hlMentions ? hlMentions(esc(e.note)) : esc(e.note)) + '</div></div></div>'; }
     return sep + '<div class="tls"><i></i><div><b>' + esc(x.by || 'System') + '</b>' + (x.title ? ' (' + esc(x.title) + ')' : '') + ' · ' + esc(fmtT(at)) + x.items.map(e => '<span class="chg">' + (e.field ? esc(FLD[e.field] || e.field) + ': ' + esc(fv(e.field, e.old_value)) + ' &rarr; <b>' + esc(fv(e.field, e.new_value)) + '</b>' : esc(e.note || e.kind)) + '</span>').join('') + '</div></div>';
   }).join('');
 }
@@ -508,7 +518,7 @@ function drawer(modeIn, fromList) {
   const r = cur; if (!r) return; const c = canOf(r), mode = modeIn === 'edit' && c.edit ? 'edit' : 'note';
   let h = '<div class="dh"><div><h3>' + (mode === 'edit' ? 'Update follow-up' : 'Add remark') + '</h3><div class="hint">' + (r.rec_code ? '<b>' + esc(r.rec_code) + '</b> · ' : '') + esc(r.outlet) + ' · ' + esc(r.ref_key) + ' · <b>' + money(r.amount) + '</b> · ' + r.aging_days + ' days' + (r.owner_name ? ' · rep ' + esc(r.owner_name) : '') + (r.rep_phone || r.outlet_phone ? '<br>' + (r.rep_phone ? 'Rep ' + telA(r.rep_phone) : '') + (r.rep_phone && r.outlet_phone ? ' · ' : '') + (r.outlet_phone ? 'Outlet ' + telA(r.outlet_phone) : '') : '') + '</div></div><button class="btn" data-pact="close">Close</button></div><div class="frm">';
   if (mode === 'edit') h += formHtml(r, true, c.full) + '<label>Remark for the timeline (optional)</label><textarea id="dNote" rows="3" maxlength="2000" placeholder="Why it changed, e.g. Customer promised to pay on 15 Nov in a phone call"></textarea>';
-  else h += '<label>Remark</label><textarea id="dNote" rows="6" maxlength="2000" placeholder="e.g. Visited the shop. The owner will pay in 3 instalments, first one on 10 Nov"></textarea>';
+  else h += '<label>Remark</label><textarea id="dNote" rows="6" maxlength="2000" placeholder="e.g. Visited the shop. The owner will pay in 3 instalments, first one on 10 Nov. Type @ to mention a member (it goes on their To-do)."></textarea>';
   h += stampLine() + '<div class="row2"><button class="btn p" data-pact="' + (mode === 'edit' ? 'save' : 'post') + '">' + (mode === 'edit' ? 'Save' : 'Post remark') + '</button><button class="btn" data-pact="close">Cancel</button>'
     + (mode === 'edit' ? '<button class="btn" data-pact="note">Remark only</button>' : (c.edit ? '<button class="btn" data-pact="edit">&#9998; Update follow-up</button>' : '')) + '<span class="hint">Ctrl + Enter</span></div><div class="err" id="pErr"></div></div>'
     + (fromList || page !== 'record' ? '<div class="row2"><button class="btn" data-recpage="' + r.id + '">Open full page with the timeline</button></div>' : '')
@@ -570,7 +580,9 @@ function renderRecord() {
     + '<div class="rhero"><div><h2 class="pt">' + (r.rec_code ? '<span class="rtag">' + esc(r.rec_code) + '</span> ' : '') + esc(r.outlet) + '</h2><div class="hint">' + esc(r.party) + ' · invoice ' + esc(r.ref_key) + ' · sales rep ' + esc(r.owner_name) + ' · operation ' + esc(r.operation) + '</div></div>'
     + '<div class="row2 noprint"><button class="btn" data-back="1">&larr; Back to list</button><button class="btn" data-rec="' + (prev ? prev.id : '') + '"' + (prev ? '' : ' disabled') + '>&lsaquo; Previous</button><button class="btn" data-rec="' + (next ? next.id : '') + '"' + (next ? '' : ' disabled') + '>Next &rsaquo;</button></div></div>'
     + '<div class="grid"><div class="tile"><b>' + money(r.amount) + '</b><span>Balance</span></div><div class="tile"><b>' + esc(r.base_date || 'not given') + '</b><span>Invoice date</span></div><div class="tile ' + (isO120(r) ? 'r' : 'a') + '"><b>' + (r.aging_days != null ? r.aging_days + ' days' : (isO120(r) ? 'Over 120' : '91-120')) + '</b><span>' + (r.aging_days != null ? 'Age (' + esc(r.bucket) + ')' : 'Age from the list (no invoice date)') + '</span></div>'
-    + '<div class="tile ' + (r.days_to_120 > 0 ? 'a' : 'r') + '"><b>' + (r.days_to_120 > 0 ? r.days_to_120 + ' days' : 'Over 120') + '</b><span>' + (r.days_to_120 > 0 ? 'Left before 120 days' : 'Already past 120 days') + '</span></div><div class="tile"><b>' + STATUS[r.status] + '</b><span>Status</span></div><div class="tile"><b style="font-size:14px">' + flags + '</b><span>Flags</span></div></div>'
+    + (r.aging_days == null ? '<div class="tile ' + (isO120(r) ? 'r' : 'a') + '"><b>' + (isO120(r) ? 'Over 120' : 'Not yet 120') + '</b><span>From the list (no invoice date)</span></div>'
+      : '<div class="tile ' + (r.days_to_120 > 0 ? 'a' : 'r') + '"><b>' + (r.days_to_120 > 0 ? r.days_to_120 + ' days' : 'Over 120') + '</b><span>' + (r.days_to_120 > 0 ? 'Left before 120 days' : 'Already past 120 days') + '</span></div>')
+    + '<div class="tile"><b>' + STATUS[r.status] + '</b><span>Status</span></div><div class="tile"><b style="font-size:14px">' + flags + '</b><span>Flags</span></div></div>'
     + '<div class="rgrid"><div class="card"><div class="tlh"><h3>Timeline</h3><div class="chips noprint" id="tlChips"></div><button class="btn noprint" data-ract="present" title="Big timeline for a meeting screen (Esc to exit)">' + (document.body.classList.contains('present') ? 'Exit present' : '&#x26F6; Present') + '</button><button class="btn p noprint" data-ract="note">+ Add remark</button></div>'
     + '<div class="hint">Every remark and change on this item, oldest first, with who added it and when.</div><div id="hist" class="tl">Loading...</div>'
     + '<button class="fake noprint" data-ract="note">Write a remark for everyone following this item...</button></div>'
@@ -594,13 +606,13 @@ async function save() {
   if (!Object.keys(ch).length && !note) { $('pErr').textContent = 'Nothing changed'; return; }
   try {
     if (Object.keys(ch).length) await api('/rest/v1/fu_items?id=eq.' + cur.id, {method: 'PATCH', body: ch, headers: {Prefer: 'return=minimal'}});
-    if (note) await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: note}});
-    await afterWrite('Saved to the timeline', !!note);
+    let res = null; if (note) res = await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: note, p_mentions: mentionsOf($('dNote'))}});
+    await afterWrite('Saved to the timeline' + (window.mentionResult ? mentionResult(res) : ''), !!note);
   } catch (e) { $('pErr').textContent = e.message; }
 }
 async function postNote() {
   const t = $('dNote').value.trim(); if (!t) { $('pErr').textContent = 'Write the remark first'; return; }
-  try { await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: t}}); await afterWrite('Remark added', true); } catch (e) { $('pErr').textContent = e.message; }
+  try { const res = await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: t, p_mentions: mentionsOf($('dNote'))}}); await afterWrite('Remark added' + (window.mentionResult ? mentionResult(res) : ''), true); } catch (e) { $('pErr').textContent = e.message; }
 }
 
 // ---------- Permission (admin) ----------

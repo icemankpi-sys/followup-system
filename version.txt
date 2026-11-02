@@ -1,1 +1,1 @@
-﻿Iceman IMS v2.6.1 (2026-11-02): lines with no invoice date (customer-level lists such as PLT) count as Over 120 / up to 120 from the list's own columns.
+﻿Iceman IMS v2.7 (2026-11-02): @mention a member in a remark; it goes on their "My to-do" on the Home page (Done + reply).
