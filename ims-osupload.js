@@ -109,7 +109,8 @@
     const P = U.p, o = $('osOp').value, asAt = $('osAsAt').value, err = $('osErr');
     if (!o) { err.textContent = 'Choose the operation'; return; }
     if (!asAt) { err.textContent = 'Set the list date'; return; }
-    const body = P.lines.map(l => { const x = Object.assign({}, l); delete x._rp; delete x._cp; delete x._ad; return x; });
+    // officer goes with each line so the explanation lands in the timeline as "Outstanding list as at <date> (<officer>): ..."
+    const body = P.lines.map(l => { const x = Object.assign({}, l); delete x._rp; delete x._cp; delete x._ad; x.details = Object.assign({}, x.details, {officer: P.officer || ''}); return x; });
     try {
       const r = await api('/rest/v1/rpc/fu_apply_import', {method: 'POST', body: {p_module: 'receivable', p_op: o, p_as_at: asAt, p_file: P.file, p_rows: body}});
       let nc = 0;

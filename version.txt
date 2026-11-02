@@ -1,1 +1,1 @@
-﻿Iceman IMS v2.5.3 (2026-11-02): Outstanding filters: outlet and reason filters, counts on every choice, Clear filters, choices from another operation no longer hide items.
+﻿Iceman IMS v2.5.4 (2026-11-02): the operation's explanation from the Outstanding list goes into each invoice's timeline as a remark.
