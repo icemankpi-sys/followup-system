@@ -76,6 +76,7 @@
       + '<div class="card plan"><div class="tlh"><h3>Location</h3></div>' + (p.lat != null ? '<dl>' + row('Map', '<a href="' + mapUrl(p) + '" target="_blank" rel="noopener">Open in Google Maps</a>') + row('Point', p.lat.toFixed(6) + ', ' + p.lng.toFixed(6)) + row('Accuracy', p.loc_accuracy != null ? '±' + Math.round(p.loc_accuracy) + ' m' : '') + row('Added', esc((p.loc_by || '') + (p.loc_at ? ', ' + fmtDT(new Date(p.loc_at)) : ''))) + '</dl>' : '<div class="hint">No location yet.</div>')
       + (ce ? '<div class="row2 noprint"><button class="btn p" data-oact="loc">&#128205; ' + (p.lat != null ? 'Update' : 'Add') + ' live location</button></div><div class="hint">Stand at the outlet and press the button on your phone.</div>' : '') + '</div></div></div>';
     loadHistory(x);
+    if (window.visitCard) visitCard(x);
   }
   const row = (k, v) => '<dt>' + k + '</dt><dd>' + (v || '<span class="hint">not set</span>') + '</dd>';
 
@@ -101,7 +102,7 @@
         return sep + '<div class="tln' + (e.by_user && e.by_user === uid() ? ' me' : '') + '"><span class="av ' + c + '">' + esc(ini(e.by_name)) + '</span><div class="bub"><div class="bh"><b>' + esc(e.by_name || 'Unknown') + '</b>' + (e.by_title ? '<span class="tt ' + c + '">' + esc(e.by_title) + '</span>' : '')
           + (e.src === 'i' ? '<span class="bn">on invoice ' + esc(e.inv || '') + '</span>' : '<span class="bn">outlet</span>') + '<time title="' + esc(fmtDT(at)) + '">' + esc(fmtT(at)) + '</time></div><div class="btx">' + esc(e.note) + '</div></div></div>'; }
       const what = e.kind === 'change' ? esc(FLD[e.field] || e.field) + ': ' + esc(e.field === 'pay_terms' ? (TERMS[e.old_value] || e.old_value || '(blank)') : (e.old_value || '(blank)')) + ' &rarr; <b>' + esc(e.field === 'pay_terms' ? (TERMS[e.new_value] || e.new_value || '(blank)') : (e.new_value || '(blank)')) + '</b>'
-        : esc(e.note || e.kind) + (e.kind === 'location' && e.new_value ? ' · <a href="https://www.google.com/maps?q=' + esc(e.new_value) + '" target="_blank" rel="noopener">map</a>' : '');
+        : esc(e.note || e.kind) + ((e.kind === 'location' || e.kind === 'visit') && e.new_value ? ' · <a href="https://www.google.com/maps?q=' + esc(e.new_value) + '" target="_blank" rel="noopener">map</a>' : '');
       return sep + '<div class="tls"><i></i><div><b>' + esc(e.by_name || 'System') + '</b>' + (e.by_title ? ' (' + esc(e.by_title) + ')' : '') + ' · ' + esc(fmtT(at)) + '<span class="chg">' + what + '</span></div></div>';
     }).join('');
     const t = $('olTl'); if (t) t.innerHTML = h || '<div class="hint">' + (x.prof ? 'Nothing yet. Add the first remark.' : 'No history yet. Save the profile to start the outlet history.') + '</div>';

@@ -49,6 +49,7 @@ h2.pt{margin:0 0 2px;font-size:20px;color:var(--ink)}.hint{color:var(--muted);fo
 .mcard{cursor:pointer}.mcard:hover{outline:2px solid var(--primary)}
 .badge{display:inline-block;border-radius:10px;padding:0 8px;font-size:11px;font-weight:700}.b-live{background:var(--ok-soft);color:var(--ok)}.b-soon{background:var(--warn-soft);color:var(--warn)}
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.vpill{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:900;max-width:calc(100vw - 24px);background:#0f766e;color:#fff;font-size:12px;padding:6px 12px;border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mnpick{display:flex;flex-direction:column;gap:2px;border:1px solid var(--primary);border-radius:8px;background:var(--card,#fff);padding:6px;margin-top:4px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
 .mnpick button{text-align:left;border:0;background:none;padding:6px 8px;border-radius:6px;cursor:pointer;font:inherit}
 .mnpick button.on,.mnpick button:hover{background:var(--primary-soft)}
@@ -180,7 +181,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 
 <script src="ims-cash.js?v=4"></script>
 <script src="ims-rep.js?v=5"></script>
-<script src="ims-outlet.js?v=4"></script>
+<script src="ims-outlet.js?v=5"></script>
 <script src="ims-handover.js?v=2"></script>
 <script src="ims-expiry.js?v=8"></script>
 <script src="ims-osupload.js?v=5"></script>
@@ -188,6 +189,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-print.js?v=3"></script>
 <script src="ims-ops.js?v=1"></script>
 <script src="ims-mention.js?v=1"></script>
+<script src="ims-visit.js?v=1"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -281,8 +283,9 @@ async function start() {
   $('login').hidden = true; $('app').hidden = false; $('ice').style.display = 'none';
   $('who').textContent = (me.full_name || me.username) + ' · ' + (myTitle() || 'User');
   mod = visibleMods()[0].id;
-  await Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null, window.loadMentions ? loadMentions() : null]);
+  await Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null, window.loadMentions ? loadMentions() : null, window.loadVisitsToday ? loadVisitsToday() : null]);
   route();
+  if (window.visitAutoStart) visitAutoStart();
 }
 async function loadRows() {
   const want = opsFor('receivable').length || opsFor('rep').length;
@@ -340,7 +343,7 @@ function pgHome() {
   const att = act.filter(r => r.promise_broken || r.action_overdue || (r.days_to_120 > 0 && r.days_to_120 <= 14))
     .sort((a, b) => (b.promise_broken - a.promise_broken) || (b.action_overdue - a.action_overdue) || (b.amount - a.amount)).slice(0, 8);
   $('page').innerHTML = '<h2 class="pt">Welcome, ' + esc(me.full_name || me.username) + '</h2><div class="hint">' + new Date().toDateString() + ' · ' + (me.role === 'admin' ? 'Admin: full access to everything' : 'Your access is listed below') + '</div>'
-    + (window.mentionCard ? mentionCard() : '')
+    + (window.mentionCard ? mentionCard() : '') + (window.visitHomeCard ? visitHomeCard() : '')
     + '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' + cards + '</div>'
     + '<div class="card"><h3>Needs attention now</h3>' + (att.length ? '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Outlet</th><th>Chain</th><th class="n">Balance</th><th class="n">Days</th><th>Why</th></tr></thead><tbody>'
       + att.map(r => '<tr class="row" data-open="' + r.id + '"><td>' + esc(r.outlet) + '</td><td>' + esc(r.party) + '</td><td class="n">' + money(r.amount) + '</td><td class="n">' + r.aging_days + '</td><td>'
