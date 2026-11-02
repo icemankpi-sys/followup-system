@@ -18,6 +18,19 @@
     + '#prHead td:first-child{color:#64748b;text-align:right}'
     + '#prHead td:last-child{font-weight:700;color:#0f1b2d}'
     + 'body.prOn #page h2.pt.prDup{display:none}'
+    // clean paper copy: no scroll boxes or scrollbars, every column on the page, header row repeated, rows not split
+    + '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    + 'html,body,#app,.shell,#content,#page,#page div{overflow:visible!important;max-height:none!important}'
+    + '::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}'
+    + '#page .wrap{box-shadow:none!important;border:0!important;padding:0!important}'
+    + '#page table{min-width:0!important;width:100%!important;border-collapse:collapse;font-size:9.5pt}'
+    + '#page th,#page td{padding:3px 5px!important;position:static!important}'
+    + '#page th{white-space:normal}'
+    + '#page thead{display:table-header-group}#page tfoot{display:table-footer-group}'
+    + '#page tr{break-inside:avoid;page-break-inside:avoid}'
+    + '#page .tile,#page .bar{break-inside:avoid}'
+    + '#page h2,#page h3{break-after:avoid}'
+    + '#page .card{box-shadow:none!important}'
     + '}';
   document.head.appendChild(css);
 
@@ -51,9 +64,19 @@
     if (hl.el) { hl.el.classList.add('prDup'); if (hint) hl.el.nextElementSibling.style.cssText += ';display:none'; head.dataset.hint = hint ? '1' : ''; }
     // footer on every page in the page margin (never covers the report); page numbers on the right
     const cs = s => '"' + String(s).replace(/[\\"]/g, '\\$&').replace(/[\r\n]+/g, ' ') + '"';
+    // wide tables (many columns or wider than an A4 portrait page) print on A4 landscape so nothing is cut or squeezed
+    let wide = false;
+    page.querySelectorAll('table').forEach(t => {
+      if (t.closest('#prHead') || !t.offsetParent) return;
+      const cols = t.rows[0] ? [...t.rows[0].cells].reduce((n, c) => n + (c.colSpan || 1), 0) : 0;
+      const ow = t.style.width, om = t.style.minWidth; t.style.minWidth = '0'; t.style.width = 'max-content';
+      const w = t.offsetWidth; t.style.width = ow; t.style.minWidth = om;
+      if (cols >= 9 || w > 900) wide = true;
+    });
     const foot = document.createElement('style');
     foot.id = 'prFoot';
-    foot.textContent = '@media print{@page{margin:12mm 10mm 14mm;'
+    foot.textContent = '@media print{@page{size:A4 ' + (wide ? 'landscape' : 'portrait') + ';margin:12mm 10mm 14mm;'
+      + '@top-left{content:""}@top-center{content:""}@top-right{content:""}'   // replaces the browser's own date / title line
       + '@bottom-left{content:' + cs('Iceman IMS · ' + hl.text + ' · Created ' + created + ' by ' + (user || '-') + (title ? ' (' + title + ')' : '')) + ';font:8.5px Segoe UI,Arial,sans-serif;color:#64748b;vertical-align:top;padding-top:3mm}'
       + '@bottom-right{content:"Page " counter(page) " of " counter(pages);font:8.5px Segoe UI,Arial,sans-serif;color:#64748b;vertical-align:top;padding-top:3mm}}}';
     document.head.appendChild(foot);
