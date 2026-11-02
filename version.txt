@@ -1,1 +1,1 @@
-﻿Iceman IMS v2.8.1 (2026-11-02): Visit History: every saved visit for any date range, routes per rep per day, dashboard, CSV.
+﻿Iceman IMS v2.9 (2026-11-02): Running Chart: start / close meter photo with OCR, admin manual entry, report with CSV and PDF.

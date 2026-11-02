@@ -49,6 +49,7 @@ h2.pt{margin:0 0 2px;font-size:20px;color:var(--ink)}.hint{color:var(--muted);fo
 .mcard{cursor:pointer}.mcard:hover{outline:2px solid var(--primary)}
 .badge{display:inline-block;border-radius:10px;padding:0 8px;font-size:11px;font-weight:700}.b-live{background:var(--ok-soft);color:var(--ok)}.b-soon{background:var(--warn-soft);color:var(--warn)}
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.rcbox{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:150px}.rcbox b{font-size:20px}
 .vpill{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:max(12px,env(safe-area-inset-bottom,0px));z-index:900;max-width:calc(100vw - 24px);background:#0f766e;color:#fff;font-size:12px;padding:6px 12px;border-radius:16px;box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mnpick{display:flex;flex-direction:column;gap:2px;border:1px solid var(--primary);border-radius:8px;background:var(--card,#fff);padding:6px;margin-top:4px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
 .mnpick button{text-align:left;border:0;background:none;padding:6px 8px;border-radius:6px;cursor:pointer;font:inherit}
@@ -190,6 +191,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-ops.js?v=1"></script>
 <script src="ims-mention.js?v=1"></script>
 <script src="ims-visit.js?v=4"></script>
+<script src="ims-run.js?v=1"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -199,6 +201,7 @@ const MODS = [
   {id:'rep', name:'Sales Reps', sub:'Rep outstanding and to-do', ic:'SR', ready:true},
   {id:'outlets', name:'Outlets', sub:'Outlet profiles, location, history', ic:'OL', ready:true},
   {id:'visits', name:'Visit History', sub:'Rep routes and check-ins, any date', ic:'VH', ready:true},
+  {id:'runs', name:'Running Chart', sub:'Start / close meter by photo', ic:'RC', ready:true},
   {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true},
   {id:'foc', name:'FOC Report', sub:'Free of charge stock', ic:'FC', ready:false},
   {id:'short_expiry', name:'Short Expiry', sub:'Expired or expiring in 90 days', ic:'SE', ready:true},
@@ -262,7 +265,7 @@ function lvl(o, m) {
   return ['', 'view', 'edit', 'full'][best];
 }
 const opsFor = m => ops.filter(o => rank(lvl(o.code, m)) > 0);
-const visibleMods = () => MODS.filter(m => me.role === 'admin' || opsFor(m.id).length || (m.id === 'rep' && opsFor('receivable').length) || ((m.id === 'outlets' || m.id === 'visits') && (opsFor('receivable').length || opsFor('rep').length)));
+const visibleMods = () => MODS.filter(m => me.role === 'admin' || opsFor(m.id).length || (m.id === 'rep' && opsFor('receivable').length) || ((m.id === 'outlets' || m.id === 'visits' || m.id === 'runs') && (opsFor('receivable').length || opsFor('rep').length)));
 const modOf = id => MODS.find(m => m.id === id);
 const myRows = () => rows.filter(r => !op || r.operation === op);
 
@@ -284,7 +287,7 @@ async function start() {
   $('login').hidden = true; $('app').hidden = false; $('ice').style.display = 'none';
   $('who').textContent = (me.full_name || me.username) + ' · ' + (myTitle() || 'User');
   mod = visibleMods()[0].id;
-  await Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null, window.loadMentions ? loadMentions() : null, window.loadVisitsToday ? loadVisitsToday() : null]);
+  await Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null, window.loadMentions ? loadMentions() : null, window.loadVisitsToday ? loadVisitsToday() : null, window.loadRunsToday ? loadRunsToday() : null]);
   route();
   if (window.visitAutoStart) visitAutoStart();
 }
@@ -324,7 +327,7 @@ function go(p, m) {
     return '<button title="' + esc(m.name) + '" class="mod ' + (m.id === mod && ['items', 'dash', 'report', 'record', 'outlet'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
   }).join('');
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
-  const my = mod === 'rep' || mod === 'outlets' || mod === 'visits' ? ops.filter(o => rank(lvl(o.code, 'rep')) > 0 || rank(lvl(o.code, 'receivable')) > 0) : opsFor(mod);
+  const my = mod === 'rep' || mod === 'outlets' || mod === 'visits' || mod === 'runs' ? ops.filter(o => rank(lvl(o.code, 'rep')) > 0 || rank(lvl(o.code, 'receivable')) > 0) : opsFor(mod);
   if (needOp && my.length === 1) op = my[0].code; else if (!needOp || my.length > 1) { if (!my.some(o => o.code === op)) op = ''; }
   $('bar').innerHTML = needOp && my.length > 1 ? '<select id="opSel"><option value="">All my operations</option>' + my.map(o => '<option value="' + o.code + '"' + (o.code === op ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>' : '';
   const PG = ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm, record: renderRecord});
@@ -344,7 +347,7 @@ function pgHome() {
   const att = act.filter(r => r.promise_broken || r.action_overdue || (r.days_to_120 > 0 && r.days_to_120 <= 14))
     .sort((a, b) => (b.promise_broken - a.promise_broken) || (b.action_overdue - a.action_overdue) || (b.amount - a.amount)).slice(0, 8);
   $('page').innerHTML = '<h2 class="pt">Welcome, ' + esc(me.full_name || me.username) + '</h2><div class="hint">' + new Date().toDateString() + ' · ' + (me.role === 'admin' ? 'Admin: full access to everything' : 'Your access is listed below') + '</div>'
-    + (window.mentionCard ? mentionCard() : '') + (window.visitHomeCard ? visitHomeCard() : '')
+    + (window.mentionCard ? mentionCard() : '') + (window.runHomeCard ? runHomeCard() : '') + (window.visitHomeCard ? visitHomeCard() : '')
     + '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' + cards + '</div>'
     + '<div class="card"><h3>Needs attention now</h3>' + (att.length ? '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Outlet</th><th>Chain</th><th class="n">Balance</th><th class="n">Days</th><th>Why</th></tr></thead><tbody>'
       + att.map(r => '<tr class="row" data-open="' + r.id + '"><td>' + esc(r.outlet) + '</td><td>' + esc(r.party) + '</td><td class="n">' + money(r.amount) + '</td><td class="n">' + r.aging_days + '</td><td>'
