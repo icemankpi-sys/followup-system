@@ -222,6 +222,8 @@ const isActive = r => !['settled', 'written_off'].includes(r.status);
 // age colour: Over 240 red, 121-240 orange, 91-120 yellow, 31-90 green (no invoice date: from the list bucket columns)
 const ageDays = r => { if (r.aging_days != null) return r.aging_days; const x = r.details || {}, v = k => Number(x[k] || 0) > 0; return v('over120') ? 121 : v('b91_120') ? 91 : v('b61_90') ? 61 : v('b31_60') ? 31 : null; };
 const AGES = [30, 60, 90, 120, 240];
+// age band: Over 30 = 31-60, Over 60 = 61-90, Over 90 = 91-120, Over 120 = 121-240, Over 240 = 241 and up
+const inBand = (r, a) => { const d = ageDays(r) || 0, i = AGES.indexOf(a), hi = AGES[i + 1]; return d > a && (hi == null || d <= hi); };
 const ageCls = r => { const d = ageDays(r);
   return d == null ? '' : d > 240 ? ' age-r' : d > 120 ? ' age-o' : d > 90 ? ' age-y' : d > 30 ? ' age-g' : ''; };
 const ageKey = () => '<span class="agek"><span><i style="background:var(--age-r)"></i>Over 240</span><span><i style="background:var(--age-o)"></i>Over 120</span><span><i style="background:var(--age-y)"></i>Over 90</span><span><i style="background:var(--age-g)"></i>Over 30</span></span>';
@@ -382,7 +384,7 @@ const FT = {
   outlet: r => !F.outlet || r.outlet === F.outlet,
   rep: r => !F.rep || r.owner_name === F.rep,
   reason: r => !F.reason || (r.reason || NOREASON) === F.reason,
-  bucket: r => !F.bucket || isNaN(F.bucket) || (ageDays(r) || 0) > Number(F.bucket),  // Over 30 / 60 / 90 / 120 / 240 (each includes the older ones)
+  bucket: r => !F.bucket || isNaN(F.bucket) || inBand(r, Number(F.bucket)),  // one band only, see inBand
   status: r => F.status === 'active' ? isActive(r) : (!F.status || r.status === F.status),
   flag: r => !F.flag || (F.flag === 'incomplete' && r.incomplete) || (F.flag === 'overdue' && r.action_overdue) || (F.flag === 'broken' && r.promise_broken) || (F.flag === 'soon' && isActive(r) && r.days_to_120 > 0 && r.days_to_120 <= 30),
   text: r => { const tx = (F.text || '').toLowerCase(); return !tx || [r.rec_code, r.outlet, r.ref_key, r.party, r.owner_name].some(v => (v || '').toLowerCase().includes(tx)); }
@@ -400,7 +402,7 @@ function paintFilters() {
   const fl = [['', 'All items', () => true], ['incomplete', 'Incomplete (no reason / next step / date)', r => r.incomplete], ['overdue', 'Action overdue', r => r.action_overdue], ['broken', 'Promise broken', r => r.promise_broken], ['soon', 'Crossing 120 within 30 days', r => isActive(r) && r.days_to_120 > 0 && r.days_to_120 <= 30]];
   const opts = (id, k, list) => '<select id="' + id + '"' + (F[k] && !(k === 'status' && F[k] === 'active') ? ' class="on"' : '') + '>' + list.map(x => '<option value="' + x[0] + '"' + (F[k] === x[0] ? ' selected' : '') + '>' + x[1] + ' (' + cnt(k, x[2]) + ')</option>').join('') + '</select>';
   $('fsel').innerHTML = (chains.length ? sel('fChain', 'chain', 'All chains', chains, 'party') : '') + sel('fOutlet', 'outlet', 'All outlets', u('outlet'), 'outlet') + sel('fRep', 'rep', 'All sales reps', u('owner_name'), 'owner_name')
-    + sel('fReason', 'reason', 'All reasons', u('reason'), 'reason') + opts('fBucket', 'bucket', [['', 'All ages', () => true]].concat(AGES.map(a => [String(a), 'Over ' + a, r => (ageDays(r) || 0) > a])))
+    + sel('fReason', 'reason', 'All reasons', u('reason'), 'reason') + opts('fBucket', 'bucket', [['', 'All ages', () => true]].concat(AGES.map((a, i) => [String(a), 'Over ' + a + (AGES[i + 1] ? ' (' + (a + 1) + '-' + AGES[i + 1] + ')' : ' (241+)'), r => inBand(r, a)])))
     + opts('fStatus', 'status', st) + opts('fFlag', 'flag', fl);
   $('fClear').hidden = !(F.chain || F.outlet || F.rep || F.reason || F.bucket || F.flag || F.text || F.status !== 'active');
 }

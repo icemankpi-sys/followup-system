@@ -1,1 +1,1 @@
-Iceman IMS v2.9.2 (2026-11-02): Outstanding age filter Over 30 / 60 / 90 / 120 / 240; rows coloured by age.
+Iceman IMS v2.9.3 (2026-11-03): Outstanding age filter by band: Over 30 = 31-60, Over 60 = 61-90, Over 90 = 91-120, Over 120 = 121-240, Over 240 = 241+.
