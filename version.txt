@@ -1,1 +1,1 @@
-﻿Iceman IMS v2.2 (2026-11-01): MT split into MT - Colombo / MT - Kandy / MT - Horeca.
+﻿Iceman IMS v2.3 (2026-11-02): add one invoice / Short Expiry line by hand.

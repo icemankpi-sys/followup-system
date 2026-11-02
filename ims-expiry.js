@@ -13,7 +13,7 @@
   const bandTag = b => b ? '<span class="tag ' + (b === 'Expired' || b === '0-30' ? 't-r' : b === '31-60' ? 't-a' : b === '61-90' ? 't-w' : 't-g') + '">' + (b === 'Expired' ? 'EXPIRED' : b === 'Over 90' ? '> 90' : b + ' days') + '</span>' : '';
   const scope = () => X.rows.filter(r => !op || r.operation === op);
   const canEd = o => rank(lvl(o, 'short_expiry')) >= 2, canFull = o => rank(lvl(o, 'short_expiry')) >= 3;
-  const fullOps = () => ops.filter(o => canFull(o.code));
+  const fullOps = () => ops.filter(o => canFull(o.code)), edOps = () => ops.filter(o => canEd(o.code));
   const d10 = d => d ? String(d).slice(0, 10) : '';
 
   async function load(force) {
@@ -32,7 +32,7 @@
       && (!t || [r.party, r.outlet, r.batch, r.owner_name].some(v => String(v || '').toLowerCase().includes(t))));
     const lastUp = X.imports.filter(i => !op || i.operation === op)[0];
     $('page').innerHTML = '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Short Expiry</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' · items expired or expiring within 90 days'
-      + (lastUp ? ' · last list ' + esc(lastUp.operation) + ' as at ' + esc(lastUp.as_at) : ' · no list uploaded yet') + '</div></div>' + (fullOps().length ? '<button class="btn p" data-sact="upload">&#8679; Upload Short Expiry List</button>' : '') + '</div>'
+      + (lastUp ? ' · last list ' + esc(lastUp.operation) + ' as at ' + esc(lastUp.as_at) : ' · no list uploaded yet') + '</div></div><div class="row2">' + (edOps().length ? '<button class="btn" data-sact="add">+ Add line</button>' : '') + (fullOps().length ? '<button class="btn p" data-sact="upload">&#8679; Upload Short Expiry List</button>' : '') + '</div></div>'
       + '<div class="grid"><div class="tile"><b>' + money0(val(act)) + '</b><span>Short-expiry value (' + act.length + ' lines)</span></div><div class="tile r"><b>' + money0(val(act.filter(r => r.band === 'Expired'))) + '</b><span>Already expired (' + act.filter(r => r.band === 'Expired').length + ')</span></div>'
       + '<div class="tile r"><b>' + money0(val(act.filter(r => r.band === '0-30'))) + '</b><span>Within 30 days (' + act.filter(r => r.band === '0-30').length + ')</span></div><div class="tile a"><b>' + act.filter(r => r.not_in_plan).length + '</b><span>Not in the demand plan</span></div>'
       + '<div class="tile r"><b>' + act.filter(r => r.action_overdue).length + '</b><span>Actions overdue</span></div><div class="tile a"><b>' + act.filter(r => r.incomplete).length + '</b><span>No action / date yet</span></div></div>'
@@ -101,6 +101,42 @@
   async function post() {
     const t = $('sNote').value.trim(); if (!t) { $('sErr').textContent = 'Write the remark first'; return; }
     try { await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: t}}); await after('Remark added'); } catch (e) { $('sErr').textContent = e.message; }
+  }
+
+  // ---------- add one line by hand (same fields as the template) ----------
+  function addDrawer() {
+    const eo = edOps(), o0 = op && eo.some(o => o.code === op) ? op : (eo.length === 1 ? eo[0].code : '');
+    const items = {}; X.rows.forEach(r => { if (r.party) items[r.party] = r; });
+    open('<div class="dh"><div><h3>Add Short Expiry line</h3><div class="hint">One item / expiry / batch, added by hand. Same follow-up and timeline as an uploaded line.</div></div><button class="btn" data-sact="close">Close</button></div><div class="frm">'
+      + '<label>Operation *</label><select id="saOp"><option value="">Choose</option>' + eo.map(o => '<option value="' + o.code + '"' + (o.code === o0 ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>'
+      + '<label>Item code *</label><input id="saCode" list="saCodes" maxlength="40"><datalist id="saCodes">' + Object.values(items).map(r => '<option value="' + esc(r.party) + '">' + esc(r.outlet || '') + '</option>').join('') + '</datalist>'
+      + '<label>Item name *</label><input id="saName" maxlength="160">'
+      + '<div class="row2"><div style="flex:1"><label>Qty *</label><input id="saQty" inputmode="decimal"></div><div style="flex:1"><label>Unit *</label><input id="saUnit" maxlength="20" placeholder="EA / CTN / KG"></div></div>'
+      + '<label>Date of expiration *</label><input id="saExp" type="date">'
+      + '<label>Batch / GRN no</label><input id="saBatch" maxlength="60" placeholder="blank if not known">'
+      + '<label>Unit cost Rs.</label><input id="saCost" inputmode="decimal" placeholder="value = qty x unit cost">'
+      + '<label>Demand plan month</label><input id="saPlan" list="saPlans" maxlength="40" placeholder="e.g. Nov-2026 or Not in plan"><datalist id="saPlans"><option value="Not in plan"></datalist>'
+      + '<label>Reason given</label><input id="saWhy" maxlength="200">'
+      + '<label>Cause</label><select id="saCause">' + opts(CAUSES, '') + '</select><label>Planned action</label><select id="saAction">' + opts(ACTIONS, '') + '</select>'
+      + '<label>Who does it</label><input id="saWho" maxlength="80" value="' + esc(me.full_name || '') + '"><label>Action by date</label><input id="saDate" type="date">'
+      + '<div class="err" id="saDup"></div>' + stamp().replace('Remarks cannot be edited later.', 'A hand-added line is not cleared by the next upload: close it here when the stock is cleared.')
+      + '<div class="row2"><button class="btn p" data-sact="addsave">Add line</button><button class="btn" data-sact="close">Cancel</button></div><div class="err" id="sErr"></div></div>');
+    setTimeout(() => { const f = $(o0 ? 'saCode' : 'saOp'); if (f) f.focus(); }, 220);
+  }
+  const saKey = () => { const o = $('saOp').value, c = $('saCode').value.trim(), x = $('saExp').value; return o && c && x ? (o + '|' + c + '|' + x + '|' + ($('saBatch').value.trim() || '-')).toUpperCase() : ''; };
+  async function addSave() {
+    const v = id => $(id).value.trim(), o = v('saOp'), qty = num(v('saQty')), cost = num(v('saCost')), plan = v('saPlan');
+    const miss = [['saOp', 'Operation'], ['saCode', 'Item code'], ['saName', 'Item name'], ['saQty', 'Qty'], ['saUnit', 'Unit'], ['saExp', 'Date of expiration']].filter(x => !v(x[0])).map(x => x[1]);
+    if (miss.length) { $('sErr').textContent = 'Fill in: ' + miss.join(', '); return; }
+    if (qty == null || qty <= 0) { $('sErr').textContent = 'Qty must be a number above 0'; return; }
+    if (v('saCost') && (cost == null || cost < 0)) { $('sErr').textContent = 'Unit cost is not a number'; return; }
+    const row = {ref_key: saKey(), party: v('saCode'), outlet: v('saName'), owner_name: v('saWho'), amount: cost != null ? Math.round(qty * cost * 100) / 100 : 0, base_date: v('saExp'),
+      reason: v('saCause') || (/^not in plan/i.test(plan) ? 'Bought outside demand plan' : ''), next_step: v('saAction'), next_owner: v('saWho'), next_date: v('saDate'),
+      details: {unit: v('saUnit'), qty, unit_cost: cost, plan_month: plan, reason_text: v('saWhy'), batch: v('saBatch'), create_date: new Date().toISOString().slice(0, 10)}};
+    try {
+      const id = await api('/rest/v1/rpc/fu_add_item', {method: 'POST', body: {p_module: 'short_expiry', p_op: o, p_row: row}});
+      await load(true); closeDrawer(); location.hash = 'se/' + id; toast(row.party + ' added to ' + o);
+    } catch (e) { $('sErr').textContent = e.message; }
   }
 
   // ---------- upload (reads the template in the browser, nothing is sent until "Load") ----------
@@ -225,6 +261,8 @@
     if (k === 'back') { history.replaceState(null, '', location.pathname + location.search); go('items', 'short_expiry'); }
     else if (k === 'close') closeDrawer();
     else if (k === 'upload') { X.parsed = null; uploadDrawer(); }
+    else if (k === 'add') addDrawer();
+    else if (k === 'addsave') guard(addSave);
     else if (k === 'load') guard(loadList);
     else if (k === 'edit') editDrawer(cur);
     else if (k === 'note') noteDrawer(cur);
@@ -238,6 +276,14 @@
     if (t.id === 'seAsAt' && X.parsed) { X.parsed.asAt = t.value; return; }
     const m = {seStatus: 'status', seBand: 'band', sePlan: 'plan', seAction: 'action'}[t.id]; if (m) { X.f[m] = t.value; list(); }
   });
+  // add-line drawer: fill the name and unit from a known item code, warn when the same line is already there
+  document.addEventListener('input', e => {
+    if (!['saOp', 'saCode', 'saExp', 'saBatch'].includes(e.target.id)) return;
+    if (e.target.id === 'saCode') { const k = e.target.value.trim().toUpperCase(), r = X.rows.find(x => String(x.party || '').toUpperCase() === k); if (r) { if (!$('saName').value) $('saName').value = r.outlet || ''; if (!$('saUnit').value) $('saUnit').value = r.unit || ''; if (!$('saCost').value && r.unit_cost) $('saCost').value = r.unit_cost; } }
+    const key = saKey(), same = key && X.rows.find(r => r.ref_key === key);
+    $('saDup').textContent = same ? 'This item with the same expiry and batch is already in ' + same.operation + ' (' + (ST[same.status] || same.status) + '). Open it from the list instead.' : '';
+  });
+  document.addEventListener('change', e => { if (e.target.id === 'saOp' || e.target.id === 'saExp') e.target.dispatchEvent(new Event('input', {bubbles: true})); });
   document.addEventListener('input', e => { if (e.target.id === 'seText') { X.f.text = e.target.value; const p = e.target.selectionStart; list(); const t = $('seText'); t.focus(); t.setSelectionRange(p, p); } });
   document.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target.id === 'sNote' && $('panel').querySelector('[data-sact="post"]')) { e.preventDefault(); guard(post); } });
 
