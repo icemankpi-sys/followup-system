@@ -1,1 +1,1 @@
-﻿Iceman IMS v2.5.2 (2026-11-02): faster start (database reads side by side, one shared token refresh); GT outstanding reasons understood by the upload.
+﻿Iceman IMS v2.5.3 (2026-11-02): Outstanding filters: outlet and reason filters, counts on every choice, Clear filters, choices from another operation no longer hide items.
