@@ -128,7 +128,7 @@
     const L = hRows(), R = routes(L), outs = new Set(L.map(v => v.operation + '|' + v.outlet_key)).size, both = L.filter(v => v.method === 'both').length;
     let h = '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Visit History</h2><div class="hint">' + esc(period()) + '</div></div><div class="row2 noprint"><button class="btn" data-vh="csv">Download Excel (CSV)</button><button class="btn p" data-vh="print">Print / Save as PDF</button></div></div>'
       + filterBar() + (H.err ? '<div class="card err">' + esc(H.err) + '</div>' : '')
-      + '<div class="grid"><div class="tile"><b>' + L.length + '</b><span>Visits</span></div><div class="tile"><b>' + outs + '</b><span>Outlets visited</span></div><div class="tile"><b>' + R.length + '</b><span>Routes (rep × day)</span></div>'
+      + '<div class="grid noprint"><div class="tile"><b>' + L.length + '</b><span>Visits</span></div><div class="tile"><b>' + outs + '</b><span>Outlets visited</span></div><div class="tile"><b>' + R.length + '</b><span>Routes (rep × day)</span></div>'
       + '<div class="tile g"><b>' + (L.length ? Math.round(100 * both / L.length) : 0) + '%</b><span>Confirmed by auto + button (' + both + ')</span></div><div class="tile"><b>' + L.filter(v => v.method === 'auto').length + '</b><span>Auto only</span></div><div class="tile a"><b>' + L.filter(v => v.method === 'manual').length + '</b><span>Button only</span></div></div>';
     h += R.length ? R.map(r => {
       let tot = 0; const lines = r.stops.map((v, i) => { const k = i ? km(r.stops[i - 1], v) : null; if (k) tot += k;
