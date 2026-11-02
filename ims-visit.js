@@ -83,7 +83,94 @@
       } catch (e) { b.disabled = false; b.innerHTML = '&#9989; Check in here'; toast(e.message); }
     }, er => { b.disabled = false; b.innerHTML = '&#9989; Check in here'; toast(er.code === 1 ? 'Allow location for this site in the browser, then try again' : 'No GPS position, try again outside'); }, {enableHighAccuracy: true, timeout: 20000, maximumAge: 0});
   }
+  // ---------- Visit History: every saved visit, any date range, as routes per rep per day ----------
+  const H = {from: '', to: '', rep: '', rows: [], key: '', err: ''};
+  const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const dayOf = s => ymd(new Date(s));
+  function range(k) {
+    const t = new Date(); t.setHours(0, 0, 0, 0); const d = new Date(t);
+    if (k === 'today') return [ymd(t), ymd(t)];
+    if (k === 'yday') { d.setDate(d.getDate() - 1); return [ymd(d), ymd(d)]; }
+    if (k === 'week') { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return [ymd(d), ymd(t)]; }
+    if (k === 'month') { d.setDate(1); return [ymd(d), ymd(t)]; }
+    if (k === 'lmonth') { const a = new Date(t.getFullYear(), t.getMonth() - 1, 1), b = new Date(t.getFullYear(), t.getMonth(), 0); return [ymd(a), ymd(b)]; }
+    return [H.from, H.to];
+  }
+  if (!H.from) [H.from, H.to] = range('today');
+  async function hLoad(force) {
+    const key = H.from + '|' + H.to + '|' + op; if (!force && key === H.key) return;
+    const a = new Date(H.from + 'T00:00:00'), b = new Date(H.to + 'T00:00:00'); b.setDate(b.getDate() + 1);
+    try {
+      H.rows = await api('/rest/v1/fu_visits?started_at=gte.' + a.toISOString() + '&started_at=lt.' + b.toISOString() + (op ? '&operation=eq.' + encodeURIComponent(op) : '')
+        + '&order=started_at.asc&limit=10000&select=id,operation,outlet_key,outlet,rep_name,started_at,last_at,method,lat,lng,accuracy,distance_m,note') || [];
+      H.key = key; H.err = '';
+    } catch (e) { H.rows = []; H.err = e.message; }
+  }
+  const hRows = () => H.rows.filter(v => !H.rep || v.rep_name === H.rep);
+  const km = (a, b) => a.lat != null && b.lat != null ? dist(a.lat, a.lng, b.lat, b.lng) / 1000 : null;
+  const mins = v => Math.max(0, Math.round((new Date(v.last_at) - new Date(v.started_at)) / 60000));
+  function routes(L) {
+    const g = {}; L.forEach(v => { const k = dayOf(v.started_at) + '|' + (v.rep_name || ''); (g[k] = g[k] || []).push(v); });
+    return Object.entries(g).map(([k, s]) => ({day: k.split('|')[0], rep: k.split('|').slice(1).join('|'), stops: s.sort((x, y) => x.started_at.localeCompare(y.started_at))}))
+      .sort((x, y) => y.day.localeCompare(x.day) || x.rep.localeCompare(y.rep));
+  }
+  const mapDir = s => 'https://www.google.com/maps/dir/' + s.filter(v => v.lat != null).slice(0, 10).map(v => v.lat.toFixed(6) + ',' + v.lng.toFixed(6)).join('/');
+  function filterBar() {
+    const reps = [...new Set(H.rows.map(v => v.rep_name).filter(Boolean))].sort();
+    return '<div class="filters noprint"><label class="hint">From</label><input type="date" id="vhFrom" value="' + H.from + '"><label class="hint">To</label><input type="date" id="vhTo" value="' + H.to + '">'
+      + [['today', 'Today'], ['yday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['lmonth', 'Last month']].map(x => '<button class="btn" data-vh="' + x[0] + '">' + x[1] + '</button>').join('')
+      + '<select id="vhRep"><option value="">All reps (' + H.rows.length + ')</option>' + reps.map(r => '<option' + (r === H.rep ? ' selected' : '') + '>' + esc(r) + ' (' + H.rows.filter(v => v.rep_name === r).length + ')</option>').join('') + '</select></div>';
+  }
+  const period = () => (H.from === H.to ? H.from : H.from + ' to ' + H.to) + (op ? ' · ' + op : ' · all my operations') + (H.rep ? ' · ' + H.rep : '');
+  async function hList() {
+    $('page').innerHTML = '<div class="hint">Loading visits...</div>'; await hLoad();
+    const L = hRows(), R = routes(L), outs = new Set(L.map(v => v.operation + '|' + v.outlet_key)).size, both = L.filter(v => v.method === 'both').length;
+    let h = '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Visit History</h2><div class="hint">' + esc(period()) + '</div></div><div class="row2 noprint"><button class="btn" data-vh="csv">Download Excel (CSV)</button><button class="btn p" data-vh="print">Print / Save as PDF</button></div></div>'
+      + filterBar() + (H.err ? '<div class="card err">' + esc(H.err) + '</div>' : '')
+      + '<div class="grid"><div class="tile"><b>' + L.length + '</b><span>Visits</span></div><div class="tile"><b>' + outs + '</b><span>Outlets visited</span></div><div class="tile"><b>' + R.length + '</b><span>Routes (rep × day)</span></div>'
+      + '<div class="tile g"><b>' + (L.length ? Math.round(100 * both / L.length) : 0) + '%</b><span>Confirmed by auto + button (' + both + ')</span></div><div class="tile"><b>' + L.filter(v => v.method === 'auto').length + '</b><span>Auto only</span></div><div class="tile a"><b>' + L.filter(v => v.method === 'manual').length + '</b><span>Button only</span></div></div>';
+    h += R.length ? R.map(r => {
+      let tot = 0; const lines = r.stops.map((v, i) => { const k = i ? km(r.stops[i - 1], v) : null; if (k) tot += k;
+        return '<tr class="row" data-outlet="' + encodeURIComponent(v.operation + '|' + v.outlet_key) + '"><td class="n">' + (i + 1) + '</td><td>' + esc(fmtT(new Date(v.started_at))) + '</td><td><b>' + esc(v.outlet || v.outlet_key) + '</b>' + (op ? '' : ' <span class="hint">' + esc(v.operation) + '</span>') + (v.note ? '<br><span class="hint">' + esc(v.note) + '</span>' : '') + '</td>'
+          + '<td>' + esc(METHOD[v.method] || v.method) + '</td><td class="n">' + (v.distance_m != null ? Math.round(v.distance_m) + ' m' : '') + '</td><td class="n">' + mins(v) + ' min</td><td class="n">' + (k != null ? k.toFixed(1) + ' km' : '') + '</td></tr>'; }).join('');
+      const a = r.stops[0], z = r.stops[r.stops.length - 1];
+      return '<div class="card" style="margin-top:12px"><div class="row2" style="justify-content:space-between"><div><h3>' + esc(r.rep || 'Unknown rep') + ' · ' + esc(new Date(r.day + 'T00:00:00').toDateString()) + '</h3><div class="hint">' + r.stops.length + ' visits · ' + esc(fmtT(new Date(a.started_at))) + ' to ' + esc(fmtT(new Date(z.last_at))) + ' · about ' + tot.toFixed(1) + ' km between stops (straight line)</div></div>'
+        + '<a class="btn noprint" href="' + mapDir(r.stops) + '" target="_blank" rel="noopener">&#128506; Route on Google Maps' + (r.stops.length > 10 ? ' (first 10)' : '') + '</a></div>'
+        + '<div class="wrap" style="box-shadow:none"><table><thead><tr><th class="n">#</th><th>Time</th><th>Outlet</th><th>Check-in</th><th class="n">From outlet</th><th class="n">At outlet</th><th class="n">From last stop</th></tr></thead><tbody>' + lines + '</tbody></table></div></div>';
+    }).join('') : '<div class="card" style="margin-top:12px"><div class="hint">No visits in this period. Choose other dates above.</div></div>';
+    $('page').innerHTML = h;
+  }
+  async function hDash() {
+    $('page').innerHTML = '<div class="hint">Loading visits...</div>'; await hLoad();
+    const L = hRows(), cnt = f => { const m = {}; L.forEach(v => { const k = f(v); m[k] = (m[k] || 0) + 1; }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
+    const seen = new Set(L.map(v => v.operation + '|' + v.outlet_key));
+    const owe = {}; rows.filter(r => isActive(r) && (!op || r.operation === op) && (!H.rep || nk(r.owner_name) === nk(H.rep))).forEach(r => { const k = r.operation + '|' + nk(r.outlet); owe[k] = owe[k] || [r.outlet, 0, r.operation]; owe[k][1] += Number(r.amount || 0); });
+    const notVisited = Object.entries(owe).filter(([k]) => !seen.has(k)).map(([, v]) => v).sort((a, b) => b[1] - a[1]);
+    $('page').innerHTML = '<h2 class="pt">Visit History dashboard</h2><div class="hint">' + esc(period()) + '</div>' + filterBar()
+      + '<div class="grid2" style="margin-top:10px"><div class="card"><h3>Visits by rep</h3>' + bars(cnt(v => v.rep_name || '(unknown)'), n => n) + '</div>'
+      + '<div class="card"><h3>Visits by day</h3>' + bars(cnt(v => dayOf(v.started_at)).sort((a, b) => a[0].localeCompare(b[0])), n => n) + '</div>'
+      + '<div class="card"><h3>Most visited outlets</h3>' + bars(cnt(v => v.outlet || v.outlet_key).slice(0, 10), n => n) + '</div>'
+      + '<div class="card"><h3>Check-in method</h3>' + bars(cnt(v => METHOD[v.method] || v.method), n => n) + '</div>'
+      + '<div class="card" style="grid-column:1/-1"><h3>Outlets with outstanding NOT visited in this period (' + notVisited.length + ')</h3>'
+      + (notVisited.length ? '<table><tbody>' + notVisited.slice(0, 15).map(v => '<tr><td>' + esc(v[0]) + ' <span class="hint">' + esc(v[2]) + '</span></td><td class="n">' + money(v[1]) + '</td></tr>').join('') + '</tbody></table>' + (notVisited.length > 15 ? '<div class="hint">and ' + (notVisited.length - 15) + ' more</div>' : '') : '<div class="hint">Every outlet with outstanding was visited.</div>') + '</div></div>';
+  }
+  function hCsv() {
+    const q = x => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"', cols = ['Date', 'Check-in time', 'Last time', 'Rep', 'Operation', 'Outlet', 'Method', 'Distance from outlet (m)', 'Minutes at outlet', 'Note', 'Latitude', 'Longitude'];
+    const L = hRows().map(v => [dayOf(v.started_at), fmtT(new Date(v.started_at)), fmtT(new Date(v.last_at)), v.rep_name, v.operation, v.outlet || v.outlet_key, METHOD[v.method] || v.method, v.distance_m != null ? Math.round(v.distance_m) : '', mins(v), v.note, v.lat, v.lng]);
+    const csv = '﻿' + cols.map(q).join(',') + '\r\n' + L.map(r => r.map(q).join(',')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'})); a.download = 'Visit History ' + H.from + ' to ' + H.to + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+  }
+  function hCard(m) { return '<div class="card mcard" data-mod="visits" data-go="items"><b>' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">' + esc(m.sub) + '</div><div style="font-size:20px;font-weight:700;margin-top:6px">' + V.today.length + ' today</div><div class="hint">My visits today · any date in Visit History</div></div>'; }
+  window.MODULE_PAGES = Object.assign(window.MODULE_PAGES || {}, {visits: {items: hList, dash: hDash, report: hList, card: hCard}});
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (t.id === 'vhFrom' || t.id === 'vhTo') { H.from = $('vhFrom').value || H.from; H.to = $('vhTo').value || H.to; if (H.to < H.from) H.to = H.from; go(); }
+    else if (t.id === 'vhRep') { H.rep = t.value ? t.value.replace(/ \(\d+\)$/, '') : ''; go(); }
+  });
+
   document.addEventListener('click', e => {
+    const h = e.target.closest('[data-vh]');
+    if (h) { const k = h.dataset.vh; if (k === 'csv') hCsv(); else if (k === 'print') window.print(); else { [H.from, H.to] = range(k); go(); } return; }
     const b = e.target.closest('[data-vact]'); if (!b) return;
     if (b.dataset.vact === 'checkin') guard(async () => manual(b));
     else if (b.dataset.vact === 'toggle') { V.on = !V.on; try { localStorage.setItem('fu_autovisit', V.on ? 'on' : 'off'); } catch (er) {} if (V.on) visitAutoStart(); else stopAuto(); go('home'); }

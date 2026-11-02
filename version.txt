@@ -1,1 +1,1 @@
-﻿Iceman IMS v2.8 (2026-11-02): rep visit check-in: auto within 20 m while the app is open + "Check in here" button, joined into one visit (3-hour window).
+﻿Iceman IMS v2.8.1 (2026-11-02): Visit History: every saved visit for any date range, routes per rep per day, dashboard, CSV.

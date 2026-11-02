@@ -189,7 +189,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-print.js?v=3"></script>
 <script src="ims-ops.js?v=1"></script>
 <script src="ims-mention.js?v=1"></script>
-<script src="ims-visit.js?v=1"></script>
+<script src="ims-visit.js?v=2"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -198,6 +198,7 @@ const MODS = [
   {id:'receivable', name:'Outstanding', sub:'Over 30 / 60 / 90 / 120 / 240', ic:'OS', ready:true},
   {id:'rep', name:'Sales Reps', sub:'Rep outstanding and to-do', ic:'SR', ready:true},
   {id:'outlets', name:'Outlets', sub:'Outlet profiles, location, history', ic:'OL', ready:true},
+  {id:'visits', name:'Visit History', sub:'Rep routes and check-ins, any date', ic:'VH', ready:true},
   {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true},
   {id:'foc', name:'FOC Report', sub:'Free of charge stock', ic:'FC', ready:false},
   {id:'short_expiry', name:'Short Expiry', sub:'Expired or expiring in 90 days', ic:'SE', ready:true},
@@ -261,7 +262,7 @@ function lvl(o, m) {
   return ['', 'view', 'edit', 'full'][best];
 }
 const opsFor = m => ops.filter(o => rank(lvl(o.code, m)) > 0);
-const visibleMods = () => MODS.filter(m => me.role === 'admin' || opsFor(m.id).length || (m.id === 'rep' && opsFor('receivable').length) || (m.id === 'outlets' && (opsFor('receivable').length || opsFor('rep').length)));
+const visibleMods = () => MODS.filter(m => me.role === 'admin' || opsFor(m.id).length || (m.id === 'rep' && opsFor('receivable').length) || ((m.id === 'outlets' || m.id === 'visits') && (opsFor('receivable').length || opsFor('rep').length)));
 const modOf = id => MODS.find(m => m.id === id);
 const myRows = () => rows.filter(r => !op || r.operation === op);
 
@@ -323,7 +324,7 @@ function go(p, m) {
     return '<button title="' + esc(m.name) + '" class="mod ' + (m.id === mod && ['items', 'dash', 'report', 'record', 'outlet'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
   }).join('');
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
-  const my = mod === 'rep' || mod === 'outlets' ? ops.filter(o => rank(lvl(o.code, 'rep')) > 0 || rank(lvl(o.code, 'receivable')) > 0) : opsFor(mod);
+  const my = mod === 'rep' || mod === 'outlets' || mod === 'visits' ? ops.filter(o => rank(lvl(o.code, 'rep')) > 0 || rank(lvl(o.code, 'receivable')) > 0) : opsFor(mod);
   if (needOp && my.length === 1) op = my[0].code; else if (!needOp || my.length > 1) { if (!my.some(o => o.code === op)) op = ''; }
   $('bar').innerHTML = needOp && my.length > 1 ? '<select id="opSel"><option value="">All my operations</option>' + my.map(o => '<option value="' + o.code + '"' + (o.code === op ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>' : '';
   const PG = ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm, record: renderRecord});
