@@ -174,6 +174,8 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-expiry.js?v=5"></script>
 <script src="ims-osupload.js?v=3"></script>
 <script src="ims-additem.js?v=1"></script>
+<script src="ims-print.js?v=1"></script>
+<script src="ims-ops.js?v=1"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -598,6 +600,7 @@ function renderUsers(msg) {
       + '<div class="row2"><b>Quick role:</b><select id="pRole"><option value="officer">Operation data entry (Daily Collection: edit, this operation)</option><option value="manager">Operation viewer (Daily Collection: view, this operation)</option><option value="finance">Finance (Daily Collection: full, Outstanding, reps, Short Expiry: view)</option><option value="stores">Stores / Short Expiry officer (Short Expiry: full, uploads the list, this operation)</option><option value="rep">Sales rep (own outstanding and to-do)</option><option value="ophead">Operation head (Outstanding and Short Expiry: edit, Collection: view)</option><option value="director">Director (everything: view + remarks)</option><option value="legal">Legal Officer (Outstanding: view + remarks)</option></select><select id="pOp">' + opsOpt + '</select><button class="btn p" data-uact="preset">Apply role</button></div>' + '<div class="row2"><b>Add:</b><select id="aMod">' + modOpt + '</select><select id="aOp">' + opsOpt + '</select><select id="aLv"><option>view</option><option>edit</option><option>full</option></select><button class="btn p" data-uact="add">Add access</button></div></div>';
   }
   $('page').innerHTML = h;
+  if (window.opsCard) opsCard();
 }
 async function permClick(b) {
   const act = b.dataset.uact, id = b.dataset.id, reload = async msg => { uData = await fn({action: 'list'}); renderUsers(msg || ''); };

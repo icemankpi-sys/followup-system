@@ -1,1 +1,1 @@
-﻿Iceman IMS v2.3.1 (2026-11-02): operation names = the 13 operations (MT SMMT ... PLT), AMB Jaffna.
+﻿Iceman IMS v2.5 (2026-11-02): admin adds / renames operations on the Permission page (ims-ops.js). Includes v2.4: every printed report gets a header (logo, headline, created date and time, user, job title) and a footer with page numbers (ims-print.js).
