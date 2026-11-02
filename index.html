@@ -7,13 +7,13 @@
 :root{
   --bg:#f3f5f9;--surface:#fff;--surface2:#f7f9fc;--ink:#0f1b2d;--ink2:#334155;--muted:#64748b;--line:#e2e8f0;--line2:#cbd5e1;
   --primary:#2e3192;--primary-ink:#fff;--primary-soft:#e9e9f7;--accent:#e8590c;--accent-soft:#fff1e8;
-  --ok:#0f7a55;--ok-soft:#e5f6ef;--warn:#b45309;--warn-soft:#fdf3e2;--danger:#b42318;--danger-soft:#fdecea;--violet:#6d28d9;
+  --ok:#0f7a55;--ok-soft:#e5f6ef;--warn:#b45309;--warn-soft:#fdf3e2;--danger:#b42318;--danger-soft:#fdecea;--violet:#6d28d9;--age-r:#fde0dd;--age-o:#ffe6cc;--age-y:#fff5bf;--age-g:#e1f4e4;
   --head:#1d1f63;--head-ink:#eef0ff;--head-chip:#2a2d7d;--shadow:0 1px 2px rgba(15,27,45,.06),0 4px 14px rgba(15,27,45,.06);--radius:12px;
   color-scheme:light}
 @media(prefers-color-scheme:dark){:root{
   --bg:#0b1220;--surface:#121b2b;--surface2:#0f1726;--ink:#e6edf7;--ink2:#c3cfdf;--muted:#8b9bb2;--line:#22314a;--line2:#2e4060;
   --primary:#8e92f2;--primary-ink:#0b0d2e;--primary-soft:#1f2257;--accent:#ff8a3d;--accent-soft:#2a1a10;
-  --ok:#34c391;--ok-soft:#0f2a22;--warn:#f0a94a;--warn-soft:#2b210f;--danger:#f17066;--danger-soft:#2c1414;--violet:#b49cff;
+  --ok:#34c391;--ok-soft:#0f2a22;--warn:#f0a94a;--warn-soft:#2b210f;--danger:#f17066;--danger-soft:#2c1414;--violet:#b49cff;--age-r:#3d1a1a;--age-o:#3d2810;--age-y:#36310e;--age-g:#11301d;
   --head:#0d0e33;--head-ink:#e6e8ff;--head-chip:#1c1f55;--shadow:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.35);color-scheme:dark}}
 *{box-sizing:border-box}html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,"Noto Sans Sinhala",Arial,sans-serif}
@@ -67,7 +67,11 @@ table{border-collapse:collapse;width:100%}
 th{background:var(--head);color:var(--head-ink);text-align:left;padding:7px 9px;font-size:12px;white-space:nowrap}
 td{padding:6px 9px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-tr.row{cursor:pointer}tr.row:hover td{background:var(--primary-soft)}
+tr.row{cursor:pointer}
+tr.age-r td{background:var(--age-r)}tr.age-o td{background:var(--age-o)}tr.age-y td{background:var(--age-y)}tr.age-g td{background:var(--age-g)}
+tr[class*="age-"] td,.agek i{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+tr.row:hover td{background:var(--primary-soft)}
+.agek{display:inline-flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--ink2);vertical-align:middle}.agek span{display:inline-flex;align-items:center;gap:4px}.agek i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid var(--line2)}
 .tag{display:inline-block;border-radius:10px;padding:0 7px;font-size:11px;color:#fff;margin-right:3px;white-space:nowrap}
 .t-w{background:var(--warn)}.t-r{background:var(--danger)}.t-a{background:var(--accent)}.t-g{background:var(--ok)}.t-b{background:var(--muted)}
 .st{font-size:11.5px;border:1px solid var(--line2);border-radius:10px;padding:0 7px;white-space:nowrap}
@@ -215,6 +219,10 @@ const money0 = v => Number(v || 0).toLocaleString('en-US', {maximumFractionDigit
 const sum = a => a.reduce((s, r) => s + Number(r.amount || 0), 0);
 const isActive = r => !['settled', 'written_off'].includes(r.status);
 // Over 120 or not: from the invoice date; a line with no date (customer-level lists such as PLT) uses the list's own Over 120 column
+// age colour: Over 240 red, 121-240 orange, 91-120 yellow, 31-90 green (no invoice date: from the list bucket columns)
+const ageCls = r => { let d = r.aging_days; if (d == null) { const x = r.details || {}, v = k => Number(x[k] || 0) > 0; d = v('over120') ? 121 : v('b91_120') ? 91 : v('b61_90') || v('b31_60') ? 31 : null; }
+  return d == null ? '' : d > 240 ? ' age-r' : d > 120 ? ' age-o' : d > 90 ? ' age-y' : d > 30 ? ' age-g' : ''; };
+const ageKey = () => '<span class="agek"><span><i style="background:var(--age-r)"></i>Over 240</span><span><i style="background:var(--age-o)"></i>Over 120</span><span><i style="background:var(--age-y)"></i>Over 90</span><span><i style="background:var(--age-g)"></i>Over 30</span></span>';
 const isO120 = r => r.aging_days != null ? r.aging_days > 120 : Number((r.details || {}).over120 || 0) > 0;
 const RANK = {view: 1, edit: 2, full: 3}, rank = l => RANK[l] || 0;
 let sess = null, me = null, ops = [], access = [], lists = {reason: [], next_step: []}, rows = [], cur = null;
@@ -350,7 +358,7 @@ function pgHome() {
     + (window.mentionCard ? mentionCard() : '') + (window.runHomeCard ? runHomeCard() : '') + (window.visitHomeCard ? visitHomeCard() : '')
     + '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' + cards + '</div>'
     + '<div class="card"><h3>Needs attention now</h3>' + (att.length ? '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Outlet</th><th>Chain</th><th class="n">Balance</th><th class="n">Days</th><th>Why</th></tr></thead><tbody>'
-      + att.map(r => '<tr class="row" data-open="' + r.id + '"><td>' + esc(r.outlet) + '</td><td>' + esc(r.party) + '</td><td class="n">' + money(r.amount) + '</td><td class="n">' + r.aging_days + '</td><td>'
+      + att.map(r => '<tr class="row' + ageCls(r) + '" data-open="' + r.id + '"><td>' + esc(r.outlet) + '</td><td>' + esc(r.party) + '</td><td class="n">' + money(r.amount) + '</td><td class="n">' + r.aging_days + '</td><td>'
         + (r.promise_broken ? '<span class="tag t-r">promise broken</span>' : '') + (r.action_overdue ? '<span class="tag t-r">action overdue</span>' : '') + (r.days_to_120 > 0 && r.days_to_120 <= 14 ? '<span class="tag t-a">120 days in ' + (r.days_to_120 + 1) + 'd</span>' : '') + '</td></tr>').join('') + '</tbody></table></div>'
       : '<div class="hint">Nothing urgent. Items with no next date still need a plan: see Follow-up, filter "Incomplete".</div>') + '</div>'
     + (me.role === 'admin' ? '' : '<div class="card" style="margin-top:12px"><h3>My access</h3>' + (access.map(a => '<div>' + esc((modOf(a.module) || {name: 'All modules'}).name) + ' / ' + esc(a.operation === '*' ? 'all operations' : a.operation) + ' <span class="lv lv-' + a.level + '">' + a.level + '</span></div>').join('') || '<div class="hint">No access rows</div>') + '</div>');
@@ -401,8 +409,8 @@ function renderItems() {
     ['a', act.filter(r => r.incomplete).length, 'Incomplete: need reason, next step, date'], ['r', act.filter(r => r.action_overdue).length, 'Action overdue'], ['r', act.filter(r => r.promise_broken).length, 'Promise broken'],
     ['g', myRows().filter(r => !isActive(r)).length, 'Settled / closed']].map(t => '<div class="tile ' + t[0] + '"><b>' + t[1] + '</b><span>' + t[2] + '</span></div>').join('');
   const f = filtered(), on = op ? ops.find(o => o.code === op) : null;
-  $('count').innerHTML = '<b>' + esc(on ? 'Showing ' + on.code + ' - ' + on.name + ' only' : 'Showing all my operations') + '</b> · ' + f.length + ' items in the list, balance ' + money(sum(f));
-  $('tb').innerHTML = f.map(r => '<tr class="row" data-open="' + r.id + '"><td class="rno">' + esc(r.rec_code || '') + '</td><td>' + esc(r.party) + '</td><td>' + esc(r.outlet) + (!op && r.operation ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.ref_key) + '</td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + (r.days_to_120 == null ? '' : r.days_to_120) + '</td><td class="n"><b>' + money(r.amount) + '</b></td>'
+  $('count').innerHTML = '<b>' + esc(on ? 'Showing ' + on.code + ' - ' + on.name + ' only' : 'Showing all my operations') + '</b> · ' + f.length + ' items in the list, balance ' + money(sum(f)) + ' &nbsp; ' + ageKey();
+  $('tb').innerHTML = f.map(r => '<tr class="row' + ageCls(r) + '" data-open="' + r.id + '"><td class="rno">' + esc(r.rec_code || '') + '</td><td>' + esc(r.party) + '</td><td>' + esc(r.outlet) + (!op && r.operation ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.ref_key) + '</td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + (r.days_to_120 == null ? '' : r.days_to_120) + '</td><td class="n"><b>' + money(r.amount) + '</b></td>'
     + '<td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td><td><span class="st">' + STATUS[r.status] + '</span></td><td>' + (r.action_overdue ? '<span class="tag t-r">overdue</span>' : '') + (r.promise_broken ? '<span class="tag t-r">promise broken</span>' : '') + (r.incomplete && isActive(r) ? '<span class="tag t-a">incomplete</span>' : '') + '</td><td><button class="btn q" data-quick="' + r.id + '" title="Quick edit">&#9998;</button></td></tr>').join('');
   // total of the rows shown (follows every filter)
   const fo = f.filter(isO120), fu = f.filter(r => !isO120(r));
@@ -445,7 +453,7 @@ function pgReport() {
     + '<div class="grid"><div class="tile"><b>' + money(sum(act)) + '</b><span>Total active (' + act.length + ' items)</span></div><div class="tile r"><b>' + money(sum(o120)) + '</b><span>Over 120 days (' + o120.length + ')</span></div><div class="tile a"><b>' + money(sum(b91)) + '</b><span>Up to 120 days (' + b91.length + ')</span></div><div class="tile a"><b>' + act.filter(r => r.incomplete).length + '</b><span>Incomplete follow-ups</span></div></div>'
     + '<div class="grid2">' + tbl('By customer chain', g2(r => r.party)) + tbl('By reason', g2(r => r.reason || '(no reason yet)')) + tbl('By age bucket', g2(r => r.bucket)) + tbl('By sales rep', g2(r => r.owner_name)) + '</div>'
     + '<div class="card" style="margin-top:12px"><h3>Ten largest items</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Outlet</th><th>Memo</th><th class="n">Days</th><th class="n">Balance</th><th>Reason</th><th>Next step</th><th>Next date</th></tr></thead><tbody>'
-    + top.map(r => '<tr><td>' + esc(r.outlet) + '</td><td>' + esc(r.ref_key) + '</td><td class="n">' + r.aging_days + '</td><td class="n">' + money(r.amount) + '</td><td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td></tr>').join('') + '</tbody></table></div></div>'
+    + top.map(r => '<tr class="' + ageCls(r).trim() + '"><td>' + esc(r.outlet) + '</td><td>' + esc(r.ref_key) + '</td><td class="n">' + r.aging_days + '</td><td class="n">' + money(r.amount) + '</td><td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td></tr>').join('') + '</tbody></table></div></div>'
     + '<div class="card" style="margin-top:12px"><h3>Broken promises and overdue actions (' + prob.length + ')</h3>' + (prob.length ? '<table><thead><tr><th>Outlet</th><th class="n">Balance</th><th>Promise date</th><th>Next date</th><th>Who</th></tr></thead><tbody>' + prob.map(r => '<tr><td>' + esc(r.outlet) + '</td><td class="n">' + money(r.amount) + '</td><td>' + esc(r.promised_date) + '</td><td>' + esc(r.next_date) + '</td><td>' + esc(r.next_owner) + '</td></tr>').join('') + '</tbody></table>' : '<div class="hint">None.</div>') + '</div>';
 }
 function exportCsv() {
