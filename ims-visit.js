@@ -98,7 +98,8 @@
   }
   if (!H.from) [H.from, H.to] = range('today');
   async function hLoad(force) {
-    const key = H.from + '|' + H.to + '|' + op; if (!force && key === H.key) return;
+    const key = H.from + '|' + H.to + '|' + op; if (!force && key === H.key && Date.now() - (H.at || 0) < 60000) return;   // fresh for one minute
+    H.at = Date.now();
     const a = new Date(H.from + 'T00:00:00'), b = new Date(H.to + 'T00:00:00'); b.setDate(b.getDate() + 1);
     try {
       H.rows = await api('/rest/v1/fu_visits?started_at=gte.' + a.toISOString() + '&started_at=lt.' + b.toISOString() + (op ? '&operation=eq.' + encodeURIComponent(op) : '')
