@@ -1,1 +1,1 @@
-﻿Iceman IMS v2.6 (2026-11-02): permanent record number on every follow-up item (OS-000001, SE-000001 ...) in lists, record pages, search and CSV.
+﻿Iceman IMS v2.6.1 (2026-11-02): lines with no invoice date (customer-level lists such as PLT) count as Over 120 / up to 120 from the list's own columns.

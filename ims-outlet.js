@@ -28,7 +28,7 @@
     });
     return Object.values(m).map(x => {
       const a = x.recs.filter(isActive), p = x.prof || {};
-      x.open = a.length; x.bal = sum(a); x.o120 = sum(a.filter(r => r.aging_days > 120)); x.oldest = Math.max(0, ...a.map(r => r.aging_days || 0));
+      x.open = a.length; x.bal = sum(a); x.o120 = sum(a.filter(isO120)); x.oldest = Math.max(0, ...a.map(r => r.aging_days || 0));
       x.missing = [!p.phone && 'contact no', !p.address && 'address', !p.br_no && 'BR no', !p.pay_terms && 'cash / credit', (p.pay_terms === 'credit' || p.pay_terms === 'both') && !p.credit_no && 'credit policy', p.lat == null && 'location'].filter(Boolean);
       return x;
     });

@@ -171,8 +171,8 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 </div>
 
 <script src="ims-cash.js?v=4"></script>
-<script src="ims-rep.js?v=4"></script>
-<script src="ims-outlet.js?v=3"></script>
+<script src="ims-rep.js?v=5"></script>
+<script src="ims-outlet.js?v=4"></script>
 <script src="ims-handover.js?v=2"></script>
 <script src="ims-expiry.js?v=7"></script>
 <script src="ims-osupload.js?v=5"></script>
@@ -199,6 +199,8 @@ const money = v => Number(v || 0).toLocaleString('en-US', {minimumFractionDigits
 const money0 = v => Number(v || 0).toLocaleString('en-US', {maximumFractionDigits: 0});
 const sum = a => a.reduce((s, r) => s + Number(r.amount || 0), 0);
 const isActive = r => !['settled', 'written_off'].includes(r.status);
+// Over 120 or not: from the invoice date; a line with no date (customer-level lists such as PLT) uses the list's own Over 120 column
+const isO120 = r => r.aging_days != null ? r.aging_days > 120 : Number((r.details || {}).over120 || 0) > 0;
 const RANK = {view: 1, edit: 2, full: 3}, rank = l => RANK[l] || 0;
 let sess = null, me = null, ops = [], access = [], lists = {reason: [], next_step: []}, rows = [], cur = null;
 let recId = null, sbCol = false;
@@ -377,7 +379,7 @@ function paintFilters() {
 }
 function renderItems() {
   if ($('fsel')) paintFilters();
-  const act = myRows().filter(isActive), o120 = act.filter(r => r.aging_days > 120), b91 = act.filter(r => r.aging_days <= 120);
+  const act = myRows().filter(isActive), o120 = act.filter(isO120), b91 = act.filter(r => !isO120(r));
   $('tiles').innerHTML = [['', money(sum(act)), 'Active balance (' + act.length + ' items)'], ['r', money(sum(o120)), 'Over 120 days (' + o120.length + ')'], ['a', money(sum(b91)), 'Up to 120 days (' + b91.length + '), will roll over'],
     ['a', act.filter(r => r.incomplete).length, 'Incomplete: need reason, next step, date'], ['r', act.filter(r => r.action_overdue).length, 'Action overdue'], ['r', act.filter(r => r.promise_broken).length, 'Promise broken'],
     ['g', myRows().filter(r => !isActive(r)).length, 'Settled / closed']].map(t => '<div class="tile ' + t[0] + '"><b>' + t[1] + '</b><span>' + t[2] + '</span></div>').join('');
@@ -386,7 +388,7 @@ function renderItems() {
   $('tb').innerHTML = f.map(r => '<tr class="row" data-open="' + r.id + '"><td class="rno">' + esc(r.rec_code || '') + '</td><td>' + esc(r.party) + '</td><td>' + esc(r.outlet) + (!op && r.operation ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.ref_key) + '</td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + (r.days_to_120 == null ? '' : r.days_to_120) + '</td><td class="n"><b>' + money(r.amount) + '</b></td>'
     + '<td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td><td><span class="st">' + STATUS[r.status] + '</span></td><td>' + (r.action_overdue ? '<span class="tag t-r">overdue</span>' : '') + (r.promise_broken ? '<span class="tag t-r">promise broken</span>' : '') + (r.incomplete && isActive(r) ? '<span class="tag t-a">incomplete</span>' : '') + '</td><td><button class="btn q" data-quick="' + r.id + '" title="Quick edit">&#9998;</button></td></tr>').join('');
   // total of the rows shown (follows every filter)
-  const fo = f.filter(r => r.aging_days > 120), fu = f.filter(r => r.aging_days <= 120);
+  const fo = f.filter(isO120), fu = f.filter(r => !isO120(r));
   $('tf').innerHTML = f.length ? '<tr class="tot"><td colspan="5"><b>Total of ' + f.length + ' items shown</b><br><span class="hint">Over 120: ' + money(sum(fo)) + ' (' + fo.length + ') · Up to 120: ' + money(sum(fu)) + ' (' + fu.length + ')</span></td><td></td><td></td><td class="n"><b>' + money(sum(f)) + '</b></td><td colspan="6"></td></tr>' : '<tr><td colspan="14" class="hint">No items match the filters.</td></tr>';
 }
 
@@ -417,7 +419,7 @@ function pgDash() {
 // ---------- Report ----------
 function pgReport() {
   const m = modOf(mod); if (!m.ready) { $('page').innerHTML = soon(m); return; }
-  const act = myRows().filter(isActive), o120 = act.filter(r => r.aging_days > 120), b91 = act.filter(r => r.aging_days <= 120);
+  const act = myRows().filter(isActive), o120 = act.filter(isO120), b91 = act.filter(r => !isO120(r));
   const g2 = kf => { const m2 = {}; act.forEach(r => { const k = kf(r) || '(none)'; m2[k] = m2[k] || [k, 0, 0]; m2[k][1] += Number(r.amount); m2[k][2]++; }); return Object.values(m2).sort((a, b) => b[1] - a[1]); };
   const tbl = (title, g) => '<div class="card"><h3>' + title + '</h3><table><thead><tr><th></th><th class="n">Items</th><th class="n">Balance</th><th class="n">Share</th></tr></thead><tbody>' + g.map(e => '<tr><td>' + esc(e[0]) + '</td><td class="n">' + e[2] + '</td><td class="n">' + money(e[1]) + '</td><td class="n">' + (100 * e[1] / (sum(act) || 1)).toFixed(1) + '%</td></tr>').join('') + '</tbody></table></div>';
   const top = act.slice().sort((a, b) => b.amount - a.amount).slice(0, 10), prob = act.filter(r => r.promise_broken || r.action_overdue);
@@ -567,7 +569,7 @@ function renderRecord() {
   $('page').innerHTML = '<div class="crumb noprint"><a data-back="1">Follow-up</a> &rsaquo; ' + esc(modOf(mod).name) + ' &rsaquo; <b>' + esc(r.outlet) + '</b></div>'
     + '<div class="rhero"><div><h2 class="pt">' + (r.rec_code ? '<span class="rtag">' + esc(r.rec_code) + '</span> ' : '') + esc(r.outlet) + '</h2><div class="hint">' + esc(r.party) + ' · invoice ' + esc(r.ref_key) + ' · sales rep ' + esc(r.owner_name) + ' · operation ' + esc(r.operation) + '</div></div>'
     + '<div class="row2 noprint"><button class="btn" data-back="1">&larr; Back to list</button><button class="btn" data-rec="' + (prev ? prev.id : '') + '"' + (prev ? '' : ' disabled') + '>&lsaquo; Previous</button><button class="btn" data-rec="' + (next ? next.id : '') + '"' + (next ? '' : ' disabled') + '>Next &rsaquo;</button></div></div>'
-    + '<div class="grid"><div class="tile"><b>' + money(r.amount) + '</b><span>Balance</span></div><div class="tile"><b>' + esc(r.base_date) + '</b><span>Invoice date</span></div><div class="tile ' + (r.aging_days > 120 ? 'r' : 'a') + '"><b>' + r.aging_days + ' days</b><span>Age (' + esc(r.bucket) + ')</span></div>'
+    + '<div class="grid"><div class="tile"><b>' + money(r.amount) + '</b><span>Balance</span></div><div class="tile"><b>' + esc(r.base_date || 'not given') + '</b><span>Invoice date</span></div><div class="tile ' + (isO120(r) ? 'r' : 'a') + '"><b>' + (r.aging_days != null ? r.aging_days + ' days' : (isO120(r) ? 'Over 120' : '91-120')) + '</b><span>' + (r.aging_days != null ? 'Age (' + esc(r.bucket) + ')' : 'Age from the list (no invoice date)') + '</span></div>'
     + '<div class="tile ' + (r.days_to_120 > 0 ? 'a' : 'r') + '"><b>' + (r.days_to_120 > 0 ? r.days_to_120 + ' days' : 'Over 120') + '</b><span>' + (r.days_to_120 > 0 ? 'Left before 120 days' : 'Already past 120 days') + '</span></div><div class="tile"><b>' + STATUS[r.status] + '</b><span>Status</span></div><div class="tile"><b style="font-size:14px">' + flags + '</b><span>Flags</span></div></div>'
     + '<div class="rgrid"><div class="card"><div class="tlh"><h3>Timeline</h3><div class="chips noprint" id="tlChips"></div><button class="btn noprint" data-ract="present" title="Big timeline for a meeting screen (Esc to exit)">' + (document.body.classList.contains('present') ? 'Exit present' : '&#x26F6; Present') + '</button><button class="btn p noprint" data-ract="note">+ Add remark</button></div>'
     + '<div class="hint">Every remark and change on this item, oldest first, with who added it and when.</div><div id="hist" class="tl">Loading...</div>'
