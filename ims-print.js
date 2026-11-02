@@ -31,6 +31,7 @@
     + '#page .tile,#page .bar{break-inside:avoid}'
     + '#page h2,#page h3{break-after:avoid}'
     + '#page .card{box-shadow:none!important}'
+    + '#page #prHead table{width:auto!important;font-size:11px}#page #prHead td{padding:1px 0 1px 10px!important}'
     + '}';
   document.head.appendChild(css);
 
