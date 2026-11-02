@@ -18,9 +18,10 @@
   function opFromName(s) {
     const t = String(s || '').toLowerCase();
     if (!t) return '';
+    const byName = ops.find(o => nk(o.name) === nk(t) || nk(o.code) === nk(t)); if (byName) return byName.code;   // "GT Medawela", "AMB Jaffna", ...
     if (/cbl/.test(t)) return /galle/.test(t) ? 'CBG' : /kandy/.test(t) ? 'CBK' : 'CBL';
-    if (/^mt\b|modern/.test(t)) return /kandy/.test(t) ? 'MTK' : /horeca|hreka|horeka/.test(t) ? 'MTH' : 'MT';
-    if (/jaffna/.test(t)) return 'JFN'; if (/kandy|kdy/.test(t)) return 'KDY'; if (/medawala|madawala|mdw/.test(t)) return 'MDW'; if (/depot|gothatuwa/.test(t)) return 'DEP';
+    if (/^mt\b|modern|smmt/.test(t)) return /kandy/.test(t) ? 'MTK' : /horeca|hreka|horeka/.test(t) ? 'MTH' : 'MT';
+    if (/jaffna/.test(t)) return 'JFN'; if (/kandy|kdy/.test(t)) return 'KDY'; if (/medawala|medawela|madawala|mdw/.test(t)) return 'MDW'; if (/depot|gothatuwa/.test(t)) return 'DEP';
     if (/\bamb|ambient/.test(t)) return 'AMB'; if (/\bice/.test(t)) return 'ICE'; if (/plt|pallet/.test(t)) return 'PLT'; if (/mng|management/.test(t)) return 'MNG';
     const c = ops.find(o => o.code.toLowerCase() === t.trim()); return c ? c.code : '';
   }
