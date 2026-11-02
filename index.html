@@ -167,12 +167,12 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
   <div id="panel"></div>
 </div>
 
-<script src="ims-cash.js?v=3"></script>
+<script src="ims-cash.js?v=4"></script>
 <script src="ims-rep.js?v=3"></script>
 <script src="ims-outlet.js?v=3"></script>
 <script src="ims-handover.js?v=2"></script>
-<script src="ims-expiry.js?v=5"></script>
-<script src="ims-osupload.js?v=3"></script>
+<script src="ims-expiry.js?v=6"></script>
+<script src="ims-osupload.js?v=4"></script>
 <script src="ims-additem.js?v=1"></script>
 <script src="ims-print.js?v=3"></script>
 <script src="ims-ops.js?v=1"></script>
@@ -210,7 +210,12 @@ async function raw(path, opt) {
   if (sess) h.Authorization = 'Bearer ' + sess.access_token;
   return fetch(URL_ + path, {method: opt.method || 'GET', headers: h, body: opt.body ? JSON.stringify(opt.body) : undefined});
 }
-async function refresh() {
+// reads run side by side, so when the token has expired they share one refresh instead of each asking for a new token
+function refresh() {
+  if (!refresh.p) refresh.p = refresh1().finally(() => { refresh.p = null; });
+  return refresh.p;
+}
+async function refresh1() {
   if (!sess || !sess.refresh_token) return false;
   const r = await fetch(URL_ + '/auth/v1/token?grant_type=refresh_token', {method: 'POST', headers: {apikey: KEY, 'Content-Type': 'application/json'}, body: JSON.stringify({refresh_token: sess.refresh_token})});
   if (!r.ok) return false;
@@ -246,25 +251,29 @@ const myRows = () => rows.filter(r => !op || r.operation === op);
 
 async function start() {
   try {
+    if (sess.expires_at && sess.expires_at * 1000 < Date.now() + 60000) await refresh();   // token already old: renew first, not after four failed reads
     const uid = sess.user.id;
-    const p = await api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role,rep_name,job_title').catch(() => api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role,rep_name'));
+    // the four start-up reads go out together (one wait instead of four)
+    const [p, ac, os, l] = await Promise.all([
+      api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role,rep_name,job_title').catch(() => api('/rest/v1/profiles?id=eq.' + uid + '&select=full_name,username,role,rep_name')),
+      api('/rest/v1/fu_access?user_id=eq.' + uid + '&select=module,operation,level'),
+      api('/rest/v1/operations?select=code,name&order=sort'),
+      api('/rest/v1/fu_lists?module=eq.receivable&order=sort&select=kind,value')]);
     me = p[0]; if (!me) throw new Error('No profile');
-    access = me.role === 'admin' ? [] : await api('/rest/v1/fu_access?user_id=eq.' + uid + '&select=module,operation,level');
-    ops = await api('/rest/v1/operations?select=code,name&order=sort');
-    const l = await api('/rest/v1/fu_lists?module=eq.receivable&order=sort&select=kind,value');
+    access = me.role === 'admin' ? [] : ac; ops = os;
     lists = {reason: l.filter(x => x.kind === 'reason').map(x => x.value), next_step: l.filter(x => x.kind === 'next_step').map(x => x.value)};
   } catch (e) { $('lerr').textContent = 'Could not load: ' + e.message; sess = null; localStorage.removeItem('fu_session'); return; }
   if (!visibleMods().length) { $('lerr').textContent = 'Your account has no access yet. Ask the Admin.'; sess = null; localStorage.removeItem('fu_session'); return; }
   $('login').hidden = true; $('app').hidden = false; $('ice').style.display = 'none';
   $('who').textContent = (me.full_name || me.username) + ' · ' + (myTitle() || 'User');
   mod = visibleMods()[0].id;
-  await loadRows();
-  if (window.seWarm && visibleMods().some(m => m.id === 'short_expiry')) await seWarm();
+  await Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null]);
   route();
 }
 async function loadRows() {
-  rows = (opsFor('receivable').length || opsFor('rep').length) ? await api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000') : [];
-  await loadContacts();
+  const want = opsFor('receivable').length || opsFor('rep').length;
+  const [r, c] = await Promise.all([want ? api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000') : [], want ? fetchContacts() : null]);
+  rows = r; await loadContacts(c);
 }
 // contacts: rep phone once per rep, outlet address / contact no once per outlet; shown on every record of that rep / outlet
 let CO = {}, CR = {};
@@ -273,11 +282,13 @@ const nk = s => { const t = String(s || ''), k = t.toLowerCase().replace(/[^a-z0
 const ck = (o, n) => o + '|' + nk(n);
 // one save at a time: a double click or a slow network cannot save the same thing twice
 async function guard(fn) { if (guard.busy) return; guard.busy = true; try { await fn(); } finally { guard.busy = false; } }
-async function loadContacts() {
+const fetchContacts = () => Promise.all([api('/rest/v1/fu_outlets?select=*'), api('/rest/v1/fu_reps?select=operation,rep_name,phone,by_name,updated_at')]).catch(() => [[], []]);
+async function loadContacts(pre) {
   CO = {}; CR = {}; if (!rows.length) return;
   try {
-    (await api('/rest/v1/fu_outlets?select=*') || []).forEach(x => CO[ck(x.operation, x.outlet)] = x);
-    (await api('/rest/v1/fu_reps?select=operation,rep_name,phone,by_name,updated_at') || []).forEach(x => CR[ck(x.operation, x.rep_name)] = x);
+    const [ol, rp] = pre || await fetchContacts();
+    (ol || []).forEach(x => CO[ck(x.operation, x.outlet)] = x);
+    (rp || []).forEach(x => CR[ck(x.operation, x.rep_name)] = x);
   } catch (e) {}
   rows.forEach(r => { const o = CO[ck(r.operation, r.outlet)] || {}, p = CR[ck(r.operation, r.owner_name)] || {}; r.outlet_address = o.address || null; r.outlet_phone = o.phone || null; r.rep_phone = p.phone || null; });
 }

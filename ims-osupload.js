@@ -14,7 +14,12 @@
     ['ref', h => h === 'memo' || h === 'num' || h === 'invoiceno' || h === 'memonum'], ['rep', h => h === 'salesrep' || h === 'rep'], ['aging', h => h === 'aging'], ['cur', h => h === 'current'], ['b1', h => h === '130'], ['b31', h => h === '3160'],
     ['b61', h => h === '6190'], ['b91', h => h === '91120'], ['o120', h => h === 'over120'], ['bal', h => h === 'balance' || h === 'amount'], ['repph', h => h.startsWith('salesrepphone')], ['custph', h => h.startsWith('customerphone')],
     ['addr', h => h.startsWith('customeraddress') || h === 'address'], ['reason', h => h.startsWith('mainreason') || h === 'reason'], ['sit', h => h.startsWith('clearexplanation') || h.startsWith('currentsituation') || h === 'explanation']];
-  const SYN = {'grn error': 'GRN error', 'price not update item sale': 'Price not updated', 'price not updated': 'Price not updated', 'invoice enter error': 'Invoice entry error', 'invoice entry error': 'Invoice entry error'};
+  const SYN = {'grn error': 'GRN error', 'price not update item sale': 'Price not updated', 'price not updated': 'Price not updated', 'invoice enter error': 'Invoice entry error', 'invoice entry error': 'Invoice entry error',
+    // GT wording (Gothatuwa list, 31.10.2026)
+    'the employee has already left the company.': 'Rep left the company', 'the employee has already left the company': 'Rep left the company',
+    'the outstanding amount is to be collected from the outlet.': 'Collect from outlet', 'the outstanding amount is to be collected from the outlet': 'Collect from outlet',
+    'handed over to mr.jayarathna to police entry': 'Police entry', 'to be settled from ccs': 'To be settled from CCS'};
+  const synOf = rl => SYN[rl] || (/^payment to be collected from /.test(rl) ? 'Collect from another rep' : /police entry/.test(rl) ? 'Police entry' : null);
   function opFromName(s) {
     const t = String(s || '').toLowerCase();
     if (!t) return '';
@@ -62,7 +67,7 @@
       seen[key] = row;
       const date = X.iso(v(R, 'date')); if (!date) problems.push('Row ' + row + ': date not readable (' + t(R, 'date') + ')');
       let outlet = t(R, 'outlet'); if (!outlet) { outlet = chain; if (!outlet) problems.push('Row ' + row + ': customer / outlet blank'); }
-      const rTxt = t(R, 'reason'), rl = rTxt.toLowerCase(); let reason = SYN[rl] || (lists.reason || []).find(x => x.toLowerCase() === rl) || null;
+      const rTxt = t(R, 'reason'), rl = rTxt.toLowerCase(); let reason = synOf(rl) || (lists.reason || []).find(x => x.toLowerCase() === rl) || null;
       if (rTxt && !reason) { reason = 'Other'; problems.push('Row ' + row + ': reason "' + rTxt + '" is not in the list, saved as Other'); }
       if (!rTxt) problems.push('Row ' + row + ': Main Reason blank');
       const sit = t(R, 'sit');

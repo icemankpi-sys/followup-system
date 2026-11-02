@@ -40,9 +40,9 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   async function cLoad(force) {
     if (C.loaded && !force) return;
     const from = ymd(addD(monday(new Date()), -7 * 53));
-    C.lanes = await api('/rest/v1/cc_lanes?select=*&order=sort,name');
-    const t = await api('/rest/v1/cc_targets?select=lane_id,week_start,target&week_start=gte.' + from);
-    const d = await api('/rest/v1/cc_daily?select=lane_id,day,amount,customers,note,by_name,updated_at&day=gte.' + from + '&limit=50000');
+    const [ln, t, d] = await Promise.all([api('/rest/v1/cc_lanes?select=*&order=sort,name'), api('/rest/v1/cc_targets?select=lane_id,week_start,target&week_start=gte.' + from),
+      api('/rest/v1/cc_daily?select=lane_id,day,amount,customers,note,by_name,updated_at&day=gte.' + from + '&limit=50000')]);
+    C.lanes = ln;
     C.tmap = {}; t.forEach(x => C.tmap[x.lane_id + '|' + x.week_start] = Number(x.target));
     C.dmap = {}; d.forEach(x => C.dmap[x.lane_id + '|' + x.day] = x);
     C.loaded = true;
@@ -50,12 +50,11 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   async function fLoad(force) {
     if (F.loaded && !force) return;
     const from = ymd(addD(monday(new Date()), -7 * 53));
-    const w = await api('/rest/v1/cf_week?select=*&week_start=gte.' + from);
+    const [w, out, chq] = await Promise.all([api('/rest/v1/cf_week?select=*&week_start=gte.' + from), api('/rest/v1/cf_outflow?select=*&deleted=eq.false&day=gte.' + from + '&order=day.desc&limit=20000'),
+      api('/rest/v1/cf_cheques?select=*&order=cheque_date.asc.nullslast&limit=5000'), opsFor('collection').length ? cLoad() : null]);
     F.week = {}; w.forEach(x => F.week[x.operation + '|' + x.week_start] = x);
-    F.out = await api('/rest/v1/cf_outflow?select=*&deleted=eq.false&day=gte.' + from + '&order=day.desc&limit=20000');
-    F.chq = await api('/rest/v1/cf_cheques?select=*&order=cheque_date.asc.nullslast&limit=5000');
+    F.out = out; F.chq = chq;
     F.loaded = true;
-    if (opsFor('collection').length) await cLoad();
   }
   const lanesF = () => C.lanes.filter(l => l.active && (!op || l.operation === op) && (!C.mgr || (l.manager || '') === C.mgr) && (!C.lane || String(l.id) === C.lane));
   const amt = (l, day) => { const r = C.dmap[l.id + '|' + day]; return r && r.amount != null ? Number(r.amount) : null; };

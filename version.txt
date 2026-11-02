@@ -1,1 +1,1 @@
-﻿Iceman IMS v2.5.1 (2026-11-02): clean print for every report: no scroll boxes or scrollbars, all columns on the page, A4 landscape for wide tables, header row repeated on each page.
+﻿Iceman IMS v2.5.2 (2026-11-02): faster start (database reads side by side, one shared token refresh); GT outstanding reasons understood by the upload.

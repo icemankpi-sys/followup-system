@@ -18,8 +18,9 @@
 
   async function load(force) {
     if (!force && X.at && Date.now() - X.at < 60000) return;
-    X.rows = await api('/rest/v1/v_short_expiry?select=*&order=base_date.asc&limit=5000') || [];
-    try { X.imports = await api('/rest/v1/fu_imports?module=eq.short_expiry&select=operation,as_at,file_name,rows_in,rows_new,rows_closed,by_name,at&order=as_at.desc&limit=200') || []; } catch (e) { X.imports = []; }
+    const [r, im] = await Promise.all([api('/rest/v1/v_short_expiry?select=*&order=base_date.asc&limit=5000'),
+      api('/rest/v1/fu_imports?module=eq.short_expiry&select=operation,as_at,file_name,rows_in,rows_new,rows_closed,by_name,at&order=as_at.desc&limit=200').catch(() => [])]);
+    X.rows = r || []; X.imports = im || [];
     X.at = Date.now();
   }
   async function run(fn) { $('page').innerHTML = '<div class="hint">Loading...</div>'; try { await load(); fn(); } catch (e) { $('page').innerHTML = '<div class="card err">Could not load: ' + esc(e.message) + '</div>'; } }
