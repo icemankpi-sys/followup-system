@@ -1,1 +1,1 @@
-Iceman IMS v3.0 (2026-11-03): phone app (install from Chrome), rep My day card on Home.
+Iceman IMS v3.1 (2026-11-03): Rep dashboard 'Today in the field': each rep's start / close meter and last location for Admin and Operation Heads.
