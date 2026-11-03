@@ -1,1 +1,1 @@
-Iceman IMS v2.9.3 (2026-11-03): Outstanding age filter by band: Over 30 = 31-60, Over 60 = 61-90, Over 90 = 91-120, Over 120 = 121-240, Over 240 = 241+.
+Iceman IMS v3.0 (2026-11-03): phone app (install from Chrome), rep My day card on Home.
