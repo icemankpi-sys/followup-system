@@ -60,7 +60,7 @@ h2.pt{margin:0 0 2px;font-size:20px;color:var(--ink)}.hint{color:var(--muted);fo
 b.mn{color:var(--primary);background:var(--primary-soft);border-radius:4px;padding:0 3px}
 .nbadge{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:#e8590c;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
 .mnwarn{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:560px;background:#7c2d12;color:#fff;padding:12px 16px;border-radius:10px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer}
-td.rno{font-family:Consolas,monospace;font-size:12px;color:var(--muted,#64748b);white-space:nowrap}
+td.sno{color:var(--ink2);font-weight:600;width:1%;white-space:nowrap}td.rno{font-family:Consolas,monospace;font-size:12px;color:var(--muted,#64748b);white-space:nowrap}
 .rtag{display:inline-block;font:600 13px Consolas,monospace;color:var(--primary);background:var(--primary-soft);border-radius:6px;padding:2px 8px;vertical-align:middle}
 .filters select{max-width:230px}.filters select.on{border-color:var(--primary);background:var(--primary-soft);font-weight:600}
 .wrap{overflow-x:auto;background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow)}
@@ -386,7 +386,7 @@ function pgItems() {
   const m = modOf(mod); if (!m.ready) { $('page').innerHTML = soon(m); return; }
   $('page').innerHTML = '<div class="row2" style="justify-content:space-between"><h2 class="pt">' + esc(m.name) + ' <span class="hint">' + esc(m.sub) + '</span></h2><div class="row2">' + (mod === 'receivable' && window.canAddOs && canAddOs() ? '<button class="btn" data-aact="open">+ Add invoice</button>' : '') + (mod === 'receivable' && window.canUploadOs && canUploadOs() ? '<button class="btn p" data-uact2="open">&#8679; Upload Outstanding List</button>' : '') + '</div></div><div class="grid" id="tiles"></div>'
     + '<div class="filters"><span id="fsel" style="display:contents"></span><input id="fText" placeholder="Search no / outlet / memo / rep" value="' + esc(F.text) + '" style="flex:1;min-width:160px"><button class="btn" id="fClear" hidden>Clear filters</button></div>'
-    + '<div class="hint" id="count"></div><div class="wrap"><table style="min-width:1000px"><thead><tr><th>No</th><th>Chain</th><th>Outlet</th><th>Memo</th><th>Sales rep</th><th class="n">Days</th><th class="n">To 120</th><th class="n">Balance</th><th>Reason</th><th>Next step</th><th>Next date</th><th>Status</th><th>Flags</th><th></th></tr></thead><tbody id="tb"></tbody><tfoot id="tf"></tfoot></table></div>';
+    + '<div class="hint" id="count"></div><div class="wrap"><table style="min-width:1000px"><thead><tr><th class="n" title="Running number of the rows shown">#</th><th>No</th><th>Chain</th><th>Outlet</th><th>Memo</th><th>Sales rep</th><th class="n">Days</th><th class="n">To 120</th><th class="n">Balance</th><th>Reason</th><th>Next step</th><th>Next date</th><th>Status</th><th>Flags</th><th></th></tr></thead><tbody id="tb"></tbody><tfoot id="tf"></tfoot></table></div>';
   renderItems();
 }
 // one test per filter; filtered(skip) leaves one out, so each drop-down can show how many items each choice would give
@@ -426,11 +426,11 @@ function renderItems() {
     ['g', myRows().filter(r => !isActive(r)).length, 'Settled / closed']].map(t => '<div class="tile ' + t[0] + '"><b>' + t[1] + '</b><span>' + t[2] + '</span></div>').join('');
   const f = filtered(), on = op ? ops.find(o => o.code === op) : null;
   $('count').innerHTML = '<b>' + esc(on ? 'Showing ' + on.code + ' - ' + on.name + ' only' : 'Showing all my operations') + '</b> · ' + f.length + ' items in the list, balance ' + money(sum(f)) + ' &nbsp; ' + ageKey();
-  $('tb').innerHTML = f.map(r => '<tr class="row' + ageCls(r) + '" data-open="' + r.id + '"><td class="rno">' + esc(r.rec_code || '') + '</td><td>' + esc(r.party) + '</td><td>' + esc(r.outlet) + (!op && r.operation ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.ref_key) + '</td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + (r.days_to_120 == null ? '' : r.days_to_120) + '</td><td class="n"><b>' + money(r.amount) + '</b></td>'
+  $('tb').innerHTML = f.map((r, i) => '<tr class="row' + ageCls(r) + '" data-open="' + r.id + '"><td class="n sno">' + (i + 1) + '</td><td class="rno">' + esc(r.rec_code || '') + '</td><td>' + esc(r.party) + '</td><td>' + esc(r.outlet) + (!op && r.operation ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.ref_key) + '</td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + (r.days_to_120 == null ? '' : r.days_to_120) + '</td><td class="n"><b>' + money(r.amount) + '</b></td>'
     + '<td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + esc(r.next_date) + '</td><td><span class="st">' + STATUS[r.status] + '</span></td><td>' + (r.action_overdue ? '<span class="tag t-r">overdue</span>' : '') + (r.promise_broken ? '<span class="tag t-r">promise broken</span>' : '') + (r.incomplete && isActive(r) ? '<span class="tag t-a">incomplete</span>' : '') + '</td><td><button class="btn q" data-quick="' + r.id + '" title="Quick edit">&#9998;</button></td></tr>').join('');
   // total of the rows shown (follows every filter)
   const fo = f.filter(isO120), fu = f.filter(r => !isO120(r));
-  $('tf').innerHTML = f.length ? '<tr class="tot"><td colspan="5"><b>Total of ' + f.length + ' items shown</b><br><span class="hint">Over 120: ' + money(sum(fo)) + ' (' + fo.length + ') · Up to 120: ' + money(sum(fu)) + ' (' + fu.length + ')</span></td><td></td><td></td><td class="n"><b>' + money(sum(f)) + '</b></td><td colspan="6"></td></tr>' : '<tr><td colspan="14" class="hint">No items match the filters.</td></tr>';
+  $('tf').innerHTML = f.length ? '<tr class="tot"><td colspan="6"><b>Total of ' + f.length + ' items shown</b><br><span class="hint">Over 120: ' + money(sum(fo)) + ' (' + fo.length + ') · Up to 120: ' + money(sum(fu)) + ' (' + fu.length + ')</span></td><td></td><td></td><td class="n"><b>' + money(sum(f)) + '</b></td><td colspan="6"></td></tr>' : '<tr><td colspan="15" class="hint">No items match the filters.</td></tr>';
 }
 
 // ---------- Dashboard ----------
