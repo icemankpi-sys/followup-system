@@ -1,1 +1,1 @@
-Iceman IMS v3.1 (2026-11-03): Rep dashboard 'Today in the field': each rep's start / close meter and last location for Admin and Operation Heads.
+Iceman IMS v3.2 (2026-11-03): CBL Colombo list loaded; age from Over 240 / 30-day bucket columns for customer-level lists.

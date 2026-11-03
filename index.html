@@ -231,7 +231,8 @@ const sum = a => a.reduce((s, r) => s + Number(r.amount || 0), 0);
 const isActive = r => !['settled', 'written_off'].includes(r.status);
 // Over 120 or not: from the invoice date; a line with no date (customer-level lists such as PLT) uses the list's own Over 120 column
 // age colour: Over 240 red, 121-240 orange, 91-120 yellow, 31-90 green (no invoice date: from the list bucket columns)
-const ageDays = r => { if (r.aging_days != null) return r.aging_days; const x = r.details || {}, v = k => Number(x[k] || 0) > 0; return v('over120') ? 121 : v('b91_120') ? 91 : v('b61_90') ? 61 : v('b31_60') ? 31 : null; };
+const ageDays = r => { if (r.aging_days != null) return r.aging_days; const x = r.details || {}, v = k => Number(x[k] || 0) > 0; // oldest bucket with money (CBL lists split 121-240 into 30-day columns and give Over 240 apart)
+  return v('over240') ? 241 : v('b211_240') ? 211 : v('b181_210') ? 181 : v('b151_180') ? 151 : v('b121_150') || v('over120') ? 121 : v('b91_120') ? 91 : v('b61_90') ? 61 : v('b31_60') ? 31 : null; };
 const AGES = [30, 60, 90, 120, 240];
 // age band: Over 30 = 31-60, Over 60 = 61-90, Over 90 = 91-120, Over 120 = 121-240, Over 240 = 241 and up
 const inBand = (r, a) => { const d = ageDays(r) || 0, i = AGES.indexOf(a), hi = AGES[i + 1]; return d > a && (hi == null || d <= hi); };
