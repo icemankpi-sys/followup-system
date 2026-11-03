@@ -198,6 +198,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-outlet.js?v=5"></script>
 <script src="ims-handover.js?v=2"></script>
 <script src="ims-expiry.js?v=8"></script>
+<script src="ims-foc.js?v=1"></script>
 <script src="ims-osupload.js?v=5"></script>
 <script src="ims-additem.js?v=1"></script>
 <script src="ims-print.js?v=3"></script>
@@ -218,7 +219,7 @@ const MODS = [
   {id:'visits', name:'Visit History', sub:'Rep routes and check-ins, any date', ic:'VH', ready:true},
   {id:'runs', name:'Running Chart', sub:'Start / close meter by photo', ic:'RC', ready:true},
   {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true},
-  {id:'foc', name:'FOC Report', sub:'Free of charge stock', ic:'FC', ready:false},
+  {id:'foc', name:'FOC', sub:'FOC not passed · MT-Colombo', ic:'FC', ready:true},
   {id:'short_expiry', name:'Short Expiry', sub:'Expired or expiring in 90 days', ic:'SE', ready:true},
   {id:'grn', name:'GRN Outstanding', sub:'GRN pending and errors', ic:'GR', ready:false},
   {id:'kpi', name:'KPI', sub:'KPI documents', ic:'KP', ready:false}];
@@ -311,7 +312,7 @@ async function start() {
   $('login').hidden = true; $('app').hidden = false; $('ice').style.display = 'none';
   $('who').textContent = (me.full_name || me.username) + ' · ' + (myTitle() || 'User');
   mod = visibleMods()[0].id;
-  await Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null, window.loadMentions ? loadMentions() : null, window.loadVisitsToday ? loadVisitsToday() : null, window.loadRunsToday ? loadRunsToday() : null]);
+  await Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null, window.fcWarm && visibleMods().some(m => m.id === 'foc') ? fcWarm() : null,window.loadMentions ? loadMentions() : null, window.loadVisitsToday ? loadVisitsToday() : null, window.loadRunsToday ? loadRunsToday() : null]);
   route();
   if (window.visitAutoStart) visitAutoStart();
 }
@@ -596,9 +597,10 @@ function clearHash() { if (location.hash) history.replaceState(null, '', locatio
 function openRecord(id) { location.hash = 'item/' + encodeURIComponent(id); }
 function route() {
   const m = location.hash.match(/^#item\/(.+)$/);
-  const ol = location.hash.match(/^#outlet\/(.+)$/), se = location.hash.match(/^#se\/(.+)$/);
+  const ol = location.hash.match(/^#outlet\/(.+)$/), se = location.hash.match(/^#se\/(.+)$/), fc = location.hash.match(/^#fc\/(.+)$/);
   if (m) { recId = decodeURIComponent(m[1]); go('record'); }
   else if (se) { window.SE_ID = decodeURIComponent(se[1]); go('record', 'short_expiry'); }
+  else if (fc) { window.FC_ID = decodeURIComponent(fc[1]); go('record', 'foc'); }
   else if (ol) { window.OUTLET_ID = ol[1]; go('outlet', 'outlets'); }
   else go(page === 'record' || page === 'outlet' ? 'items' : undefined);
 }
@@ -695,7 +697,7 @@ async function permClick(b) {
     else if (act === 'repname') { await api('/rest/v1/profiles?id=eq.' + uSel, {method: 'PATCH', body: {rep_name: $('repName').value.trim() || null}, headers: {Prefer: 'return=minimal'}}); await reload('Rep name saved.'); }
     else if (act === 'jobtitle') { await api('/rest/v1/profiles?id=eq.' + uSel, {method: 'PATCH', body: {job_title: $('jobTitle').value.trim() || null}, headers: {Prefer: 'return=minimal'}}); await reload('Job title saved.'); }
     else if (act === 'preset') {
-      const P = {officer: [['collection', 'edit']], manager: [['collection', 'view']], finance: [['collection', 'full'], ['receivable', 'view'], ['short_expiry', 'view']], rep: [['rep', 'edit']], ophead: [['receivable', 'edit'], ['collection', 'view'], ['short_expiry', 'edit']], director: [['*', 'view']], legal: [['receivable', 'view']], stores: [['short_expiry', 'full']]};
+      const P = {officer: [['collection', 'edit']], manager: [['collection', 'view']], finance: [['collection', 'full'], ['receivable', 'view'], ['short_expiry', 'view'], ['foc', 'full']], rep: [['rep', 'edit']], ophead: [['receivable', 'edit'], ['collection', 'view'], ['short_expiry', 'edit']], director: [['*', 'view']], legal: [['receivable', 'view']], stores: [['short_expiry', 'full']]};
       const T = {officer: 'Operation Officer', finance: 'Accounts', rep: 'Sales Rep', ophead: 'Operation Head', director: 'Director', legal: 'Legal Officer', stores: 'Stores Officer'}, k = $('pRole').value, u = uData.users.find(x => x.id === uSel);
       for (const x of P[k]) await api('/rest/v1/fu_access?on_conflict=user_id,module,operation', {method: 'POST', body: {user_id: uSel, module: x[0], operation: $('pOp').value, level: x[1]}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}});
       if (T[k] && u && !u.job_title) await api('/rest/v1/profiles?id=eq.' + uSel, {method: 'PATCH', body: {job_title: T[k]}, headers: {Prefer: 'return=minimal'}});
