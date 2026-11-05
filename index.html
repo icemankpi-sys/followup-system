@@ -38,6 +38,11 @@ aside{width:236px;flex:none;background:var(--surface);border-right:1px solid var
 .mod.soon .ic{background:var(--line2);color:var(--surface)}.mod .tx{flex:1;min-width:0}.mod .tx small{display:block;font-weight:400;color:var(--muted);font-size:11px}
 .cnt{background:var(--accent);color:#fff;border-radius:10px;padding:0 7px;font-size:11px;font-weight:700}
 #content{flex:1;min-width:0;padding:14px max(16px,env(safe-area-inset-right)) 30px 16px}
+/* guard (v3.6.1): a browser extension on some PCs injects a "#content {font-size:22px; color:#fff; float:left; width:460px}" style
+   (an IIS / Azure default-page stylesheet). section#content is more specific, so the app keeps its own look whatever is injected. */
+section#content{font-family:inherit;font-weight:inherit;font-size:14px;color:var(--ink);float:none;width:auto;margin-top:0;margin-left:0;vertical-align:baseline}
+section#content h1{font-family:inherit;color:inherit;font-size:revert;line-height:normal;width:auto}
+section#content p a,section#content p a:visited,section#content p a:hover{color:var(--primary)}
 #bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 h2.pt{margin:0 0 2px;font-size:20px;color:var(--ink)}.hint{color:var(--muted);font-size:12.5px;margin:3px 0}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:10px 0}
@@ -148,6 +153,14 @@ tr.tot td{background:var(--primary-soft);border-top:2px solid var(--primary);fon
 .dh{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:4px}
 .dh4{margin:16px 0 4px;font-size:13px;color:var(--muted)}
 .stamp{font-size:12px;color:var(--muted);background:var(--surface2);border-radius:8px;padding:5px 9px;margin-top:6px}
+.setbox{border:1px solid #9be0bd;background:#eefaf3;border-radius:10px;padding:4px 10px 10px;margin:8px 0}
+.setbox[hidden]{display:none}
+.setbox .sbh{font-weight:700;color:#0f7a55;margin-top:4px}
+.setbox .bad{color:var(--danger,#c62828);font-weight:600}
+#xPart{border-color:#f3d9ad;background:#fdf6e9}#xPart .sbh{color:#b45309}
+.paytbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}.paytbl th,.paytbl td{border-bottom:1px solid var(--line);padding:3px 5px;text-align:left;color:var(--ink)}.paytbl td.n{text-align:right;white-space:nowrap}.paytbl .btn{padding:0 7px}
+@media (prefers-color-scheme: dark){#xPart{background:rgba(180,83,9,.14);border-color:rgba(180,83,9,.5)}#xPart .sbh{color:#f0a94a}}
+@media (prefers-color-scheme: dark){.setbox{background:rgba(15,122,85,.14);border-color:rgba(15,122,85,.5)}.setbox .sbh{color:#5fd3a0}}
 .tl.sm .bub{padding:5px 9px}.tl.sm .btx{font-size:12.5px}.tl.sm .av{width:28px;height:28px;font-size:11px}
 #toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:8px 16px;border-radius:20px;font-size:13px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.on{opacity:1}
@@ -198,7 +211,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-outlet.js?v=5"></script>
 <script src="ims-handover.js?v=2"></script>
 <script src="ims-expiry.js?v=8"></script>
-<script src="ims-foc.js?v=1"></script>
+<script src="ims-foc.js?v=3"></script>
 <script src="ims-osupload.js?v=5"></script>
 <script src="ims-additem.js?v=1"></script>
 <script src="ims-print.js?v=3"></script>
@@ -211,7 +224,9 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
-const STATUS = {open:'Open',promised:'Promised',dispute:'Dispute',action_pending:'Action pending',settled:'Settled',written_off:'Written off'};
+const STATUS = {open:'Open',promised:'Promised',dispute:'Dispute',action_pending:'Action pending',part_settled:'Half settled',settled:'Settled',written_off:'Written off'};
+// v3.7: the view gives balance_now = list balance less the half-settled payments; the app shows and totals that, list_amount keeps the list's own figure
+function fixBal(r) { if (r && r.balance_now != null && r.list_amount === undefined) { r.list_amount = Number(r.amount); r.amount = Number(r.balance_now); } return r; }   // a function (not const) so ims-foc.js finds it on window
 const MODS = [
   {id:'receivable', name:'Outstanding', sub:'Over 30 / 60 / 90 / 120 / 240', ic:'OS', ready:true},
   {id:'rep', name:'Sales Reps', sub:'Rep outstanding and to-do', ic:'SR', ready:true},
@@ -319,7 +334,7 @@ async function start() {
 async function loadRows() {
   const want = opsFor('receivable').length || opsFor('rep').length;
   const [r, c] = await Promise.all([want ? api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000') : [], want ? fetchContacts() : null]);
-  rows = r; await loadContacts(c);
+  rows = (r || []).map(fixBal); await loadContacts(c);
 }
 // contacts: rep phone once per rep, outlet address / contact no once per outlet; shown on every record of that rep / outlet
 let CO = {}, CR = {};
@@ -474,7 +489,7 @@ function pgReport() {
     + '<div class="card" style="margin-top:12px"><h3>Broken promises and overdue actions (' + prob.length + ')</h3>' + (prob.length ? '<table><thead><tr><th>Outlet</th><th class="n">Balance</th><th>Promise date</th><th>Next date</th><th>Who</th></tr></thead><tbody>' + prob.map(r => '<tr><td>' + esc(r.outlet) + '</td><td class="n">' + money(r.amount) + '</td><td>' + esc(r.promised_date) + '</td><td>' + esc(r.next_date) + '</td><td>' + esc(r.next_owner) + '</td></tr>').join('') + '</tbody></table>' : '<div class="hint">None.</div>') + '</div>';
 }
 function exportCsv() {
-  const cols = [['Record no', 'rec_code'], ['Operation', 'operation'], ['Chain', 'party'], ['Outlet', 'outlet'], ['Memo', 'ref_key'], ['Sales rep', 'owner_name'], ['Rep phone', 'rep_phone'], ['Outlet address', 'outlet_address'], ['Outlet contact no', 'outlet_phone'], ['Invoice date', 'base_date'], ['Days', 'aging_days'], ['Bucket', 'bucket'], ['Balance', 'amount'], ['Reason', 'reason'], ['Next step', 'next_step'], ['Who', 'next_owner'], ['Next date', 'next_date'], ['Promise date', 'promised_date'], ['Status', 'status'], ['Remarks', 'remarks']];
+  const cols = [['Record no', 'rec_code'], ['Operation', 'operation'], ['Chain', 'party'], ['Outlet', 'outlet'], ['Memo', 'ref_key'], ['Sales rep', 'owner_name'], ['Rep phone', 'rep_phone'], ['Outlet address', 'outlet_address'], ['Outlet contact no', 'outlet_phone'], ['Invoice date', 'base_date'], ['Days', 'aging_days'], ['Bucket', 'bucket'], ['Balance', 'amount'], ['List balance', 'list_amount'], ['Paid (half settled)', 'paid_open'], ['Reason', 'reason'], ['Next step', 'next_step'], ['Who', 'next_owner'], ['Next date', 'next_date'], ['Promise date', 'promised_date'], ['Status', 'status'], ['Remarks', 'remarks'], ['Settled date', 'settled_on'], ['Settled amount', 'settled_amount'], ['Settle remark', 'settle_remark']];
   const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const csv = '﻿' + cols.map(c => q(c[0])).join(',') + '\r\n' + myRows().filter(isActive).map(r => cols.map(c => q(r[c[1]])).join(',')).join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'})); a.download = 'Outstanding ' + (op || 'all') + ' ' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove();
@@ -487,6 +502,7 @@ function formHtml(r, canEdit, canFull) {
   const rl = lists.reason.includes(r.reason) || !r.reason ? lists.reason : lists.reason.concat([r.reason]);
   const sl = lists.next_step.includes(r.next_step) || !r.next_step ? lists.next_step : lists.next_step.concat([r.next_step]);
   return '<label>Status</label><select id="eStatus"' + dis + '>' + Object.keys(STATUS).map(k => '<option value="' + k + '"' + (k === r.status ? ' selected' : '') + (k === 'written_off' && !canFull ? ' disabled' : '') + '>' + STATUS[k] + (k === 'written_off' && !canFull ? ' (Full access only)' : '') + '</option>').join('') + '</select>'
+    + (canEdit ? settleHtml(r) + partHtml(r) : '')
     + '<label>Reason</label><select id="eReason"' + dis + '>' + selOpts(rl, r.reason, true) + '</select>'
     + '<label>Next step</label><select id="eStep"' + dis + '>' + selOpts(sl, r.next_step, true) + '</select>'
     + '<label>Who does it</label><input id="eOwner" value="' + esc(r.next_owner) + '"' + dis + '>'
@@ -494,6 +510,93 @@ function formHtml(r, canEdit, canFull) {
     + '<label>Customer promise date</label><input id="ePromise" type="date" value="' + esc(r.promised_date) + '"' + dis + '>'
     + '<label>Short remark (shown in the list)</label><textarea id="eRem" rows="2"' + dis + '>' + esc(r.remarks) + '</textarea>';
 }
+// ---------- settle details (v3.6): a pending item set to Settled / Collected needs the date, amount and a remark ----------
+const lkDay = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
+function settleHtml(r) {
+  const bal = r2(r.amount);
+  return '<div id="xSet" class="setbox" data-bal="' + bal + '"' + (r.status === 'settled' ? '' : ' hidden') + '><div class="sbh">Settle details (needed to settle)</div>'
+    + '<label>Settled date *</label><input id="xSetOn" type="date" max="' + lkDay() + '" value="' + esc(r.settled_on || lkDay()) + '">'
+    + '<label>Settled amount (Rs) *</label><input id="xSetAmt" type="number" min="0" step="0.01" inputmode="decimal" value="' + (r.settled_amount != null ? r2(r.settled_amount) : bal).toFixed(2) + '"><div class="hint" id="xSetDiff"></div>'
+    + '<label>Settle remark *</label><textarea id="xSetRem" rows="2" maxlength="1000" placeholder="How it was settled, e.g. Cash receipt R-1234 / cheque 123456 (BOC) / credit note CN-55 / passed in the Oct statement">' + esc(r.settle_remark || '') + '</textarea></div>';
+}
+function settleDiff() {
+  const b = $('xSet'), a = $('xSetAmt'), o = $('xSetDiff'); if (!b || !a || !o) return;
+  const bal = r2(b.dataset.bal), amt = r2(a.value), d = r2(bal - amt);
+  o.innerHTML = 'Balance ' + money(bal) + (a.value === '' ? '' : d === 0 ? ' · settled in full' : d > 0 ? ' · <span class="bad">' + money(d) + ' less than the balance (part settled)</span>' : ' · <span class="bad">' + money(-d) + ' more than the balance</span>');
+}
+// returns the settle fields for the PATCH, or throws a message the drawer shows
+function settleRead(status) {
+  if (status !== 'settled' || !$('xSet')) return {};
+  const on = $('xSetOn').value, amt = $('xSetAmt').value.trim(), rem = $('xSetRem').value.trim();
+  if (!on) throw 'Settled date is needed';
+  if (on > lkDay()) throw 'The settled date is in the future';
+  if (amt === '' || isNaN(Number(amt)) || Number(amt) < 0) throw 'Enter the settled amount (0 or more)';
+  if (!rem) throw 'Write the settle remark: how it was settled (receipt / cheque / credit note no)';
+  return {settled_on: on, settled_amount: r2(amt), settle_remark: rem};
+}
+function settleRows(r, row) {
+  if (r.status !== 'settled' && !r.settled_on) return '';
+  const d = r.settled_amount != null ? r2(r2(r.amount) - r2(r.settled_amount)) : 0;
+  return row('Settled date', r.settled_on || (r.status === 'settled' ? 'not recorded (closed before v3.6 or by a list upload)' : ''))
+    + row('Settled amount', r.settled_amount != null ? money(r.settled_amount) + (d > 0 ? ' (' + money(d) + ' less than the balance)' : d < 0 ? ' (' + money(-d) + ' more than the balance)' : ' (in full)') : '')
+    + row('Settle remark', r.settle_remark);
+}
+// ---------- Half settled (v3.7): part payments, each one taken off the balance; the last one closes the item ----------
+function partHtml(r) {
+  const left = r2(r.amount), list = r2(r.list_amount != null ? r.list_amount : r.amount), paid = r2(r.paid_open), again = r.status === 'part_settled';
+  return '<div id="xPart" class="setbox" data-bal="' + left + '" data-again="' + (again ? 1 : 0) + '"' + (again ? '' : ' hidden') + '><div class="sbh">Half settled: add a payment' + (again ? ' (leave the amount blank to change other fields only)' : '') + '</div>'
+    + '<div class="hint">List balance ' + money(list) + ' · paid so far ' + money(paid) + ' · balance left <b>' + money(left) + '</b></div>'
+    + '<label>Payment date *</label><input id="xPayOn" type="date" max="' + lkDay() + '" value="' + lkDay() + '">'
+    + '<label>Amount paid (Rs) *</label><input id="xPayAmt" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="e.g. 5000"><div class="hint" id="xPayDiff"></div>'
+    + '<label>Payment remark *</label><textarea id="xPayRem" rows="2" maxlength="1000" placeholder="e.g. Cash receipt R-1234 / cheque 123456 (BOC) / bank deposit"></textarea>'
+    + '<div class="sbh" style="margin-top:8px">Payments</div><div id="xPayList" class="hint">Loading...</div></div>';
+}
+function partDiff() {
+  const b = $('xPart'), a = $('xPayAmt'), o = $('xPayDiff'); if (!b || !a || !o) return;
+  if (a.value === '') { o.textContent = ''; return; }
+  const left = r2(b.dataset.bal), amt = r2(a.value), d = r2(left - amt);
+  o.innerHTML = amt <= 0 ? '<span class="bad">The amount must be more than 0</span>' : d > 0 ? 'Balance left after this payment: <b>' + money(d) + '</b>' : d === 0 ? '<b>This clears the balance: the item closes as Settled.</b>' : '<span class="bad">' + money(-d) + ' more than the balance left (' + money(left) + ')</span>';
+}
+// returns {p_on, p_amount, p_remark} for fu_add_payment, null when there is no new payment, or throws a message
+function partRead(status, r) {
+  if (status !== 'part_settled' || !$('xPart')) return null;
+  const on = $('xPayOn').value, amt = $('xPayAmt').value.trim(), rem = $('xPayRem').value.trim();
+  if (amt === '' && !rem && r.status === 'part_settled') return null;
+  if (amt === '' || isNaN(Number(amt)) || Number(amt) <= 0) throw 'Enter the amount paid (more than 0)';
+  if (r2(amt) > r2(r.amount)) throw 'The amount is more than the balance left (' + money(r.amount) + ')';
+  if (!on) throw 'Payment date is needed';
+  if (on > lkDay()) throw 'The payment date is in the future';
+  if (!rem) throw 'Write the payment remark: receipt / cheque / deposit no';
+  return {p_item: r.id, p_on: on, p_amount: r2(amt), p_remark: rem};
+}
+async function loadPayList(r) {
+  const box = $('xPayList'); if (!box || !r || !r.id) return;
+  try {
+    const ps = await api('/rest/v1/fu_payments?item_id=eq.' + r.id + '&order=paid_on.asc,id.asc&select=id,paid_on,amount,remark,by_name,list_seen') || [];
+    const full = window.canFull ? canFull(r.operation) : (typeof canOf === 'function' && r.module === 'receivable' ? canOf(r).full : rank(lvl(r.operation, r.module)) >= 3);
+    const counts = p => p.paid_on > (r.last_seen || '') || (p.list_seen || null) === (r.last_seen || null);
+    box.innerHTML = ps.length ? '<table class="paytbl"><tr><th>#</th><th>Date</th><th>Amount</th><th>Remark</th><th>By</th><th></th></tr>' + ps.map((p, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(p.paid_on) + '</td><td class="n">' + money(p.amount) + '</td><td>' + esc(p.remark) + (counts(p) ? '' : ' <span class="hint">(already in a newer list)</span>') + '</td><td>' + esc(p.by_name || '') + '</td><td>'
+      + (full && !['settled', 'written_off'].includes(r.status) ? '<button class="btn" type="button" data-payrm="' + p.id + '" title="Remove a wrong payment (Full access)">&times;</button>' : '') + '</td></tr>').join('')
+      + '<tr><td></td><td><b>Total</b></td><td class="n"><b>' + money(ps.reduce((s, p) => s + Number(p.amount), 0)) + '</b></td><td colspan="3"></td></tr></table>' : 'No payments yet.';
+  } catch (e) { box.textContent = 'Payments not loaded: ' + e.message; }
+}
+function partRows(r, row) {
+  if (r.status !== 'part_settled' && !Number(r.pay_count)) return '';
+  return row('List balance', money(r.list_amount != null ? r.list_amount : r.amount)) + row('Paid (half settled)', money(r.paid_open) + ' · ' + (r.pay_count || 0) + ' payment(s)') + row('Balance left', money(r.amount));
+}
+async function payRemove(id, after) {
+  const why = prompt('Why remove this payment? (kept in the timeline)'); if (!why || !why.trim()) return;
+  try { await api('/rest/v1/rpc/fu_remove_payment', {method: 'POST', body: {p_payment: Number(id), p_reason: why.trim()}}); await after('Payment removed'); } catch (e) { alert(e.message); }
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-payrm]'); if (!b) return; e.preventDefault(); payRemove(b.dataset.payrm, window.payAfter || (m => afterWrite(m))); });
+function statusBoxes(v) {
+  const s = $('xSet'), p = $('xPart');
+  if (s) { s.hidden = v !== 'settled'; settleDiff(); if (!s.hidden) setTimeout(() => { const x = $('xSetRem'); if (x && !x.value) x.focus(); }, 50); }
+  if (p) { p.hidden = v !== 'part_settled'; partDiff(); if (!p.hidden) setTimeout(() => { const x = $('xPayAmt'); if (x) x.focus(); }, 50); }
+}
+document.addEventListener('change', e => { const t = e.target; if (t && (t.id === 'eStatus' || t.id === 'fStatus2')) statusBoxes(t.value); });
+document.addEventListener('input', e => { if (e.target && e.target.id === 'xSetAmt') settleDiff(); if (e.target && e.target.id === 'xPayAmt') partDiff(); });
 const canOf = r => { const rv = rank(lvl(r.operation, 'receivable')), mine = me.rep_name && nk(r.owner_name) === nk(me.rep_name), rp = mine ? Math.min(2, rank(lvl(r.operation, 'rep'))) : 0; return {edit: Math.max(rv, rp) >= 2, full: rv >= 3}; };
 
 // ---------- timeline (one per follow-up item, every module) ----------
@@ -503,8 +606,8 @@ const fmtT = d => d.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-dig
 const fmtD = d => d.toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'});
 const ini = n => String(n || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
 const tcls = t => { t = String(t || '').toLowerCase(); return /rep|sales/.test(t) ? 'c-rep' : /legal|lawyer/.test(t) ? 'c-leg' : /director/.test(t) ? 'c-dir' : /account|finance|cashier/.test(t) ? 'c-acc' : /head|manager|hod/.test(t) ? 'c-head' : /admin/.test(t) ? 'c-adm' : 'c-oth'; };
-const FLD = {status: 'Status', reason: 'Reason', next_step: 'Next step', next_owner: 'Who does it', next_date: 'Next action date', promised_date: 'Promise date', remarks: 'Short remark', owner_name: 'Sales rep'};
-const fv = (f, v) => v == null || v === '' ? '(blank)' : f === 'status' ? (STATUS[v] || v) : v;
+const FLD = {status: 'Status', reason: 'Reason', next_step: 'Next step', next_owner: 'Who does it', next_date: 'Next action date', promised_date: 'Promise date', remarks: 'Short remark', owner_name: 'Sales rep', settled_on: 'Settled date', settled_amount: 'Settled amount', settle_remark: 'Settle remark'};
+const fv = (f, v) => v == null || v === '' ? '(blank)' : f === 'status' ? (STATUS[v] || v) : f === 'settled_amount' ? money(v) : v;
 let tlEv = [], tlF = 'all', tlFlash = null, tlItem = null;
 function tlGroups(ev) {
   const out = []; let n = 0;
@@ -556,13 +659,13 @@ function drawer(modeIn, fromList) {
     + (fromList || page !== 'record' ? '<div class="row2"><button class="btn" data-recpage="' + r.id + '">Open full page with the timeline</button></div>' : '')
     + '<h4 class="dh4">Latest in the timeline</h4><div id="dTl" class="tl sm">Loading...</div>';
   $('panel').innerHTML = h; $('panel').classList.add('open'); $('panel').dataset.from = fromList ? '1' : '';
-  paintTl(); if (tlItem !== r.id) loadHist();
+  paintTl(); if (tlItem !== r.id) loadHist(); settleDiff(); if (mode === 'edit') loadPayList(r);
   setTimeout(() => { const n = $('dNote'); if (n && mode === 'note') n.focus(); }, 220);
 }
 function openPanel(id) { cur = rows.find(r => r.id === id); if (!cur) return; if (tlItem !== cur.id) { tlEv = []; tlItem = null; } drawer(canOf(cur).edit ? 'edit' : 'note', true); }
 function planHtml(r) {
   const late = r.next_date && r.next_date < new Date().toISOString().slice(0, 10) && isActive(r), row = (k, v, cls) => '<dt>' + k + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + (v ? esc(v) : '<span class="hint">not set</span>') + '</dd>';
-  return '<dl>' + row('Status', STATUS[r.status]) + row('Reason', r.reason) + row('Next step', r.next_step) + row('Who does it', r.next_owner) + row('Next action date', r.next_date, late ? 'late' : '') + row('Promise date', r.promised_date, r.promise_broken ? 'late' : '') + row('Short remark', r.remarks) + '</dl>';
+  return '<dl>' + row('Status', STATUS[r.status]) + row('Reason', r.reason) + row('Next step', r.next_step) + row('Who does it', r.next_owner) + row('Next action date', r.next_date, late ? 'late' : '') + row('Promise date', r.promised_date, r.promise_broken ? 'late' : '') + row('Short remark', r.remarks) + partRows(r, row) + settleRows(r, row) + '</dl>';
 }
 const telA = v => v ? '<a href="tel:' + esc(String(v).replace(/[^\d+]/g, '')) + '">' + esc(v) + '</a>' : '<span class="hint">not set</span>';
 function contactHtml(r) {
@@ -635,12 +738,17 @@ async function save() {
   const v = {status: $('eStatus').value, reason: $('eReason').value || null, next_step: $('eStep').value || null, next_owner: $('eOwner').value.trim() || null, next_date: $('eNext').value || null, promised_date: $('ePromise').value || null, remarks: $('eRem').value.trim() || null};
   const note = $('dNote').value.trim();
   if (v.status === 'promised' && !v.promised_date) { $('pErr').textContent = 'Promised needs a promise date'; return; }
+  let pay = null;
+  try { Object.assign(v, settleRead(v.status)); pay = partRead(v.status, cur); } catch (m) { $('pErr').textContent = m; return; }
+  if (v.status === 'part_settled' && cur.status !== 'part_settled') v.status = cur.status;   // the payment sets Half settled (or Settled when it clears the balance)
   const ch = {}; Object.keys(v).forEach(k => { if ((cur[k] || null) !== v[k]) ch[k] = v[k]; });
-  if (!Object.keys(ch).length && !note) { $('pErr').textContent = 'Nothing changed'; return; }
+  if (!Object.keys(ch).length && !note && !pay) { $('pErr').textContent = 'Nothing changed'; return; }
   try {
+    let pr = null; if (pay) pr = await api('/rest/v1/rpc/fu_add_payment', {method: 'POST', body: pay});
     if (Object.keys(ch).length) await api('/rest/v1/fu_items?id=eq.' + cur.id, {method: 'PATCH', body: ch, headers: {Prefer: 'return=minimal'}});
     let res = null; if (note) res = await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: cur.id, p_note: note, p_mentions: mentionsOf($('dNote'))}});
-    await afterWrite('Saved to the timeline' + (window.mentionResult ? mentionResult(res) : ''), !!note);
+    const pm = pr ? (pr.status === 'settled' ? 'Payment saved: fully paid, closed as Settled. ' : 'Payment saved: balance left ' + money(pr.remaining) + '. ') : '';
+    await afterWrite(pm + 'Saved to the timeline' + (window.mentionResult ? mentionResult(res) : ''), !!note);
   } catch (e) { $('pErr').textContent = e.message; }
 }
 async function postNote() {

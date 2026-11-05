@@ -1,1 +1,1 @@
-Iceman IMS v3.5 (2026-11-03): FOC module, sub-category MT-Colombo: upload the Due From CCS list, over 60 days reason, 31-60 collect, new lines monitored.
+﻿Iceman IMS v3.7 (2026-11-05): Half settled (part payments, each taken off the balance; the last one closes the item) + settle details (date, amount, remark) for Outstanding and FOC; guard against an extension style on #content.

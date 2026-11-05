@@ -5,7 +5,7 @@
 // toast, closeDrawer, fmtDT, guard, cur, tlEv, tlF, tlItem, paintTl, loadHist, myTitle, ageCls, ageKey, IMSX).
 (function () {
   const X = {rows: [], at: 0, imports: [], lists: {reason: [], next_step: []}, f: {stage: '', status: 'active', type: '', sent: '', flag: '', text: ''}, parsed: null};
-  const ST = {open: 'Open', action_pending: 'Sent for passing', promised: 'Approval promised', dispute: 'Rejected / dispute', settled: 'Collected (passed)', written_off: 'Written off'};
+  const ST = {open: 'Open', action_pending: 'Sent for passing', promised: 'Approval promised', dispute: 'Rejected / dispute', part_settled: 'Half settled (part passed)', settled: 'Collected (passed)', written_off: 'Written off'};
   const REASONS = ['Not yet sent for passing', 'Sent, awaiting approval', 'Approval document missing (PR / request)', 'FOC Ref No missing or wrong', 'Amount differs (part passed)', 'Rejected / not accepted', 'Late submission (after year-end)', 'Discount bank upload issue', 'Old system matter (2024)', 'Other'];
   const STEPS = ['Send / resend for passing', 'Get the approval document signed', 'Correct the FOC Ref No / amount', 'Follow up with the approver', 'Check the discount bank statement', 'Escalate to Operation Head', 'Refer to Director', 'Write-off request'];
   // sub-categories of FOC: one operation each (more can be added here when their lists come)
@@ -29,7 +29,7 @@
     const [r, im, l] = await Promise.all([api('/rest/v1/v_foc?select=*&order=base_date.asc&limit=5000'),
       api('/rest/v1/fu_imports?module=eq.foc&select=operation,as_at,file_name,rows_in,rows_new,rows_closed,total_in,by_name&order=as_at.desc,id.desc&limit=200').catch(() => []),
       api('/rest/v1/fu_lists?module=eq.foc&order=sort&select=kind,value').catch(() => [])]);
-    X.rows = r || []; X.imports = im || [];
+    X.rows = (r || []).map(x => window.fixBal ? fixBal(x) : x); X.imports = im || [];
     X.lists = {reason: (l || []).filter(x => x.kind === 'reason').map(x => x.value), next_step: (l || []).filter(x => x.kind === 'next_step').map(x => x.value)};
     X.at = Date.now();
   }
@@ -91,7 +91,7 @@
       + '<div class="rgrid"><div class="card"><div class="tlh"><h3>Timeline</h3><div class="chips noprint" id="tlChips"></div><button class="btn noprint" data-ract="present">&#x26F6; Present</button><button class="btn p noprint" data-fact="note">+ Add remark</button></div>'
       + '<div class="hint">Every remark and change on this line, oldest first, with who added it and when.</div><div id="hist" class="tl">Loading...</div><button class="fake noprint" data-fact="note">Write a remark for everyone following this line...</button></div>'
       + '<div class="side"><div class="card plan"><div class="tlh"><h3>Current follow-up</h3>' + (ce ? '<button class="btn noprint" data-fact="edit">&#9998; Update</button>' : '') + '</div><dl>'
-      + row('Status', ST[r.status]) + row('Reason (why not passed)', r.reason, r.need_reason ? 'late' : '') + row('Next step', r.next_step) + row('Who does it', r.next_owner) + row('Next date', r.next_date, r.action_overdue ? 'late' : '') + row('Approval promised by', r.promised_date, r.promise_broken ? 'late' : '') + row('Short remark', r.remarks) + '</dl>'
+      + row('Status', ST[r.status]) + row('Reason (why not passed)', r.reason, r.need_reason ? 'late' : '') + row('Next step', r.next_step) + row('Who does it', r.next_owner) + row('Next date', r.next_date, r.action_overdue ? 'late' : '') + row('Approval promised by', r.promised_date, r.promise_broken ? 'late' : '') + row('Short remark', r.remarks) + (window.partRows ? partRows(r, row) : '') + (window.settleRows ? settleRows(r, row) : '') + '</dl>'
       + (ce ? '' : '<div class="hint" style="margin-top:8px">You can add remarks. Users with edit access update the follow-up.</div>') + '</div>'
       + '<div class="card plan"><h3>From the FOC list</h3><dl>' + row('Invoice no', d.inv_no || r.ref_key) + row('FOC type (remark)', r.foc_type) + row('Sent month', r.sent_month) + row('Sheet row', d.row ? String(d.row) : '') + (d.date_text ? row('Date in the sheet', d.date_text + ' (typo, read as ' + r.base_date + ')') : '')
       + row('First seen', r.first_seen) + row('Last seen', r.last_seen) + (d.manual ? row('Added by hand', d.added_by || 'yes') : '') + '</dl></div></div></div>';
@@ -106,6 +106,7 @@
   function editDrawer(r) {
     const full = canFull(r.operation);
     open(head('Update follow-up', r) + '<label>Status</label><select id="fStatus2">' + Object.keys(ST).map(k => '<option value="' + k + '"' + (k === r.status ? ' selected' : '') + (k === 'written_off' && !full ? ' disabled' : '') + '>' + ST[k] + (k === 'written_off' && !full ? ' (Full access only)' : '') + '</option>').join('') + '</select>'
+      + (window.settleHtml ? settleHtml(r) + partHtml(r) : '')
       + '<label>Reason: why is it not passed yet?' + (r.stage === 'reason' ? ' *' : '') + '</label><select id="fReason">' + opts(reasons(), r.reason) + '</select>'
       + '<label>Next step' + (r.stage !== 'monitor' ? ' *' : '') + '</label><select id="fStep">' + opts(steps(), r.next_step) + '</select>'
       + '<label>Who does it</label><input id="fWho" maxlength="80" value="' + esc(r.next_owner || '') + '"><label>Next date' + (r.stage !== 'monitor' ? ' *' : '') + '</label><input id="fDate" type="date" value="' + esc(r.next_date || '') + '">'
@@ -113,6 +114,8 @@
       + '<label>Short remark (shown in the list)</label><textarea id="fRem" rows="2" maxlength="300">' + esc(r.remarks || '') + '</textarea>'
       + '<label>Remark for the timeline</label><textarea id="fNote" rows="3" maxlength="2000" placeholder="e.g. Approval form signed by the Head of Marketing on 5 Nov, sent with the October list"></textarea>' + stamp()
       + '<div class="row2"><button class="btn p" data-fact="save">Save</button><button class="btn" data-fact="close">Cancel</button></div><div class="err" id="fErr"></div></div>');
+    if (window.settleDiff) settleDiff();
+    if (window.loadPayList) { window.payAfter = after; loadPayList(r); }
   }
   function noteDrawer(r) {
     open(head('Add remark', r) + '<label>Remark</label><textarea id="fNote" rows="6" maxlength="2000" placeholder="e.g. Called the approver, will pass with the November list."></textarea>' + stamp()
@@ -127,13 +130,18 @@
     if (live && r.stage === 'reason' && !v.reason) { $('fErr').textContent = 'Over 60 days: choose the reason first'; return; }
     if (live && r.stage !== 'monitor' && (!v.next_step || !v.next_date)) { $('fErr').textContent = 'Set the next step and the next date'; return; }
     if (live && v.next_date && v.next_date < today() && v.next_date !== r.next_date) { $('fErr').textContent = 'The next date is in the past'; return; }
-    if (!live && v.status !== r.status && !note) { $('fErr').textContent = 'Write a remark: how it was passed (statement / month) or why it is written off'; return; }
+    if (v.status === 'written_off' && v.status !== r.status && !note) { $('fErr').textContent = 'Write a remark: why it is written off'; return; }
+    let pay = null;
+    try { Object.assign(v, window.settleRead ? settleRead(v.status) : {}); pay = window.partRead ? partRead(v.status, r) : null; } catch (m) { $('fErr').textContent = m; return; }
+    if (v.status === 'part_settled' && r.status !== 'part_settled') v.status = r.status;   // the payment sets Half settled (or Collected when it clears the balance)
     const ch = {}; Object.keys(v).forEach(k => { if ((r[k] || null) !== v[k]) ch[k] = v[k]; });
-    if (!Object.keys(ch).length && !note) { $('fErr').textContent = 'Nothing changed'; return; }
+    if (!Object.keys(ch).length && !note && !pay) { $('fErr').textContent = 'Nothing changed'; return; }
     try {
+      let pr = null; if (pay) pr = await api('/rest/v1/rpc/fu_add_payment', {method: 'POST', body: pay});
       if (Object.keys(ch).length) await api('/rest/v1/fu_items?id=eq.' + r.id, {method: 'PATCH', body: ch, headers: {Prefer: 'return=minimal'}});
       let res = null; if (note) res = await api('/rest/v1/rpc/fu_add_note', {method: 'POST', body: {p_item: r.id, p_note: note, p_mentions: window.mentionsOf ? mentionsOf($('fNote')) : []}});
-      await after('Saved to the timeline' + (window.mentionResult ? mentionResult(res) : ''));
+      const pm = pr ? (pr.status === 'settled' ? 'Payment saved: fully passed, closed as Collected. ' : 'Payment saved: balance left ' + money(pr.remaining) + '. ') : '';
+      await after(pm + 'Saved to the timeline' + (window.mentionResult ? mentionResult(res) : ''));
     } catch (e) { $('fErr').textContent = e.message; }
   }
   async function post() {
@@ -289,7 +297,7 @@
       + '<div class="sig" style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:30px">' + ['Prepared by', 'Checked by', 'Approved by'].map(t => '<div>' + t + '<div style="margin-top:28px">..............................</div></div>').join('') + '</div>';
     $('fcP').onclick = () => window.print();
     $('fcC').onclick = () => {
-      const cols = [['Record no', 'rec_code'], ['Sub-category', 'sub'], ['Invoice date', 'base_date'], ['Invoice no', 'ref_key'], ['FOC Ref', 'foc_ref'], ['Customer / subject', 'outlet'], ['FOC type', 'foc_type'], ['Sent month', 'sent_month'], ['Days', 'aging_days'], ['Age', 'band'], ['Balance', 'amount'], ['Reason', 'reason'], ['Next step', 'next_step'], ['Who', 'next_owner'], ['Next date', 'next_date'], ['Status', 'status'], ['Short remark', 'remarks'], ['First seen', 'first_seen']];
+      const cols = [['Record no', 'rec_code'], ['Sub-category', 'sub'], ['Invoice date', 'base_date'], ['Invoice no', 'ref_key'], ['FOC Ref', 'foc_ref'], ['Customer / subject', 'outlet'], ['FOC type', 'foc_type'], ['Sent month', 'sent_month'], ['Days', 'aging_days'], ['Age', 'band'], ['Balance', 'amount'], ['List balance', 'list_amount'], ['Paid (half settled)', 'paid_open'], ['Reason', 'reason'], ['Next step', 'next_step'], ['Who', 'next_owner'], ['Next date', 'next_date'], ['Status', 'status'], ['Short remark', 'remarks'], ['Settled date', 'settled_on'], ['Settled amount', 'settled_amount'], ['Settle remark', 'settle_remark'], ['First seen', 'first_seen']];
       const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"', csv = '﻿' + cols.map(c => q(c[0])).join(',') + '\r\n' + all.map(r => cols.map(c => q(c[1] === 'status' ? ST[r.status] : r[c[1]])).join(',')).join('\r\n');
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'})); a.download = 'FOC ' + (op ? subName(op) : 'all') + ' ' + today() + '.csv'; document.body.appendChild(a); a.click(); a.remove();
     };
