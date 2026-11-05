@@ -140,10 +140,17 @@
   }
   const mapDir = s => 'https://www.google.com/maps/dir/' + s.filter(v => v.lat != null).slice(0, 10).map(v => v.lat.toFixed(6) + ',' + v.lng.toFixed(6)).join('/');
   function filterBar() {
-    const reps = [...new Set(H.rows.map(v => v.rep_name).concat(H.runs.filter(r => !H.rows.some(v => nk(v.rep_name) === nk(r.rep_name))).map(r => r.rep_name)).filter(Boolean))].sort();
+    // v3.8.2: every rep of the chosen operation(s), not only those with a visit in the period: reps on the outstanding list,
+    // reps with a saved phone (fu_reps), and anyone who checked in or took a meter photo in the period. One entry per rep (nk match).
+    const seen = {}, add = n => { n = (n || '').trim(); if (n && !/^no\s*rep$/i.test(n) && !seen[nk(n)]) seen[nk(n)] = n; };
+    (typeof rows !== 'undefined' ? rows : []).filter(r => (!op || r.operation === op) && r.owner_name).forEach(r => add(r.owner_name));
+    Object.values(typeof CR !== 'undefined' ? CR : {}).filter(x => !op || x.operation === op).forEach(x => add(x.rep_name));
+    H.rows.forEach(v => add(v.rep_name)); H.runs.forEach(r => add(r.rep_name)); if (H.rep) add(H.rep);
+    const reps = Object.values(seen).sort((a, b) => a.localeCompare(b));
+    const nv = r => H.rows.filter(v => nk(v.rep_name) === nk(r)).length, nm = r => H.runs.filter(x => nk(x.rep_name) === nk(r)).length;
     return '<div class="filters noprint"><label class="hint">From</label><input type="date" id="vhFrom" value="' + H.from + '"><label class="hint">To</label><input type="date" id="vhTo" value="' + H.to + '">'
       + [['today', 'Today'], ['yday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['lmonth', 'Last month']].map(x => '<button class="btn" data-vh="' + x[0] + '">' + x[1] + '</button>').join('')
-      + '<select id="vhRep"><option value="">All reps (' + H.rows.length + ')</option>' + reps.map(r => '<option' + (r === H.rep ? ' selected' : '') + '>' + esc(r) + ' (' + H.rows.filter(v => v.rep_name === r).length + ')</option>').join('') + '</select></div>';
+      + '<label class="hint">Sales rep</label><select id="vhRep"><option value="">All reps (' + reps.length + ')</option>' + reps.map(r => '<option value="' + esc(r) + '"' + (nk(r) === nk(H.rep) ? ' selected' : '') + '>' + esc(r) + ' · ' + nv(r) + ' visits' + (nm(r) ? ', meter ' + nm(r) + ' day(s)' : '') + '</option>').join('') + '</select></div>';
   }
   const period = () => (H.from === H.to ? H.from : H.from + ' to ' + H.to) + (op ? ' · ' + op : ' · all my operations') + (H.rep ? ' · ' + H.rep : '');
   async function hList(title) {
@@ -210,7 +217,7 @@
   document.addEventListener('change', e => {
     const t = e.target;
     if (t.id === 'vhFrom' || t.id === 'vhTo') { H.from = $('vhFrom').value || H.from; H.to = $('vhTo').value || H.to; if (H.to < H.from) H.to = H.from; go(); }
-    else if (t.id === 'vhRep') { H.rep = t.value ? t.value.replace(/ \(\d+\)$/, '') : ''; go(); }
+    else if (t.id === 'vhRep') { H.rep = t.value || ''; go(); }
   });
 
   document.addEventListener('click', e => {

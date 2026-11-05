@@ -1,1 +1,1 @@
-﻿Iceman IMS v3.8.1 (2026-11-05): Sales Reps meter card "Print report" now opens and prints the Rep Visit & Meter Report (same dates and rep); old meter table print kept as "Meter table only".
+﻿Iceman IMS v3.8.2 (2026-11-05): Rep Visit & Meter Report: the Sales rep filter lists every rep of the operation (outstanding list, saved rep phones, visits, meter), with visit and meter counts.
