@@ -114,7 +114,7 @@
       H.key = key; H.err = '';
     } catch (e) { H.rows = []; H.runs = []; H.err = e.message; }
   }
-  const hRows = () => H.rows.filter(v => !H.rep || v.rep_name === H.rep);
+  const hRows = () => H.rows.filter(v => !H.rep || nk(v.rep_name) === nk(H.rep));
   const hRuns = () => H.runs.filter(r => !H.rep || nk(r.rep_name) === nk(H.rep));
   const runKm = r => r.start_km != null && r.end_km != null ? Number(r.end_km) - Number(r.start_km) : 0;
   // meter block of one route (rep x day): one line per vehicle, with times, source, photo links and checks
@@ -169,6 +169,7 @@
         + (r.stops.length ? '<div class="wrap" style="box-shadow:none"><table><thead><tr><th class="n">#</th><th>Time</th><th>Outlet</th><th>Check-in</th><th class="n">From outlet</th><th class="n">At outlet</th><th class="n">From last stop</th></tr></thead><tbody>' + lines + '</tbody></table></div>' : '') + '</div>';
     }).join('') : '<div class="card" style="margin-top:12px"><div class="hint">No visits in this period. Choose other dates above.</div></div>';
     $('page').innerHTML = h;
+    if (H.autoPrint) { H.autoPrint = false; window.scrollTo(0, 0); setTimeout(() => window.print(), 400); }
   }
   async function hDash() {
     $('page').innerHTML = '<div class="hint">Loading visits...</div>'; await hLoad();
@@ -199,7 +200,13 @@
   function hCard(m) { return '<div class="card mcard" data-mod="visits" data-go="items"><b>' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">' + esc(m.sub) + '</div><div style="font-size:20px;font-weight:700;margin-top:6px">' + V.today.length + ' today</div><div class="hint">My visits today · any date in Visit History</div></div>'; }
   window.MODULE_PAGES = Object.assign(window.MODULE_PAGES || {}, {visits: {items: () => hList('Visit History'), dash: hDash, report: () => hList('Rep Visit & Meter Report'), card: hCard}});
   // opened from Sales Reps (dashboard / report): same report, for one rep or all reps
-  window.openVisitReport = function (rep) { H.rep = rep || ''; H.key = ''; go('report', 'visits'); };
+  // from / to: keep the dates chosen on the Sales Reps meter card; autoPrint: open the print dialog once the report is drawn
+  window.openVisitReport = function (rep, from, to, autoPrint) {
+    H.rep = rep || ''; H.key = '';
+    if (from) { H.from = from; H.to = to && to >= from ? to : from; }
+    if (autoPrint) H.autoPrint = true;
+    go('report', 'visits');
+  };
   document.addEventListener('change', e => {
     const t = e.target;
     if (t.id === 'vhFrom' || t.id === 'vhTo') { H.from = $('vhFrom').value || H.from; H.to = $('vhTo').value || H.to; if (H.to < H.from) H.to = H.from; go(); }

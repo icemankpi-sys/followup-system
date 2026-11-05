@@ -1,1 +1,1 @@
-﻿Iceman IMS v3.8 (2026-11-05): Rep Visit & Meter Report: Visit History shows each rep's Start / Close meter per day (km run, photo links, checks) beside the visits; opened from Sales Reps for Admin and Operation Heads; meter table in the CSV.
+﻿Iceman IMS v3.8.1 (2026-11-05): Sales Reps meter card "Print report" now opens and prints the Rep Visit & Meter Report (same dates and rep); old meter table print kept as "Meter table only".

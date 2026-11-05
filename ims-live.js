@@ -121,7 +121,8 @@
       + '<label class="hint">From <input type="date" id="lvFrom" value="' + L.from + '" max="' + t + '"></label>'
       + '<label class="hint">To <input type="date" id="lvTo" value="' + L.to + '" max="' + t + '"></label>'
       + '<button class="btn q" data-lv="d0">Today</button><button class="btn q" data-lv="d1">Yesterday</button><button class="btn q" data-lv="d7">Last 7 days</button><button class="btn q" data-lv="dm">This month</button>'
-      + '<button class="btn" data-lv="print">&#128424; Print report</button></div>';
+      + '<button class="btn p" data-lv="print" title="Rep Visit &amp; Meter Report for these dates: visits and Start / Close meter per rep per day">&#128424; Print report</button>'
+      + '<button class="btn" data-lv="printold" title="Only the meter table above">Meter table only</button></div>';
     box.innerHTML = '<div class="row2" style="justify-content:space-between;align-items:center"><h3 style="margin:0">' + head() + '</h3>'
       + '<span class="hint noprint">' + (single() && !L.name ? on + ' of ' + people().length + ' reps active · ' : '') + 'updated ' + hm(L.at) + (isToday() ? ', refreshes every minute' : '') + ' <button class="btn q" data-lv="reload" title="Refresh now">&#8635;</button></span></div>'
       + ctl + (L.err ? '<div class="card err">Could not load: ' + esc(L.err) + '</div>' : '')
@@ -238,7 +239,8 @@
       const k = b.dataset.lv, t = today();
       if (k === 'reload') tick();
       else if (k === 'close') $('panel').classList.remove('open');
-      else if (k === 'print') printReport();
+      else if (k === 'print') { if (window.openVisitReport) openVisitReport(L.name || '', L.from, L.to, true); else printReport(); }   // v3.8.1: Oshan's report format
+      else if (k === 'printold') printReport();
       else if (k === 'd0') setRange(t, t);
       else if (k === 'd1') setRange(addDays(t, -1), addDays(t, -1));
       else if (k === 'd7') setRange(addDays(t, -6), t);
