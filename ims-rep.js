@@ -35,7 +35,8 @@
     const bucket = ['0-30', '31-60', '61-90', '91-120', '121-240', 'Over 240'].map(b => [b, sum(s.a.filter(r => r.bucket === b)), ['121-240', 'Over 240'].includes(b) ? 'var(--danger)' : 'var(--accent)']).filter(e => e[1] > 0);
     const grp = k => { const m = {}; s.a.forEach(r => { const x = r[k] || '(none)'; m[x] = (m[x] || 0) + Number(r.amount); }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
     const week = s.a.filter(r => r.next_date && r.next_date <= plus(7)).sort((a, b) => a.next_date < b.next_date ? -1 : 1);
-    $('page').innerHTML = picker() + '<h2 class="pt">Rep dashboard &middot; ' + esc(name) + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' &middot; ' : '') + 'active outstanding items of this sales rep</div>'
+    $('page').innerHTML = picker() + '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Rep dashboard &middot; ' + esc(name) + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' &middot; ' : '') + 'active outstanding items of this sales rep</div></div>'
+      + '<button class="btn noprint" data-vhopen="' + esc(name) + '">&#128663; Visit &amp; meter report</button></div>'
       + '<div class="grid"><div class="tile"><b>' + money0(s.bal) + '</b><span>Outstanding (' + s.a.length + ' invoices)</span></div><div class="tile r"><b>' + money0(s.o120) + '</b><span>Over 120 days</span></div><div class="tile a"><b>' + money0(sum(s.soon)) + '</b><span>Crossing 120 in 30 days (' + s.soon.length + ')</span></div>'
       + '<div class="tile r"><b>' + s.over.length + '</b><span>Actions overdue</span></div><div class="tile r"><b>' + s.broken.length + '</b><span>Promises broken</span></div><div class="tile a"><b>' + s.inc.length + '</b><span>No plan yet</span></div><div class="tile"><b>' + td.length + '</b><span>Open to-dos</span></div></div>'
       + (isMgr() && window.liveBoard ? liveBoard(name) : '')
@@ -49,7 +50,8 @@
     const names = repNames();
     const list = names.map(n => { const s = stats(repRows(n)); return {n, s, td: R.todos.filter(t => lc(t.rep_name) === lc(n) && !t.done).length}; }).sort((a, b) => b.s.bal - a.s.bal);
     const tot = stats(scope());
-    $('page').innerHTML = picker() + '<h2 class="pt">Rep dashboard &middot; all reps</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' &middot; for Admin, Director, Finance and Operation Heads</div>'
+    $('page').innerHTML = picker() + '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Rep dashboard &middot; all reps</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' &middot; for Admin, Director, Finance and Operation Heads</div></div>'
+      + '<button class="btn noprint" data-vhopen="">&#128663; Visit &amp; meter report (all reps)</button></div>'
       + '<div class="grid"><div class="tile"><b>' + names.length + '</b><span>Sales reps with outstanding</span></div><div class="tile"><b>' + money0(tot.bal) + '</b><span>Total outstanding</span></div><div class="tile r"><b>' + money0(tot.o120) + '</b><span>Over 120 days</span></div><div class="tile r"><b>' + tot.over.length + '</b><span>Actions overdue</span></div><div class="tile a"><b>' + tot.inc.length + '</b><span>No plan yet</span></div></div>'
       + (window.liveBoard ? liveBoard(null) : '')
       + '<div class="card" style="margin-top:12px"><h3>Reps</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Sales rep</th><th class="n">Invoices</th><th class="n">Outstanding</th><th class="n">Over 120</th><th class="n">Crossing 120 (30d)</th><th class="n">Overdue</th><th class="n">Broken</th><th class="n">No plan</th><th class="n">Open to-dos</th><th class="n">Oldest</th></tr></thead><tbody>'
@@ -99,7 +101,7 @@
   function report() {
     const names = current() ? [current()] : repNames();
     const rs = names.map(n => { const s = stats(repRows(n)); return [n, s.a.length, s.bal, s.b91, s.o120, sum(s.soon), s.over.length, s.broken.length, s.inc.length, R.todos.filter(t => lc(t.rep_name) === lc(n) && !t.done).length]; }).sort((a, b) => b[2] - a[2]);
-    $('page').innerHTML = picker() + '<div class="noprint row2"><button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="rpCsv">Download Excel (CSV)</button></div>'
+    $('page').innerHTML = picker() + '<div class="noprint row2"><button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="rpCsv">Download Excel (CSV)</button><button class="btn" data-vhopen="' + esc(current() || '') + '" title="Visits, routes and Start / Close meter per rep per day">&#128663; Visit &amp; meter report' + (current() ? ' (' + esc(current()) + ')' : '') + '</button></div>'
       + '<h2 class="pt">Sales rep outstanding report</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' &middot; as at ' + today() + ' &middot; Iceman IMS</div>'
       + '<div class="wrap"><table><thead><tr><th>Sales rep</th><th class="n">Invoices</th><th class="n">Outstanding</th><th class="n">Up to 120</th><th class="n">Over 120</th><th class="n">Crossing 120 (30d)</th><th class="n">Overdue</th><th class="n">Broken</th><th class="n">No plan</th><th class="n">Open tasks</th></tr></thead><tbody>'
       + rs.map(r => '<tr><td>' + esc(r[0]) + '</td>' + r.slice(1).map((v, i) => '<td class="n">' + ([1, 2, 3, 4].includes(i) ? money0(v) : v) + '</td>').join('') + '</tr>').join('')

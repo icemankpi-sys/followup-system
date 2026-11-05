@@ -84,7 +84,10 @@
     }, er => { b.disabled = false; b.innerHTML = '&#9989; Check in here'; toast(er.code === 1 ? 'Allow location for this site in the browser, then try again' : 'No GPS position, try again outside'); }, {enableHighAccuracy: true, timeout: 20000, maximumAge: 0});
   }
   // ---------- Visit History: every saved visit, any date range, as routes per rep per day ----------
-  const H = {from: '', to: '', rep: '', rows: [], key: '', err: ''};
+  // v3.8: the same report also shows each rep's Start / Close meter for the day (fu_runs), for Admin and Operation Heads
+  const H = {from: '', to: '', rep: '', rows: [], runs: [], key: '', err: '', title: 'Visit History'};
+  const SRC = {ocr: 'photo', corrected: 'photo, number corrected', manual: 'manual (admin)'};
+  const kmf = n => Number(n).toLocaleString('en-US', {maximumFractionDigits: 1});
   const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const dayOf = s => ymd(new Date(s));
   function range(k) {
@@ -101,43 +104,69 @@
     const key = H.from + '|' + H.to + '|' + op; if (!force && key === H.key && Date.now() - (H.at || 0) < 60000) return;   // fresh for one minute
     H.at = Date.now();
     const a = new Date(H.from + 'T00:00:00'), b = new Date(H.to + 'T00:00:00'); b.setDate(b.getDate() + 1);
+    const o = op ? '&operation=eq.' + encodeURIComponent(op) : '';
     try {
-      H.rows = await api('/rest/v1/fu_visits?started_at=gte.' + a.toISOString() + '&started_at=lt.' + b.toISOString() + (op ? '&operation=eq.' + encodeURIComponent(op) : '')
-        + '&order=started_at.asc&limit=10000&select=id,operation,outlet_key,outlet,rep_name,started_at,last_at,method,lat,lng,accuracy,distance_m,note') || [];
+      const [vs, rs] = await Promise.all([
+        api('/rest/v1/fu_visits?started_at=gte.' + a.toISOString() + '&started_at=lt.' + b.toISOString() + o
+          + '&order=started_at.asc&limit=10000&select=id,operation,outlet_key,outlet,rep_user,rep_name,started_at,last_at,method,lat,lng,accuracy,distance_m,note'),
+        api('/rest/v1/fu_runs?day=gte.' + H.from + '&day=lte.' + H.to + o + '&order=day.asc&limit=5000&select=id,operation,rep_user,rep_name,day,vehicle,start_km,start_at,start_src,start_photo,end_km,end_at,end_src,end_photo,note').catch(() => [])]);
+      H.rows = vs || []; H.runs = rs || [];
       H.key = key; H.err = '';
-    } catch (e) { H.rows = []; H.err = e.message; }
+    } catch (e) { H.rows = []; H.runs = []; H.err = e.message; }
   }
   const hRows = () => H.rows.filter(v => !H.rep || v.rep_name === H.rep);
+  const hRuns = () => H.runs.filter(r => !H.rep || nk(r.rep_name) === nk(H.rep));
+  const runKm = r => r.start_km != null && r.end_km != null ? Number(r.end_km) - Number(r.start_km) : 0;
+  // meter block of one route (rep x day): one line per vehicle, with times, source, photo links and checks
+  function meterHtml(runs) {
+    if (!runs.length) return '<div class="vmeter none">No Start / Close meter for this day.</div>';
+    const cell = (r, k) => r[k + '_km'] == null ? '<span class="tag t-a">' + (k === 'end' ? 'no close meter' : 'no start meter') + '</span>'
+      : '<b>' + kmf(r[k + '_km']) + ' km</b><br><span class="hint">' + esc(r[k + '_at'] ? fmtT(new Date(r[k + '_at'])) : '') + (r[k + '_src'] ? ' · ' + esc(SRC[r[k + '_src']] || r[k + '_src']) : '') + '</span>'
+        + (r[k + '_photo'] ? ' <a href="#" class="noprint" data-lvph="' + esc(r[k + '_photo']) + '">photo</a>' : '');
+    const flag = r => [r.start_src === 'corrected' || r.end_src === 'corrected' ? 'number changed from the photo: check the photo' : '', r.start_km != null && r.end_km != null && Number(r.start_km) === Number(r.end_km) ? 'start = close' : ''].filter(Boolean).join(' · ');
+    return '<table class="vmeter"><thead><tr><th>Vehicle</th><th>Start meter</th><th>Close meter</th><th class="n">Km run (meter)</th></tr></thead><tbody>'
+      + runs.map(r => '<tr><td>' + esc(r.vehicle || '-') + (flag(r) ? '<br><span class="tag t-r">' + esc(flag(r)) + '</span>' : '') + (r.note ? '<br><span class="hint">' + esc(r.note) + '</span>' : '') + '</td><td>' + cell(r, 'start') + '</td><td>' + cell(r, 'end') + '</td><td class="n"><b>' + (r.start_km != null && r.end_km != null ? kmf(runKm(r)) + ' km' : '-') + '</b></td></tr>').join('')
+      + (runs.length > 1 ? '<tr class="tot"><td colspan="3">Total</td><td class="n"><b>' + kmf(runs.reduce((s, r) => s + runKm(r), 0)) + ' km</b></td></tr>' : '') + '</tbody></table>';
+  }
   const km = (a, b) => a.lat != null && b.lat != null ? dist(a.lat, a.lng, b.lat, b.lng) / 1000 : null;
   const mins = v => Math.max(0, Math.round((new Date(v.last_at) - new Date(v.started_at)) / 60000));
-  function routes(L) {
-    const g = {}; L.forEach(v => { const k = dayOf(v.started_at) + '|' + (v.rep_name || ''); (g[k] = g[k] || []).push(v); });
-    return Object.entries(g).map(([k, s]) => ({day: k.split('|')[0], rep: k.split('|').slice(1).join('|'), stops: s.sort((x, y) => x.started_at.localeCompare(y.started_at))}))
+  // one route per rep per day: the day's visits plus the day's meter readings (a day with a meter but no visit still shows)
+  function routes(L, RU) {
+    const g = {}, key = (day, u, n) => day + '|' + (u || nk(n || ''));
+    L.forEach(v => { const k = key(dayOf(v.started_at), v.rep_user, v.rep_name); (g[k] = g[k] || {day: dayOf(v.started_at), rep: v.rep_name || '', stops: [], runs: []}).stops.push(v); });
+    (RU || []).forEach(r => { const k = key(r.day, r.rep_user, r.rep_name); (g[k] = g[k] || {day: r.day, rep: r.rep_name || '', stops: [], runs: []}).runs.push(r); if (!g[k].rep) g[k].rep = r.rep_name || ''; });
+    return Object.values(g).map(x => (x.stops.sort((a, b) => a.started_at.localeCompare(b.started_at)), x))
       .sort((x, y) => y.day.localeCompare(x.day) || x.rep.localeCompare(y.rep));
   }
   const mapDir = s => 'https://www.google.com/maps/dir/' + s.filter(v => v.lat != null).slice(0, 10).map(v => v.lat.toFixed(6) + ',' + v.lng.toFixed(6)).join('/');
   function filterBar() {
-    const reps = [...new Set(H.rows.map(v => v.rep_name).filter(Boolean))].sort();
+    const reps = [...new Set(H.rows.map(v => v.rep_name).concat(H.runs.filter(r => !H.rows.some(v => nk(v.rep_name) === nk(r.rep_name))).map(r => r.rep_name)).filter(Boolean))].sort();
     return '<div class="filters noprint"><label class="hint">From</label><input type="date" id="vhFrom" value="' + H.from + '"><label class="hint">To</label><input type="date" id="vhTo" value="' + H.to + '">'
       + [['today', 'Today'], ['yday', 'Yesterday'], ['week', 'This week'], ['month', 'This month'], ['lmonth', 'Last month']].map(x => '<button class="btn" data-vh="' + x[0] + '">' + x[1] + '</button>').join('')
       + '<select id="vhRep"><option value="">All reps (' + H.rows.length + ')</option>' + reps.map(r => '<option' + (r === H.rep ? ' selected' : '') + '>' + esc(r) + ' (' + H.rows.filter(v => v.rep_name === r).length + ')</option>').join('') + '</select></div>';
   }
   const period = () => (H.from === H.to ? H.from : H.from + ' to ' + H.to) + (op ? ' · ' + op : ' · all my operations') + (H.rep ? ' · ' + H.rep : '');
-  async function hList() {
+  async function hList(title) {
+    H.title = typeof title === 'string' ? title : 'Visit History';
     $('page').innerHTML = '<div class="hint">Loading visits...</div>'; await hLoad();
-    const L = hRows(), R = routes(L), outs = new Set(L.map(v => v.operation + '|' + v.outlet_key)).size, both = L.filter(v => v.method === 'both').length;
-    let h = '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Visit History</h2><div class="hint">' + esc(period()) + '</div></div><div class="row2 noprint"><button class="btn" data-vh="csv">Download Excel (CSV)</button><button class="btn p" data-vh="print">Print / Save as PDF</button></div></div>'
+    const L = hRows(), RU = hRuns(), R = routes(L, RU), outs = new Set(L.map(v => v.operation + '|' + v.outlet_key)).size, both = L.filter(v => v.method === 'both').length;
+    const mkm = RU.reduce((s, r) => s + runKm(r), 0), noClose = RU.filter(r => r.start_km != null && r.end_km == null).length, noMeter = R.filter(r => r.stops.length && !r.runs.length).length;
+    let h = '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">' + esc(H.title) + '</h2><div class="hint">' + esc(period()) + ' · visits with Start / Close meter</div></div><div class="row2 noprint"><button class="btn" data-vh="csv">Download Excel (CSV)</button><button class="btn p" data-vh="print">Print / Save as PDF</button></div></div>'
       + filterBar() + (H.err ? '<div class="card err">' + esc(H.err) + '</div>' : '')
       + '<div class="grid noprint"><div class="tile"><b>' + L.length + '</b><span>Visits</span></div><div class="tile"><b>' + outs + '</b><span>Outlets visited</span></div><div class="tile"><b>' + R.length + '</b><span>Routes (rep × day)</span></div>'
-      + '<div class="tile g"><b>' + (L.length ? Math.round(100 * both / L.length) : 0) + '%</b><span>Confirmed by auto + button (' + both + ')</span></div><div class="tile"><b>' + L.filter(v => v.method === 'auto').length + '</b><span>Auto only</span></div><div class="tile a"><b>' + L.filter(v => v.method === 'manual').length + '</b><span>Button only</span></div></div>';
+      + '<div class="tile g"><b>' + (L.length ? Math.round(100 * both / L.length) : 0) + '%</b><span>Confirmed by auto + button (' + both + ')</span></div><div class="tile"><b>' + L.filter(v => v.method === 'auto').length + '</b><span>Auto only</span></div><div class="tile a"><b>' + L.filter(v => v.method === 'manual').length + '</b><span>Button only</span></div>'
+      + '<div class="tile"><b>' + kmf(mkm) + ' km</b><span>Km run (meter)</span></div><div class="tile ' + (noClose ? 'r' : '') + '"><b>' + noClose + '</b><span>No close meter</span></div><div class="tile ' + (noMeter ? 'a' : '') + '"><b>' + noMeter + '</b><span>Visits but no meter</span></div></div>';
     h += R.length ? R.map(r => {
       let tot = 0; const lines = r.stops.map((v, i) => { const k = i ? km(r.stops[i - 1], v) : null; if (k) tot += k;
         return '<tr class="row" data-outlet="' + encodeURIComponent(v.operation + '|' + v.outlet_key) + '"><td class="n">' + (i + 1) + '</td><td>' + esc(fmtT(new Date(v.started_at))) + '</td><td><b>' + esc(v.outlet || v.outlet_key) + '</b>' + (op ? '' : ' <span class="hint">' + esc(v.operation) + '</span>') + (v.note ? '<br><span class="hint">' + esc(v.note) + '</span>' : '') + '</td>'
           + '<td>' + esc(METHOD[v.method] || v.method) + '</td><td class="n">' + (v.distance_m != null ? Math.round(v.distance_m) + ' m' : '') + '</td><td class="n">' + mins(v) + ' min</td><td class="n">' + (k != null ? k.toFixed(1) + ' km' : '') + '</td></tr>'; }).join('');
-      const a = r.stops[0], z = r.stops[r.stops.length - 1];
-      return '<div class="card" style="margin-top:12px"><div class="row2" style="justify-content:space-between"><div><h3>' + esc(r.rep || 'Unknown rep') + ' · ' + esc(new Date(r.day + 'T00:00:00').toDateString()) + '</h3><div class="hint">' + r.stops.length + ' visits · ' + esc(fmtT(new Date(a.started_at))) + ' to ' + esc(fmtT(new Date(z.last_at))) + ' · about ' + tot.toFixed(1) + ' km between stops (straight line)</div></div>'
-        + '<a class="btn noprint" href="' + mapDir(r.stops) + '" target="_blank" rel="noopener">&#128506; Route on Google Maps' + (r.stops.length > 10 ? ' (first 10)' : '') + '</a></div>'
-        + '<div class="wrap" style="box-shadow:none"><table><thead><tr><th class="n">#</th><th>Time</th><th>Outlet</th><th>Check-in</th><th class="n">From outlet</th><th class="n">At outlet</th><th class="n">From last stop</th></tr></thead><tbody>' + lines + '</tbody></table></div></div>';
+      const a = r.stops[0], z = r.stops[r.stops.length - 1], mk = r.runs.reduce((s, x) => s + runKm(x), 0);
+      return '<div class="card vroute" style="margin-top:12px"><div class="row2" style="justify-content:space-between"><div><h3>' + esc(r.rep || 'Unknown rep') + ' · ' + esc(new Date(r.day + 'T00:00:00').toDateString()) + '</h3><div class="hint">'
+        + (r.stops.length ? r.stops.length + ' visits · ' + esc(fmtT(new Date(a.started_at))) + ' to ' + esc(fmtT(new Date(z.last_at))) + ' · about ' + tot.toFixed(1) + ' km between stops (straight line)' : 'No check-ins this day')
+        + (mk ? ' · <b>' + kmf(mk) + ' km by meter</b>' : '') + '</div></div>'
+        + (r.stops.length ? '<a class="btn noprint" href="' + mapDir(r.stops) + '" target="_blank" rel="noopener">&#128506; Route on Google Maps' + (r.stops.length > 10 ? ' (first 10)' : '') + '</a>' : '') + '</div>'
+        + meterHtml(r.runs)
+        + (r.stops.length ? '<div class="wrap" style="box-shadow:none"><table><thead><tr><th class="n">#</th><th>Time</th><th>Outlet</th><th>Check-in</th><th class="n">From outlet</th><th class="n">At outlet</th><th class="n">From last stop</th></tr></thead><tbody>' + lines + '</tbody></table></div>' : '') + '</div>';
     }).join('') : '<div class="card" style="margin-top:12px"><div class="hint">No visits in this period. Choose other dates above.</div></div>';
     $('page').innerHTML = h;
   }
@@ -152,17 +181,25 @@
       + '<div class="card"><h3>Visits by day</h3>' + bars(cnt(v => dayOf(v.started_at)).sort((a, b) => a[0].localeCompare(b[0])), n => n) + '</div>'
       + '<div class="card"><h3>Most visited outlets</h3>' + bars(cnt(v => v.outlet || v.outlet_key).slice(0, 10), n => n) + '</div>'
       + '<div class="card"><h3>Check-in method</h3>' + bars(cnt(v => METHOD[v.method] || v.method), n => n) + '</div>'
+      + '<div class="card"><h3>Km run by rep (meter)</h3>' + (() => { const m = {}; hRuns().forEach(r => { const k = r.rep_name || '(unknown)'; m[k] = (m[k] || 0) + runKm(r); }); const e = Object.entries(m).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]); return e.length ? bars(e, n => kmf(n) + ' km') : '<div class="hint">No Start / Close meter pairs in this period.</div>'; })() + '</div>'
+      + '<div class="card"><h3>Days without a close meter</h3>' + (() => { const L2 = hRuns().filter(r => r.start_km != null && r.end_km == null); return L2.length ? '<table><tbody>' + L2.map(r => '<tr><td>' + esc(r.day) + '</td><td>' + esc(r.rep_name || '') + '</td><td>' + esc(r.vehicle || '') + '</td></tr>').join('') + '</tbody></table>' : '<div class="hint">Every start meter has a close meter.</div>'; })() + '</div>'
       + '<div class="card" style="grid-column:1/-1"><h3>Outlets with outstanding NOT visited in this period (' + notVisited.length + ')</h3>'
       + (notVisited.length ? '<table><tbody>' + notVisited.slice(0, 15).map(v => '<tr><td>' + esc(v[0]) + ' <span class="hint">' + esc(v[2]) + '</span></td><td class="n">' + money(v[1]) + '</td></tr>').join('') + '</tbody></table>' + (notVisited.length > 15 ? '<div class="hint">and ' + (notVisited.length - 15) + ' more</div>' : '') : '<div class="hint">Every outlet with outstanding was visited.</div>') + '</div></div>';
   }
   function hCsv() {
     const q = x => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"', cols = ['Date', 'Check-in time', 'Last time', 'Rep', 'Operation', 'Outlet', 'Method', 'Distance from outlet (m)', 'Minutes at outlet', 'Note', 'Latitude', 'Longitude'];
     const L = hRows().map(v => [dayOf(v.started_at), fmtT(new Date(v.started_at)), fmtT(new Date(v.last_at)), v.rep_name, v.operation, v.outlet || v.outlet_key, METHOD[v.method] || v.method, v.distance_m != null ? Math.round(v.distance_m) : '', mins(v), v.note, v.lat, v.lng]);
-    const csv = '﻿' + cols.map(q).join(',') + '\r\n' + L.map(r => r.map(q).join(',')).join('\r\n');
+    // second table in the same file: the meter readings, one line per rep per day per vehicle
+    const mc = ['Date', 'Rep', 'Operation', 'Vehicle', 'Start meter (km)', 'Start time', 'Start source', 'Close meter (km)', 'Close time', 'Close source', 'Km run (meter)', 'Check-ins that day', 'Note'];
+    const M = hRuns().map(r => [r.day, r.rep_name, r.operation, r.vehicle, r.start_km, r.start_at ? fmtT(new Date(r.start_at)) : '', SRC[r.start_src] || r.start_src || '', r.end_km, r.end_at ? fmtT(new Date(r.end_at)) : '', SRC[r.end_src] || r.end_src || '', r.start_km != null && r.end_km != null ? runKm(r) : '',
+      hRows().filter(v => dayOf(v.started_at) === r.day && (v.rep_user ? v.rep_user === r.rep_user : nk(v.rep_name) === nk(r.rep_name))).length, r.note]);
+    const csv = '﻿' + cols.map(q).join(',') + '\r\n' + L.map(r => r.map(q).join(',')).join('\r\n') + '\r\n\r\n' + q('Start / Close meter') + '\r\n' + mc.map(q).join(',') + '\r\n' + M.map(r => r.map(q).join(',')).join('\r\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'})); a.download = 'Visit History ' + H.from + ' to ' + H.to + '.csv'; document.body.appendChild(a); a.click(); a.remove();
   }
   function hCard(m) { return '<div class="card mcard" data-mod="visits" data-go="items"><b>' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">' + esc(m.sub) + '</div><div style="font-size:20px;font-weight:700;margin-top:6px">' + V.today.length + ' today</div><div class="hint">My visits today · any date in Visit History</div></div>'; }
-  window.MODULE_PAGES = Object.assign(window.MODULE_PAGES || {}, {visits: {items: hList, dash: hDash, report: hList, card: hCard}});
+  window.MODULE_PAGES = Object.assign(window.MODULE_PAGES || {}, {visits: {items: () => hList('Visit History'), dash: hDash, report: () => hList('Rep Visit & Meter Report'), card: hCard}});
+  // opened from Sales Reps (dashboard / report): same report, for one rep or all reps
+  window.openVisitReport = function (rep) { H.rep = rep || ''; H.key = ''; go('report', 'visits'); };
   document.addEventListener('change', e => {
     const t = e.target;
     if (t.id === 'vhFrom' || t.id === 'vhTo') { H.from = $('vhFrom').value || H.from; H.to = $('vhTo').value || H.to; if (H.to < H.from) H.to = H.from; go(); }
@@ -170,6 +207,7 @@
   });
 
   document.addEventListener('click', e => {
+    const vo = e.target.closest('[data-vhopen]'); if (vo) { openVisitReport(vo.dataset.vhopen); return; }
     const h = e.target.closest('[data-vh]');
     if (h) { const k = h.dataset.vh; if (k === 'csv') hCsv(); else if (k === 'print') window.print(); else { [H.from, H.to] = range(k); go(); } return; }
     const b = e.target.closest('[data-vact]'); if (!b) return;

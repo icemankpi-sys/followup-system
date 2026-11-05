@@ -157,6 +157,10 @@ tr.tot td{background:var(--primary-soft);border-top:2px solid var(--primary);fon
 .setbox[hidden]{display:none}
 .setbox .sbh{font-weight:700;color:#0f7a55;margin-top:4px}
 .setbox .bad{color:var(--danger,#c62828);font-weight:600}
+table.vmeter{width:100%;border-collapse:collapse;margin:8px 0 6px;font-size:13px;border:1px solid var(--line);border-radius:8px}
+table.vmeter th{background:var(--primary-soft);color:var(--primary);text-align:left;padding:5px 8px;font-size:12px}table.vmeter td{padding:5px 8px;border-top:1px solid var(--line);vertical-align:top}
+table.vmeter td.n,table.vmeter th.n{text-align:right}.vmeter.none{margin:8px 0;padding:6px 9px;border:1px dashed var(--line2);border-radius:8px;color:var(--muted);font-size:12.5px}
+@media print{.vroute{break-inside:avoid}table.vmeter th{background:#e9e9f7!important}}
 #xPart{border-color:#f3d9ad;background:#fdf6e9}#xPart .sbh{color:#b45309}
 .paytbl{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}.paytbl th,.paytbl td{border-bottom:1px solid var(--line);padding:3px 5px;text-align:left;color:var(--ink)}.paytbl td.n{text-align:right;white-space:nowrap}.paytbl .btn{padding:0 7px}
 @media (prefers-color-scheme: dark){#xPart{background:rgba(180,83,9,.14);border-color:rgba(180,83,9,.5)}#xPart .sbh{color:#f0a94a}}
@@ -207,7 +211,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 </div>
 
 <script src="ims-cash.js?v=4"></script>
-<script src="ims-rep.js?v=6"></script>
+<script src="ims-rep.js?v=7"></script>
 <script src="ims-outlet.js?v=5"></script>
 <script src="ims-handover.js?v=2"></script>
 <script src="ims-expiry.js?v=8"></script>
@@ -217,7 +221,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-print.js?v=3"></script>
 <script src="ims-ops.js?v=1"></script>
 <script src="ims-mention.js?v=1"></script>
-<script src="ims-visit.js?v=4"></script>
+<script src="ims-visit.js?v=5"></script>
 <script src="ims-run.js?v=1"></script>
 <script src="ims-live.js?v=2"></script>
 <script src="ims-app.js?v=1"></script>

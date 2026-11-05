@@ -1,1 +1,1 @@
-﻿Iceman IMS v3.7 (2026-11-05): Half settled (part payments, each taken off the balance; the last one closes the item) + settle details (date, amount, remark) for Outstanding and FOC; guard against an extension style on #content.
+﻿Iceman IMS v3.8 (2026-11-05): Rep Visit & Meter Report: Visit History shows each rep's Start / Close meter per day (km run, photo links, checks) beside the visits; opened from Sales Reps for Admin and Operation Heads; meter table in the CSV.
