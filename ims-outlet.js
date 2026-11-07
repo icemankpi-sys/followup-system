@@ -39,6 +39,7 @@
 
   // ---------- list ----------
   function list() {
+    O.back = 'items';
     const all = outlets(), F = O.f, t = lc(F.text);
     let L = all.filter(x => (!F.chain || x.chain === F.chain) && (!F.terms || (F.terms === 'none' ? !(x.prof && x.prof.pay_terms) : x.prof && x.prof.pay_terms === F.terms))
       && (!F.gap || (F.gap === 'noprof' ? !x.prof : F.gap === 'noloc' ? !(x.prof && x.prof.lat != null) : x.missing.length > 0))
@@ -207,6 +208,39 @@
     $('olPrint').onclick = () => window.print();
     $('olCsv').onclick = () => { const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; const csv = '﻿' + cols.map(c => q(c[0])).join(',') + '\r\n' + all.map(x => cols.map(c => q(c[1](x))).join(',')).join('\r\n'); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'})); a.download = 'Outlets ' + (op || 'all') + ' ' + new Date().toISOString().slice(0, 10) + '.csv'; document.body.appendChild(a); a.click(); a.remove(); };
   }
+  // ---------- My Outlets (v3.9, 2026-11-07, Oshan): the rep's own outlets as phone cards ----------
+  // an outlet is the rep's when its profile names the rep (Sales rep field) or one of its invoices is the rep's
+  const isMine = x => { const n = nk(me && me.rep_name || ''); return !!n && ((x.prof && nk(x.prof.rep) === n) || x.recs.some(r => nk(r.owner_name) === n)); };
+  function mine() {
+    if (!(me && me.rep_name)) { $('page').innerHTML = '<h2 class="pt">My Outlets</h2><div class="card">Your rep name is not linked yet. Ask the Admin to set it in Permission.</div>'; return; }
+    O.back = 'mine';
+    const all = outlets().filter(isMine), t = lc(O.f.mine || '');
+    const L = all.filter(x => !t || [x.outlet, x.chain, x.prof && x.prof.phone, x.prof && x.prof.address].some(v => lc(v).includes(t)))
+      .sort((a, b) => b.bal - a.bal || a.outlet.localeCompare(b.outlet));
+    const addOps = opsAll().filter(o => canAdd(o.code));
+    const card1 = x => {
+      const p = x.prof || {};
+      return '<button type="button" class="olc" data-outlet="' + idOf(x.operation, x.key) + '"><span class="oli">' + esc((x.outlet || '?').trim().charAt(0).toUpperCase()) + '</span><span class="olx">'
+        + '<b>' + esc(x.outlet) + '</b><small>' + esc(x.chain || '') + (op ? '' : ' · ' + esc(x.operation)) + (p.phone ? ' · ' + esc(p.phone) : '') + '</small>'
+        + '<span class="olt">' + (p.lat != null ? '<span class="tag t-g">location</span>' : '<span class="tag t-b">no location</span>') + (!x.prof ? '<span class="tag t-a">no profile</span>' : x.missing.length ? '<span class="tag t-a">' + x.missing.length + ' missing</span>' : '<span class="tag t-g">complete</span>') + (x.o120 ? '<span class="tag t-r">Over 120</span>' : '') + '</span></span>'
+        + '<span class="olm">' + (x.bal ? '<b>' + money0(x.bal) + '</b><small>' + x.open + ' invoice' + (x.open === 1 ? '' : 's') + '</small>' : '<small>no outstanding</small>') + '</span></button>';
+    };
+    $('page').innerHTML = '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">My Outlets</h2><div class="hint">' + esc(me.rep_name) + (op ? ' · ' + esc(op) : '') + ' · tap an outlet to open its profile, location and history</div></div>'
+      + (addOps.length ? '<button class="btn p" data-oact="new">+ New outlet</button>' : '') + '</div>'
+      + '<div class="grid"><div class="tile"><b>' + all.length + '</b><span>My outlets</span></div><div class="tile a"><b>' + all.filter(x => x.bal > 0).length + '</b><span>With outstanding</span></div>'
+      + '<div class="tile r"><b>' + all.filter(x => x.o120 > 0).length + '</b><span>With Over 120</span></div><div class="tile a"><b>' + all.filter(x => !(x.prof && x.prof.lat != null)).length + '</b><span>No location yet</span></div></div>'
+      + '<input id="myolText" placeholder="Search my outlets, chain, phone" value="' + esc(O.f.mine || '') + '" style="width:100%;margin:4px 0 10px">'
+      + '<div class="olist">' + (L.length ? L.map(card1).join('') : '<div class="card hint">' + (all.length ? 'No outlet matches the search.' : 'No outlets are linked to you yet. They appear here when an invoice or an outlet profile carries your rep name.') + '</div>') + '</div>';
+  }
+  document.addEventListener('input', e => { if (e.target.id === 'myolText') { O.f.mine = e.target.value; const s = e.target.selectionStart; mine(); const i = $('myolText'); i.focus(); i.setSelectionRange(s, s); } });
+  const olCss = document.createElement('style');
+  olCss.textContent = '.olist{display:flex;flex-direction:column;gap:10px}.olc{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:12px;cursor:pointer;box-shadow:0 4px 14px rgba(46,49,146,.08);font:inherit}'
+    + '.olc:active{transform:scale(.99)}.oli{flex:none;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;background:linear-gradient(135deg,#3b2fc9,#2f6fe0 55%,#1fc2ec)}'
+    + '.olx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.olx b{overflow-wrap:anywhere}.olx small,.olm small{color:var(--muted);font-size:11.5px}.olt{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}'
+    + '.olm{flex:none;text-align:right;display:flex;flex-direction:column;align-items:flex-end}.olm b{font-size:15px}';
+  document.head.appendChild(olCss);
+  window.myOutletCount = () => { try { return outlets().filter(isMine).length; } catch (e) { return 0; } };
+
   function card(m) {
     const all = outlets();
     return '<div class="card mcard" data-mod="outlets" data-go="items"><b>' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">' + esc(m.sub) + '</div><div style="font-size:20px;font-weight:700;margin-top:6px">' + all.length + ' outlets</div><div class="hint">' + all.filter(x => x.prof && !x.missing.length).length + ' complete · ' + all.filter(x => !(x.prof && x.prof.lat != null)).length + ' without location</div></div>';
@@ -220,7 +254,7 @@
     // buttons inside the side popup act on the outlet the popup was opened for (null = new outlet)
     const k = b.dataset.oact, inPanel = $('panel').contains(b), x = k === 'new' ? null : inPanel ? O.cur : find(window.OUTLET_ID || '');
     if (!inPanel && k !== 'back') O.cur = x;
-    if (k === 'back') { history.replaceState(null, '', location.pathname + location.search); go('items', 'outlets'); }
+    if (k === 'back') { history.replaceState(null, '', location.pathname + location.search); go(O.back || 'items', 'outlets'); }
     else if (k === 'close') closeDrawer();
     else if (k === 'new') editDrawer(null);
     else if (k === 'edit') editDrawer(x);
@@ -234,5 +268,5 @@
   document.addEventListener('input', e => { if (e.target.id === 'olText') { O.f.text = e.target.value; const s = e.target.selectionStart; list(); const t = $('olText'); t.focus(); t.setSelectionRange(s, s); } });
   document.addEventListener('change', e => { const m = {olChain: 'chain', olTerms: 'terms', olGap: 'gap'}[e.target.id]; if (m) { O.f[m] = e.target.value; list(); } });
 
-  window.MODULE_PAGES = Object.assign(window.MODULE_PAGES || {}, {outlets: {items: list, dash, report, outlet: page, card}});
+  window.MODULE_PAGES = Object.assign(window.MODULE_PAGES || {}, {outlets: {items: list, dash, report, outlet: page, mine, card}});
 })();

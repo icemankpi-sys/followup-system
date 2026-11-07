@@ -212,7 +212,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 
 <script src="ims-cash.js?v=4"></script>
 <script src="ims-rep.js?v=7"></script>
-<script src="ims-outlet.js?v=5"></script>
+<script src="ims-outlet.js?v=6"></script>
 <script src="ims-handover.js?v=2"></script>
 <script src="ims-expiry.js?v=8"></script>
 <script src="ims-foc.js?v=3"></script>
@@ -221,10 +221,10 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-print.js?v=3"></script>
 <script src="ims-ops.js?v=1"></script>
 <script src="ims-mention.js?v=1"></script>
-<script src="ims-visit.js?v=7"></script>
+<script src="ims-visit.js?v=8"></script>
 <script src="ims-run.js?v=1"></script>
 <script src="ims-live.js?v=3"></script>
-<script src="ims-app.js?v=1"></script>
+<script src="ims-app.js?v=3"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indzc2t5b21ydmhjZnBzZHVrd2F3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0NjczNDIsImV4cCI6MjEwOTA0MzM0Mn0.IztfmYjaxoxcNFr8JDc-e6rtidcNeicmjy5pGJBoP0Y';
@@ -390,7 +390,9 @@ function pgHome() {
   }).join('');
   const att = act.filter(r => r.promise_broken || r.action_overdue || (r.days_to_120 > 0 && r.days_to_120 <= 14))
     .sort((a, b) => (b.promise_broken - a.promise_broken) || (b.action_overdue - a.action_overdue) || (b.amount - a.amount)).slice(0, 8);
-  $('page').innerHTML = '<h2 class="pt">Welcome, ' + esc(me.full_name || me.username) + '</h2><div class="hint">' + new Date().toDateString() + ' · ' + (me.role === 'admin' ? 'Admin: full access to everything' : 'Your access is listed below') + '</div>'
+  const nm = me.full_name || me.username, ini = window.imsInitials ? imsInitials(nm) : '';
+  $('page').innerHTML = '<div class="hero"><span class="hav">' + esc(ini) + '</span><div class="hx"><div class="hhi">Welcome back,</div><div class="hnm">' + esc(nm) + '</div><div class="hmeta"><span>' + esc(myTitle() || (me.role === 'admin' ? 'Admin' : 'User')) + '</span><span>' + new Date().toDateString() + '</span>' + (op ? '<span>' + esc(op) + '</span>' : '') + '</div></div></div>'
+    + '<div class="hint">' + (me.role === 'admin' ? 'Admin: full access to everything' : 'Your access is listed below') + '</div>'
     + (window.repHomeCard ? repHomeCard() : '') + (window.mentionCard ? mentionCard() : '') + (window.runHomeCard ? runHomeCard() : '') + (window.visitHomeCard ? visitHomeCard() : '')
     + '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' + cards + '</div>'
     + '<div class="card"><h3>Needs attention now</h3>' + (att.length ? '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Outlet</th><th>Chain</th><th class="n">Balance</th><th class="n">Days</th><th>Why</th></tr></thead><tbody>'
@@ -894,4 +896,5 @@ document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (
 window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#item/')) setPresent(false); });
 window.addEventListener('hashchange', () => { if (me) route(); });
 if (sess) start();
-</script></body></html>
+</script>
+<script src="ims-mobile.js?v=2"></script></body></html>

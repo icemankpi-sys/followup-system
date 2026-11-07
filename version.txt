@@ -1,1 +1,3 @@
-﻿Iceman IMS v3.8.2 (2026-11-05): Rep Visit & Meter Report: the Sales rep filter lists every rep of the operation (outstanding list, saved rep phones, visits, meter), with visit and meter counts.
+﻿Iceman IMS v3.9.0 (2026-11-07): phone look: gradient header, bottom navigation (Home, Follow-up, Dashboard, Report, Menu), side drawer with profile and modules, Welcome hero, icon grid on My day, bottom-sheet panels, pill fields and buttons (ims-mobile.js). Desktop keeps its layout.
+Auto check-in always ON for reps (cannot be turned off).
+Reps: My Outlets replaces Dashboard in the phone app.

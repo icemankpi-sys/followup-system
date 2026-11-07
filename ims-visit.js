@@ -7,7 +7,8 @@
 (function () {
   const AUTO_M = 20, ACC_M = 50, SAME_VISIT_MS = 3 * 3600e3;
   const V = {watch: null, last: null, recent: {}, today: [], status: '', on: true};
-  try { V.on = localStorage.getItem('fu_autovisit') !== 'off'; } catch (e) {}
+  // v3.9 (2026-11-07, Oshan): auto check-in is always on for reps; it cannot be turned off on the phone (an old "off" choice is cleared)
+  V.on = true; try { localStorage.removeItem('fu_autovisit'); } catch (e) {}
   const uid = () => sess && sess.user && sess.user.id;
   const repOps = () => ops.filter(o => rank(lvl(o.code, 'rep')) > 0);
   const isRep = () => !!(me && (me.rep_name || (me.role !== 'admin' && repOps().length)));
@@ -25,8 +26,8 @@
   window.visitHomeCard = function () {
     if (!isRep() && !V.today.length) return '';
     return '<div class="card" style="margin-top:12px"><div class="row2" style="justify-content:space-between"><h3>My visits today (' + V.today.length + ')</h3>'
-      + '<button class="btn" data-vact="toggle">' + (V.on ? '&#128205; Auto check-in: ON' : 'Auto check-in: OFF') + '</button></div>'
-      + '<div class="hint">' + (V.on ? 'While this app is open on your phone, coming within 20 m of a saved outlet checks you in. Pressing "Check in here" at the same outlet is the same visit.' : 'Auto check-in is off on this phone. Use "Check in here" on the outlet page.') + (V.status ? ' · <b>' + esc(V.status) + '</b>' : '') + '</div>'
+      + '<span class="badge b-live" style="font-size:12px;padding:3px 10px">&#128205; Auto check-in: always ON</span></div>'
+      + '<div class="hint">While this app is open on your phone, coming within 20 m of a saved outlet checks you in. Pressing "Check in here" at the same outlet is the same visit.' + (V.status ? ' · <b>' + esc(V.status) + '</b>' : '') + '</div>'
       + (V.today.length ? '<div class="wrap" style="box-shadow:none;margin-top:6px"><table><thead><tr><th>Time</th><th>Outlet</th><th>How</th><th class="n">Distance</th></tr></thead><tbody>'
         + V.today.map(v => '<tr class="row" data-outlet="' + encodeURIComponent(v.operation + '|' + v.outlet_key) + '"><td>' + esc(fmtT(new Date(v.started_at))) + '</td><td><b>' + esc(v.outlet || v.outlet_key) + '</b> <span class="hint">' + esc(v.operation) + '</span>' + (v.note ? '<br><span class="hint">' + esc(v.note) + '</span>' : '') + '</td><td>' + esc(METHOD[v.method] || v.method) + '</td><td class="n">' + (v.distance_m != null ? Math.round(v.distance_m) + ' m' : '') + '</td></tr>').join('') + '</tbody></table></div>'
         : '<div class="hint" style="margin-top:6px">No visits yet today.</div>') + '</div>';
@@ -226,6 +227,6 @@
     if (h) { const k = h.dataset.vh; if (k === 'csv') hCsv(); else if (k === 'print') window.print(); else { [H.from, H.to] = range(k); go(); } return; }
     const b = e.target.closest('[data-vact]'); if (!b) return;
     if (b.dataset.vact === 'checkin') guard(async () => manual(b));
-    else if (b.dataset.vact === 'toggle') { V.on = !V.on; try { localStorage.setItem('fu_autovisit', V.on ? 'on' : 'off'); } catch (er) {} if (V.on) visitAutoStart(); else stopAuto(); go('home'); }
+    else if (b.dataset.vact === 'toggle') { V.on = true; visitAutoStart(); go('home'); }   // always on: an old cached button only restarts it
   });
 })();
