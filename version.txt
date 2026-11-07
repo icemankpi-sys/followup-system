@@ -1,3 +1,4 @@
 ﻿Iceman IMS v3.9.0 (2026-11-07): phone look: gradient header, bottom navigation (Home, Follow-up, Dashboard, Report, Menu), side drawer with profile and modules, Welcome hero, icon grid on My day, bottom-sheet panels, pill fields and buttons (ims-mobile.js). Desktop keeps its layout.
 Auto check-in always ON for reps (cannot be turned off).
 Reps: My Outlets replaces Dashboard in the phone app.
+v4.0 (2026-11-07): Rep Team module for Admin / Operation Head / Director: Team (add rep, assign outlets with beat days), Rep Day (GPS route map, check-ins, stops, beat not visited), Coverage (assigned outlets visited, 14+ days not visited). Needs Supabase/31 rep team.sql.

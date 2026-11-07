@@ -159,6 +159,8 @@ html.m-skin .lcard .mark{box-shadow:0 0 0 6px rgba(31,194,236,.18),0 6px 20px rg
     nav.querySelectorAll('[data-mpage]').forEach(b => {
       const t = tabs.querySelector('button[data-page="' + b.dataset.mpage + '"]');
       b.hidden = !t || (rep && b.dataset.mpage === 'dash'); b.classList.toggle('on', b.dataset.mpage === cur);
+      const lab = t && t.firstChild && t.firstChild.nodeType === 3 ? t.firstChild.nodeValue.trim() : '', tn = [...b.childNodes].find(n => n.nodeType === 3);
+      if (lab && tn && tn.nodeValue !== lab) tn.nodeValue = lab;   // same names as the tabs (Rep Team shows Team / Rep Day / Coverage)
       const badge = t && t.querySelector('.nbadge'), old = b.querySelector('.nb');
       if (old) old.remove(); if (badge) b.insertAdjacentHTML('beforeend', '<span class="nb">' + badge.textContent + '</span>');
     });
