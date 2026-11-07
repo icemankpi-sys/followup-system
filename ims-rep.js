@@ -51,7 +51,7 @@
     const list = names.map(n => { const s = stats(repRows(n)); return {n, s, td: R.todos.filter(t => lc(t.rep_name) === lc(n) && !t.done).length}; }).sort((a, b) => b.s.bal - a.s.bal);
     const tot = stats(scope());
     $('page').innerHTML = picker() + '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Rep dashboard &middot; all reps</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' &middot; for Admin, Director, Finance and Operation Heads</div></div>'
-      + '<button class="btn noprint" data-vhopen="">&#128663; Visit &amp; meter report (all reps)</button></div>'
+      + '<div class="row2 noprint">' + (window.teamCanEdit && teamCanEdit() ? '<button class="btn p" data-tm="add">+ Add rep</button><button class="btn" data-tm="assign" data-op="' + esc(op || '') + '" data-n="">Assign outlets</button>' : '') + '<button class="btn" data-vhopen="">&#128663; Visit &amp; meter report (all reps)</button></div></div>'
       + '<div class="grid"><div class="tile"><b>' + names.length + '</b><span>Sales reps with outstanding</span></div><div class="tile"><b>' + money0(tot.bal) + '</b><span>Total outstanding</span></div><div class="tile r"><b>' + money0(tot.o120) + '</b><span>Over 120 days</span></div><div class="tile r"><b>' + tot.over.length + '</b><span>Actions overdue</span></div><div class="tile a"><b>' + tot.inc.length + '</b><span>No plan yet</span></div></div>'
       + (window.liveBoard ? liveBoard(null) : '')
       + '<div class="card" style="margin-top:12px"><h3>Reps</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Sales rep</th><th class="n">Invoices</th><th class="n">Outstanding</th><th class="n">Over 120</th><th class="n">Crossing 120 (30d)</th><th class="n">Overdue</th><th class="n">Broken</th><th class="n">No plan</th><th class="n">Open to-dos</th><th class="n">Oldest</th></tr></thead><tbody>'
@@ -63,15 +63,43 @@
     document.querySelectorAll('#page [data-rp]').forEach(tr => tr.onclick = () => { R.rep = tr.dataset.rp; dash(); });
   }
 
+  // ---------- rep cards (v4.0.1, 2026-11-07, Oshan): the managers' overview of reps as cards with actions ----------
+  // + Add rep / Assign outlets / Rep Day use the Rep Team module (ims-team.js listens to data-tm buttons).
+  R.q = ''; R.sort = 'bal';
+  function repCards(from) {
+    const names = repNames(), t = (R.q || '').toLowerCase(), edit = window.teamCanEdit && teamCanEdit();
+    const L = names.map(n => { const rr = repRows(n), s = stats(rr); return {n, s, op: (rr[0] || {}).operation || op || '', td: R.todos.filter(x => lc(x.rep_name) === lc(n) && !x.done).length, noRep: /^no ?rep$/i.test(n.trim())}; })
+      .filter(x => !t || x.n.toLowerCase().includes(t))
+      .sort((a, b) => (a.noRep - b.noRep) || (R.sort === 'name' ? a.n.localeCompare(b.n) : R.sort === 'o120' ? b.s.o120 - a.s.o120 : R.sort === 'noplan' ? b.s.inc.length - a.s.inc.length : b.s.bal - a.s.bal));
+    const tot = stats(scope());
+    const card = x => '<div class="card rpc' + (x.noRep ? ' norep' : '') + '"><div class="rph"><span class="rpav">' + esc(x.noRep ? '?' : (window.imsInitials ? imsInitials(x.n) : x.n[0])) + '</span><div style="flex:1;min-width:0"><b>' + esc(x.n) + '</b><div class="hint">' + esc(x.op) + ' · ' + x.s.a.length + ' invoices' + (x.s.old ? ' · oldest ' + x.s.old + ' days' : '') + '</div></div></div>'
+      + (x.noRep ? '<div class="hint" style="margin:6px 0;color:var(--danger)">These invoices have no rep on the outstanding list. Assign their outlets to a rep.</div>' : '')
+      + '<div class="rpg"><div><b>' + money0(x.s.bal) + '</b><span>Outstanding</span></div><div class="r"><b>' + money0(x.s.o120) + '</b><span>Over 120</span></div>'
+      + '<div class="' + (x.s.over.length + x.s.broken.length ? 'r' : '') + '"><b>' + (x.s.over.length + x.s.broken.length) + '</b><span>Overdue / broken</span></div><div class="' + (x.s.inc.length ? 'a' : '') + '"><b>' + x.s.inc.length + '</b><span>No plan</span></div></div>'
+      + '<div class="row2" style="margin-top:8px">' + (x.noRep ? '' : '<button class="btn p" data-rpo="' + esc(x.n) + '" data-to="items">To-do' + (x.td ? ' (' + x.td + ')' : '') + '</button><button class="btn" data-rpo="' + esc(x.n) + '" data-to="dash">Dashboard</button>' + (window.canTeam && canTeam() ? '<button class="btn" data-tm="day" data-op="' + esc(x.op) + '" data-n="' + esc(x.n) + '">Rep Day</button>' : ''))
+      + (edit ? '<button class="btn" data-tm="assign" data-op="' + esc(x.op) + '" data-n="' + (x.noRep ? '' : esc(x.n)) + '">Assign outlets</button>' : '') + '</div></div>';
+    $('page').innerHTML = picker() + '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Sales Reps</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' · ' + names.length + ' reps · tap To-do or Dashboard to open a rep</div></div>'
+      + '<div class="row2">' + (edit ? '<button class="btn p" data-tm="add">+ Add rep</button><button class="btn" data-tm="assign" data-op="' + esc(op || '') + '" data-n="">Assign outlets</button>' : '') + (window.canTeam && canTeam() ? '<button class="btn" data-go="items" data-mod="team">Rep Team</button>' : '') + '</div></div>'
+      + '<div class="grid"><div class="tile"><b>' + names.length + '</b><span>Reps with outstanding</span></div><div class="tile"><b>' + money0(tot.bal) + '</b><span>Total outstanding</span></div><div class="tile r"><b>' + money0(tot.o120) + '</b><span>Over 120 days</span></div><div class="tile a"><b>' + tot.inc.length + '</b><span>No plan yet</span></div></div>'
+      + '<div class="row2 noprint" style="margin-bottom:8px"><input id="rpQ" placeholder="Search rep" value="' + esc(R.q) + '" style="flex:1;min-width:180px"><select id="rpSort">' + [['bal', 'Sort: outstanding'], ['o120', 'Sort: Over 120'], ['noplan', 'Sort: no plan'], ['name', 'Sort: name']].map(o => '<option value="' + o[0] + '"' + (R.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></div>'
+      + '<div class="rplist">' + (L.length ? L.map(card).join('') : '<div class="card hint">No rep matches.</div>') + '</div>';
+    bindPicker(from === 'dash' ? dash : todo);
+    document.querySelectorAll('#page [data-rpo]').forEach(b => b.onclick = () => { R.rep = b.dataset.rpo; if (b.dataset.to === 'dash') go('dash', 'rep'); else go('items', 'rep'); });
+    const q = $('rpQ'); if (q) q.oninput = () => { R.q = q.value; const s = q.selectionStart; repCards(from); const n = $('rpQ'); n.focus(); n.setSelectionRange(s, s); };
+    const so = $('rpSort'); if (so) so.onchange = () => { R.sort = so.value; repCards(from); };
+  }
+  const rcCss = document.createElement('style');
+  rcCss.textContent = '.rplist{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}.rph{display:flex;gap:10px;align-items:center}'
+    + '.rpav{flex:none;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;background:linear-gradient(135deg,#3b2fc9,#2f6fe0 55%,#1fc2ec)}.rpc.norep{border:1px dashed var(--danger)}.rpc.norep .rpav{background:var(--danger)}'
+    + '.rpg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}.rpg div{background:var(--surface2);border-radius:10px;padding:6px 4px;text-align:center;min-width:0}.rpg b{display:block;font-size:13.5px;overflow-wrap:anywhere}.rpg span{font-size:10.5px;color:var(--muted)}.rpg .r b{color:var(--danger)}.rpg .a b{color:var(--accent)}'
+    + '@media(max-width:600px){.rpg{grid-template-columns:repeat(2,minmax(0,1fr))}}';
+  document.head.appendChild(rcCss);
+
   // ---------- to-do ----------
   function todo() {
     const name = current();
     if (!isMgr() && !name) { $('page').innerHTML = '<div class="card">Your rep name is not linked yet. Ask the Admin to set it in Permission.</div>'; return; }
-    if (!name) {
-      const names = repNames();
-      $('page').innerHTML = picker() + '<h2 class="pt">Rep to-do</h2><div class="card"><div class="hint">Choose a rep above to see and assign their to-do list.</div>' + names.map(n => { const s = stats(repRows(n)); return '<div class="row2"><button class="btn" data-rp="' + esc(n) + '">' + esc(n) + '</button><span class="hint">' + (s.over.length + s.broken.length) + ' overdue / broken, ' + s.inc.length + ' with no plan, ' + R.todos.filter(t => lc(t.rep_name) === lc(n) && !t.done).length + ' open tasks</span></div>'; }).join('') + '</div>';
-      bindPicker(todo); document.querySelectorAll('#page [data-rp]').forEach(b => b.onclick = () => { R.rep = b.dataset.rp; todo(); }); return;
-    }
+    if (!name) { repCards('todo'); return; }
     const s = stats(repRows(name)), t = today();
     const overdue = s.a.filter(r => r.promise_broken || r.action_overdue), todayL = s.a.filter(r => r.next_date === t && !r.action_overdue), weekL = s.a.filter(r => r.next_date > t && r.next_date <= plus(7)), noPlan = s.a.filter(r => !r.next_date || r.incomplete);
     const mine = R.todos.filter(x => lc(x.rep_name) === lc(name)), open = mine.filter(x => !x.done), done = mine.filter(x => x.done).slice(0, 10);

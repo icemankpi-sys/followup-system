@@ -24,6 +24,7 @@
   const opNow = () => op || (myOps().length === 1 ? myOps()[0].code : '');
   const inOp = o => !op || o === op;
   window.canTeam = () => !!me && (me.role === 'admin' || myOps().length > 0);
+  window.teamCanEdit = () => !!me && myOps().some(o => canEdit(o.code));   // Sales Reps screen shows + Add rep / Assign outlets with this
 
   // ---------- data ----------
   function outletsAll() {
