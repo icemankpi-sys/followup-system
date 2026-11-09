@@ -30,7 +30,8 @@
 .pm-user{display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;flex-wrap:wrap}
 .pm-user:hover{border-color:var(--primary)}.pm-user.off{opacity:.55}
 .pm-av{width:38px;height:38px;border-radius:50%;background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;font-weight:700;flex:none}
-.pm-who{flex:1 1 200px;min-width:0}.pm-who b{display:block}.pm-who small{color:var(--muted)}
+.pm-who{flex:1 1 200px;min-width:0}.pm-who b{display:block}.pm-who small{display:block;color:var(--muted)}
+.pm-un{display:inline-block;margin:2px 0;font-size:12px;font-family:Consolas,"Cascadia Mono",monospace;color:var(--primary);background:var(--primary-soft);border-radius:6px;padding:0 6px}
 .pm-acc{flex:2 1 280px;min-width:0;display:flex;gap:4px;flex-wrap:wrap}
 .pm-tag{border-radius:8px;padding:1px 8px;font-size:11.5px;background:var(--surface2);border:1px solid var(--line);white-space:nowrap}
 .pm-tag i{font-style:normal;font-weight:700;margin-left:4px}.pm-tag.view i{color:var(--muted)}.pm-tag.edit i{color:var(--accent)}.pm-tag.full i{color:var(--ok)}
@@ -94,7 +95,7 @@
       + (F.newOpen ? '<div class="pm-new"><input id="nName" placeholder="Full name"><input id="nUser" placeholder="Username or email"><input id="nPass" type="password" placeholder="Password (8+ characters)" autocomplete="new-password"><select id="nRole"><option value="user">User</option><option value="admin">Admin</option></select><button class="btn p" data-uact="create">Create and set access</button></div>' : '')
       + '</div>';
     h += '<div class="pm-list">' + (list.map(u => '<div class="pm-user' + (u.active ? '' : ' off') + '" data-uact="acc" data-id="' + u.id + '"><div class="pm-av">' + esc(initials(u.full_name || u.username)) + '</div>'
-      + '<div class="pm-who"><b>' + esc(u.full_name || u.username) + (u.active ? '' : ' <span class="tag t-b">off</span>') + '</b><small>' + esc([u.job_title, u.username, u.rep_name ? 'rep: ' + u.rep_name : ''].filter(Boolean).join(' · ')) + '</small></div>'
+      + '<div class="pm-who"><b>' + esc(u.full_name || u.username) + (u.active ? '' : ' <span class="tag t-b">off</span>') + '</b><span class="pm-un">@' + esc(String(u.username || '').replace(/@iceman-followup\.local$/i, '')) + '</span><small>' + esc([u.job_title, u.rep_name ? 'rep: ' + u.rep_name : ''].filter(Boolean).join(' · ')) + '</small></div>'
       + '<div class="pm-acc">' + summary(u) + '</div>'
       + '<div class="pm-act"><button class="btn p" data-uact="acc" data-id="' + u.id + '">Edit access</button><button class="btn" data-uact="pwd" data-id="' + u.id + '">Password</button><button class="btn" data-uact="role" data-id="' + u.id + '">' + (u.role === 'admin' ? 'Make User' : 'Make Admin') + '</button><button class="btn d" data-uact="act" data-id="' + u.id + '">' + (u.active ? 'Switch off' : 'Switch on') + '</button></div></div>').join('') || '<div class="hint">No users match.</div>') + '</div>';
     $('page').innerHTML = h;
