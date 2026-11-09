@@ -311,7 +311,9 @@ function lvl(o, m) {
   return ['', 'view', 'edit', 'full'][best];
 }
 const opsFor = m => ops.filter(o => rank(lvl(o.code, m)) > 0);
-const visibleMods = () => MODS.filter(m => me.role === 'admin' || (m.id === 'team' ? opsFor('receivable').length > 0 : opsFor(m.id).length) ||(m.id === 'rep' && opsFor('receivable').length) || ((m.id === 'outlets' || m.id === 'visits' || m.id === 'runs') && (opsFor('receivable').length || opsFor('rep').length)));
+// each module shows only with its own access; Rep Team, Outlets, Visit History and Running Chart come with Sales Reps access (2026-11-09: Outstanding alone shows Outstanding only)
+const REP_SUB = ['team', 'outlets', 'visits', 'runs'];
+const visibleMods = () => MODS.filter(m => me.role === 'admin' || (REP_SUB.includes(m.id) ? opsFor('rep').length > 0 : opsFor(m.id).length > 0));
 const modOf = id => MODS.find(m => m.id === id);
 const myRows = () => rows.filter(r => !op || r.operation === op);
 
@@ -373,7 +375,7 @@ function go(p, m) {
     return '<button title="' + esc(m.name) + '" class="mod ' + (m.id === mod && ['items', 'dash', 'report', 'record', 'outlet'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
   }).join('');
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
-  const my = mod === 'team' ? opsFor('receivable') : mod === 'rep' || mod === 'outlets' || mod === 'visits' || mod === 'runs' ?ops.filter(o => rank(lvl(o.code, 'rep')) > 0 || rank(lvl(o.code, 'receivable')) > 0) : opsFor(mod);
+  const my = mod === 'rep' || REP_SUB.includes(mod) ? opsFor('rep') : opsFor(mod);
   if (needOp && my.length === 1) op = my[0].code; else if (!needOp || my.length > 1) { if (!my.some(o => o.code === op)) op = ''; }
   $('bar').innerHTML = needOp && my.length > 1 ? '<select id="opSel"><option value="">All my operations</option>' + my.map(o => '<option value="' + o.code + '"' + (o.code === op ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>' : '';
   const PG = ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm, record: renderRecord});
@@ -899,5 +901,5 @@ window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#it
 window.addEventListener('hashchange', () => { if (me) route(); });
 if (sess) start();
 </script>
-<script src="ims-perm.js?v=3"></script>
+<script src="ims-perm.js?v=4"></script>
 <script src="ims-mobile.js?v=3"></script></body></html>
