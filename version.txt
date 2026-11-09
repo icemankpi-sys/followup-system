@@ -2,3 +2,4 @@
 Auto check-in always ON for reps (cannot be turned off).
 Reps: My Outlets replaces Dashboard in the phone app.
 v4.0 (2026-11-07): Rep Team module for Admin / Operation Head / Director: Team (add rep, assign outlets with beat days), Rep Day (GPS route map, check-ins, stops, beat not visited), Coverage (assigned outlets visited, 14+ days not visited). Needs Supabase/31 rep team.sql.
+v4.1 (2026-11-09): Permission page redesigned (ims-perm.js): search + filter chips, user cards with access summary, side-drawer access editor (role templates, copy from user, operation chips, None/View/Edit/Full per module), one Save sends one batch; mixed per-operation access is left untouched unless changed.
