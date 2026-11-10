@@ -102,18 +102,48 @@
     const eo = myOps().filter(o => canEdit(o.code));
     $('panel').innerHTML = '<div class="dh"><div><h3>' + (r ? 'Edit rep' : 'Add rep') + '</h3><div class="hint">The name must match the rep name on the outstanding list and the app account (Permission → rep name).</div></div><button class="btn" data-tm="close">Close</button></div><div class="frm">'
       + '<label>Operation</label><select id="tmOp"' + (r ? ' disabled' : '') + '>' + eo.map(o => '<option value="' + o.code + '"' + ((r ? r.op : opNow()) === o.code ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>'
-      + '<label>Rep name</label><input id="tmName" maxlength="80" value="' + esc(r ? r.name : '') + '"' + (r ? ' disabled' : '') + ' placeholder="e.g. Kasun Perera">'
+      + '<label>Rep name</label>' + (r ? '' : '<select id="tmPick"></select><div class="hint" id="tmPickHint">Pick a rep who is already on the list so no second profile is made. Choose "+ New rep" only for a rep who is not on the list.</div>')
+      + '<input id="tmName" maxlength="80" value="' + esc(r ? r.name : '') + '"' + (r ? ' disabled' : ' hidden') + ' placeholder="New rep name, e.g. Kasun Perera">'
       + '<label>Phone</label><input id="tmPhone" maxlength="40" value="' + esc(r ? r.phone : '') + '" placeholder="07x xxx xxxx">'
       + '<label>Area / route</label><input id="tmArea" maxlength="80" value="' + esc(r ? r.area : '') + '" placeholder="e.g. Kandana - Ja-Ela - Seeduwa">'
       + (r ? '<label><input type="checkbox" id="tmAct" style="width:auto"' + (r.active ? ' checked' : '') + '> Active (untick when the rep leaves; history stays)</label>' : '')
-      + (!r && eo.some(o => canAcct(o.code)) ? '<div class="card" style="margin-top:10px;background:var(--surface2)"><b>App login for the rep (optional)</b><div class="hint">Fill these to give the rep a login for the phone app now. The rep only gets Sales Reps access on this operation. Leave empty to add the login later.</div>' + loginFields() + '</div>' : '')
+      + (!r && eo.some(o => canAcct(o.code)) ? '<div class="card" id="tmLg" style="margin-top:10px;background:var(--surface2)"><b>App login for the rep (optional)</b><div class="hint">Fill these to give the rep a login for the phone app now. The rep only gets Sales Reps access on this operation. Leave empty to add the login later.</div>' + loginFields() + '</div>' : '')
       + '<div class="err" id="tmErr"></div><div class="row2"><button class="btn p" data-tm="saverep">Save</button></div></div>';
     $('panel').dataset.rep = r ? r.op + '|' + r.name : ''; $('panel').classList.add('open');
+    if (!r) { fillPick(); $('tmOp').onchange = fillPick; $('tmPick').onchange = pickRep; $('tmName').oninput = warnSame; }
+  }
+  // Add rep: existing reps of the operation in a drop-down, so a rep already on the list is not added twice
+  function fillPick() {
+    const o = $('tmOp').value, list = repList().filter(x => x.op === o);
+    $('tmPick').innerHTML = '<option value="">-- Select the rep --</option>'
+      + list.map(x => '<option value="' + esc(x.name) + '">' + esc(x.name) + (x.active ? '' : ' (inactive)') + (acctOf(x) ? ' · has app login' : '') + (x.saved ? '' : ' · from outstanding list') + '</option>').join('')
+      + '<option value="__new">+ New rep (not on the list)</option>';
+    pickRep();
+  }
+  function pickRep() {
+    const v = $('tmPick').value, x = v && v !== '__new' ? repList().find(y => y.op === $('tmOp').value && y.name === v) : null;
+    $('tmName').hidden = v !== '__new'; $('tmName').value = x ? x.name : ''; $('tmErr').textContent = '';
+    $('tmPhone').value = x ? x.phone : ''; $('tmArea').value = x ? x.area : '';
+    const has = x && acctOf(x);
+    if ($('tmLg')) { $('tmLg').hidden = !!has; }
+    $('tmPickHint').textContent = has ? x.name + ' already has an app login (@' + has.username + '). Saving updates the phone and route only; use "App login" on the rep card to reset the password.'
+      : x ? 'Saving updates ' + x.name + "'s profile (no new profile is made)" + (x.saved ? '.' : ' and adds the rep to Rep Team.')
+      : 'Pick a rep who is already on the list so no second profile is made. Choose "+ New rep" only for a rep who is not on the list.';
+    if (v === '__new') $('tmName').focus();
+  }
+  function warnSame() {
+    const n = nk($('tmName').value), same = n && repList().find(y => y.op === $('tmOp').value && nk(y.name) === n);
+    $('tmErr').textContent = same ? same.name + ' is already on the list. Pick the name from the drop-down instead.' : '';
   }
   async function saveRep() {
     const k = $('panel').dataset.rep, r = k ? repList().find(x => x.op + '|' + x.name === k) : null;
+    if (!r && !$('tmPick').value) { $('tmErr').textContent = 'Select the rep from the list, or choose "+ New rep"'; return; }
     const o = r ? r.op : $('tmOp').value, n = r ? r.name : $('tmName').value.trim().replace(/\s+/g, ' ');
     if (!n) { $('tmErr').textContent = 'Write the rep name'; return; }
+    if (!r && $('tmPick').value === '__new') {
+      const same = repList().find(y => y.op === o && nk(y.name) === nk(n));
+      if (same) { $('tmErr').textContent = same.name + ' is already on the list. Pick the name from the drop-down instead.'; return; }
+    }
     // keep the saved row's key (lists loaded by SQL use lower(name), older app saves used nk(name)) so no second row is made
     const old = T.reps.find(x => x.operation === o && nk(x.rep_name) === nk(n));
     const body = {operation: o, rep_key: old ? old.rep_key : n.toLowerCase(), rep_name: n, phone: $('tmPhone').value.trim() || null, area: $('tmArea').value.trim() || null, active: r ? $('tmAct').checked : true};
@@ -125,6 +155,8 @@
     if (lg) {
       try { await fn({action: 'create_rep', operation: o, username: lg.user, password: lg.pass, full_name: n, rep_name: n}); }
       catch (e) { $('tmErr').textContent = 'Rep saved, but the login was not made: ' + e.message; return; }
+      // create_rep also writes a fu_reps row keyed lower(name); remove it when the existing profile has another key
+      if (old && old.rep_key !== n.toLowerCase()) await api('/rest/v1/fu_reps?operation=eq.' + encodeURIComponent(o) + '&rep_key=eq.' + encodeURIComponent(n.toLowerCase()), {method: 'DELETE', headers: {Prefer: 'return=minimal'}}).catch(() => {});
     }
     closeDrawer(); toast('Rep saved: ' + n + (lg ? ' · login @' + lg.user + ' made. Give the rep the username and password.' : '')); go();
   }
