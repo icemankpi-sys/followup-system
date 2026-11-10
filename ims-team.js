@@ -2,7 +2,8 @@
 //   Team     : reps of the operation (add / edit / active), outlets assigned to each rep with a weekly beat plan, today's status.
 //   Rep Day  : one rep, one day: meter, check-ins, GPS route (Android app), stops away from outlets, planned outlets not visited, on a map.
 //   Coverage : for a period, per rep: assigned outlets visited, visits, days worked, km, and outlets not visited for 14+ days.
-// Changes (add rep, assign outlets) need Outstanding edit on the operation (database rule in Supabase/31 rep team.sql); others read only.
+// Changes (add rep, assign outlets) need Outstanding edit or Rep Team edit on the operation (Supabase/31 + 33); others read only.
+// Rep app logins (make, reset password, switch off) need Rep Team Full or Admin (edge function admin-users, Supabase/33).
 // Loaded before the main script; uses its globals at run time (api, $, esc, money0, rows, op, ops, me, lvl, rank, isActive, sum, isO120,
 // go, toast, closeDrawer, guard, CO, ck, loadContacts, nk, page).
 (function () {
@@ -19,8 +20,11 @@
   const dist = (a, b, c, d) => { const R = 6371000, r = x => x * Math.PI / 180, h = Math.sin(r(c - a) / 2) ** 2 + Math.cos(r(a)) * Math.cos(r(c)) * Math.sin(r(d - b) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
   const kmf = m => (m / 1000).toLocaleString('en-US', {maximumFractionDigits: 1});
   const gmap = (la, ln) => 'https://www.google.com/maps?q=' + la + ',' + ln;
-  const myOps = () => ops.filter(o => me.role === 'admin' || rank(lvl(o.code, 'receivable')) > 0);
-  const canEdit = o => me.role === 'admin' || rank(lvl(o, 'receivable')) >= 2;
+  // Rep Team access (module 'team', 2026-11-10): View = see, Edit = add reps / outlets and assign, Full = also make rep app logins
+  const myOps = () => ops.filter(o => me.role === 'admin' || rank(lvl(o.code, 'receivable')) > 0 || rank(lvl(o.code, 'team')) > 0);
+  const canEdit = o => me.role === 'admin' || rank(lvl(o, 'receivable')) >= 2 || rank(lvl(o, 'team')) >= 2;
+  const canAcct = o => me.role === 'admin' || rank(lvl(o, 'team')) >= 3;
+  const acctOf = r => (T.accts || []).find(a => (a.operations || []).includes(r.op) && nk(a.rep_name) === nk(r.name));
   const opNow = () => op || (myOps().length === 1 ? myOps()[0].code : '');
   const inOp = o => !op || o === op;
   window.canTeam = () => !!me && (me.role === 'admin' || myOps().length > 0);
@@ -54,6 +58,7 @@
       api('/rest/v1/fu_visits?started_at=gte.' + a + o + '&order=started_at.asc&select=*&limit=5000').catch(() => []),
       api('/rest/v1/fu_track_points?recorded_at=gte.' + a + o + '&order=recorded_at.desc&select=rep_user,recorded_at,battery&limit=5000').catch(() => []),
       api('/rest/v1/fu_runs?day=gte.' + addD(today(), -60) + o + '&select=rep_user,rep_name&limit=5000').catch(() => [])]);
+    T.accts = myOps().some(x => canAcct(x.code)) ? ((await fn({action: 'rep_accounts'}).catch(() => null)) || {}).reps || [] : [];
     T.reps = reps || []; T.runs = runs || []; T.visits = vis || []; T.pts = pts || [];
     (hist || []).concat(T.runs).concat(T.visits).forEach(r => { if (r.rep_user && r.rep_name) T.users[nk(r.rep_name)] = r.rep_user; });
   }
@@ -79,8 +84,9 @@
         + '<div class="tmg"><div><b>' + asg.length + '</b><span>assigned outlets</span></div><div><b>' + mine.filter(x => x.bal > 0).length + '</b><span>with outstanding</span></div>'
         + '<div><b>' + vis.length + '</b><span>visits today</span></div><div><b>' + planDone + ' / ' + plan.length + '</b><span>today\'s beat done</span></div></div>'
         + (last ? '<div class="hint" style="margin-top:6px">Last check-in ' + hm(last.started_at) + ' · ' + esc(last.outlet || last.outlet_key) + '</div>' : '')
+        + (canAcct(r.op) ? (acctOf(r) ? '<div class="hint" style="margin-top:6px">App login <span class="pm-un">@' + esc(acctOf(r).username) + '</span>' + (acctOf(r).active ? '' : ' <span class="tag t-b">switched off</span>') + '</div>' : '<div class="hint" style="margin-top:6px">No app login yet</div>') : '')
         + '<div class="row2" style="margin-top:8px"><button class="btn p" data-tm="day" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Rep Day</button>'
-        + (canEdit(r.op) ? '<button class="btn" data-tm="assign" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Assign outlets</button><button class="btn" data-tm="edit" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Edit</button>' : '') + '</div></div>';
+        + (canEdit(r.op) ? '<button class="btn" data-tm="assign" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Assign outlets</button><button class="btn" data-tm="edit" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Edit</button>' : '') + (canAcct(r.op) ? '<button class="btn" data-tm="login" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">' + (acctOf(r) ? 'App login' : '+ App login') + '</button>' : '') + '</div></div>';
     };
     const unas = outs.filter(x => !x.rep);
     const anyEdit = myOps().some(o => canEdit(o.code));
@@ -100,6 +106,7 @@
       + '<label>Phone</label><input id="tmPhone" maxlength="40" value="' + esc(r ? r.phone : '') + '" placeholder="07x xxx xxxx">'
       + '<label>Area / route</label><input id="tmArea" maxlength="80" value="' + esc(r ? r.area : '') + '" placeholder="e.g. Kandana - Ja-Ela - Seeduwa">'
       + (r ? '<label><input type="checkbox" id="tmAct" style="width:auto"' + (r.active ? ' checked' : '') + '> Active (untick when the rep leaves; history stays)</label>' : '')
+      + (!r && eo.some(o => canAcct(o.code)) ? '<div class="card" style="margin-top:10px;background:var(--surface2)"><b>App login for the rep (optional)</b><div class="hint">Fill these to give the rep a login for the phone app now. The rep only gets Sales Reps access on this operation. Leave empty to add the login later.</div>' + loginFields() + '</div>' : '')
       + '<div class="err" id="tmErr"></div><div class="row2"><button class="btn p" data-tm="saverep">Save</button></div></div>';
     $('panel').dataset.rep = r ? r.op + '|' + r.name : ''; $('panel').classList.add('open');
   }
@@ -107,9 +114,67 @@
     const k = $('panel').dataset.rep, r = k ? repList().find(x => x.op + '|' + x.name === k) : null;
     const o = r ? r.op : $('tmOp').value, n = r ? r.name : $('tmName').value.trim().replace(/\s+/g, ' ');
     if (!n) { $('tmErr').textContent = 'Write the rep name'; return; }
-    const body = {operation: o, rep_key: nk(n), rep_name: n, phone: $('tmPhone').value.trim() || null, area: $('tmArea').value.trim() || null, active: r ? $('tmAct').checked : true};
-    try { await api('/rest/v1/fu_reps?on_conflict=operation,rep_key', {method: 'POST', headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}, body}); closeDrawer(); toast('Rep saved: ' + n); go(); }
-    catch (e) { $('tmErr').textContent = /column/.test(e.message) ? 'The database needs Supabase/31 rep team.sql first. ' + e.message : e.message; }
+    // keep the saved row's key (lists loaded by SQL use lower(name), older app saves used nk(name)) so no second row is made
+    const old = T.reps.find(x => x.operation === o && nk(x.rep_name) === nk(n));
+    const body = {operation: o, rep_key: old ? old.rep_key : n.toLowerCase(), rep_name: n, phone: $('tmPhone').value.trim() || null, area: $('tmArea').value.trim() || null, active: r ? $('tmAct').checked : true};
+    const lg = !r && $('lgUser') ? readLogin() : null;
+    if (lg && lg.err) { $('tmErr').textContent = lg.err; return; }
+    if (lg && !canAcct(o)) { $('tmErr').textContent = 'You cannot make app logins for ' + o + '. Leave the login empty or ask the Admin.'; return; }
+    try { await api('/rest/v1/fu_reps?on_conflict=operation,rep_key', {method: 'POST', headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}, body}); }
+    catch (e) { $('tmErr').textContent = /column/.test(e.message) ? 'The database needs Supabase/31 rep team.sql first. ' + e.message : e.message; return; }
+    if (lg) {
+      try { await fn({action: 'create_rep', operation: o, username: lg.user, password: lg.pass, full_name: n, rep_name: n}); }
+      catch (e) { $('tmErr').textContent = 'Rep saved, but the login was not made: ' + e.message; return; }
+    }
+    closeDrawer(); toast('Rep saved: ' + n + (lg ? ' · login @' + lg.user + ' made. Give the rep the username and password.' : '')); go();
+  }
+
+  // ---------- rep app login (Rep Team Full or Admin) ----------
+  const genPass = () => { const c = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; const a = new Uint32Array(10); crypto.getRandomValues(a); a.forEach(v => s += c[v % c.length]); return s; };
+  function loginFields(user) {
+    return '<label>Username</label><input id="lgUser" maxlength="60" autocomplete="off" value="' + esc(user || '') + '" placeholder="e.g. kasun.p (letters, numbers, dot)">'
+      + '<label>Password</label><div class="row2"><input id="lgPass" maxlength="60" autocomplete="new-password" style="flex:1" placeholder="at least 8 characters"><button type="button" class="btn q" data-tm="genpass">Make one</button></div>'
+      + '<div class="hint">The rep signs in with this username and password. Write them down and give them to the rep; the password is not shown again.</div>';
+  }
+  function readLogin() {
+    const u = ($('lgUser').value || '').trim().toLowerCase(), p = $('lgPass').value || '';
+    if (!u && !p) return null;
+    if (!/^[a-z0-9._@-]{3,60}$/.test(u)) return {err: 'Username: 3 to 60 letters, numbers, dot, dash or underscore (no spaces).'};
+    if (p.length < 8) return {err: 'The password needs at least 8 characters (press "Make one").'};
+    return {user: u, pass: p};
+  }
+  const suggestUser = n => String(n || '').toLowerCase().replace(/[^a-z0-9 .]/g, '').trim().split(/[\s.]+/).filter(Boolean).slice(-2).join('.');
+  function loginForm(r) {
+    const a = acctOf(r);
+    $('panel').innerHTML = '<div class="dh"><div><h3>App login · ' + esc(r.name) + '</h3><div class="hint">' + esc(r.op) + (a ? ' · login <b>@' + esc(a.username) + '</b>' + (a.active ? '' : ' (switched off)') : ' · no login yet') + '</div></div><button class="btn" data-tm="close">Close</button></div><div class="frm">'
+      + (a ? '<b>Reset password</b>' + '<label>New password</label><div class="row2"><input id="lgPass" maxlength="60" autocomplete="new-password" style="flex:1" placeholder="at least 8 characters"><button type="button" class="btn q" data-tm="genpass">Make one</button></div>'
+          + '<div class="err" id="tmErr"></div><div class="row2"><button class="btn p" data-tm="lgreset">Save new password</button></div>'
+          + '<div class="card" style="margin-top:12px;background:var(--surface2)"><b>' + (a.active ? 'Switch the login off' : 'Switch the login on again') + '</b><div class="hint">' + (a.active ? 'Use this when the rep leaves. The rep can no longer sign in; the history stays.' : 'The rep can sign in again with the same username.') + '</div>'
+          + '<label><input type="checkbox" id="lgSure" style="width:auto"> Yes, ' + (a.active ? 'switch it off' : 'switch it on') + '</label><div class="row2"><button class="btn" data-tm="lgactive" data-on="' + (a.active ? '0' : '1') + '">' + (a.active ? 'Switch off' : 'Switch on') + '</button></div></div>'
+        : '<div class="hint">Make a phone app login for this rep. The rep gets Sales Reps access on ' + esc(r.op) + ' only, and the rep name is set to "' + esc(r.name) + '" so their outstanding and outlets show up.</div>'
+          + loginFields(suggestUser(r.name)) + '<div class="err" id="tmErr"></div><div class="row2"><button class="btn p" data-tm="lgcreate">Make login</button></div>')
+      + '</div>';
+    $('panel').dataset.rep = r.op + '|' + r.name; $('panel').classList.add('open');
+  }
+  const panelRep = () => { const k = $('panel').dataset.rep; return repList().find(x => x.op + '|' + x.name === k); };
+  async function lgCreate() {
+    const r = panelRep(), lg = readLogin();
+    if (!lg) { $('tmErr').textContent = 'Write a username and a password.'; return; }
+    if (lg.err) { $('tmErr').textContent = lg.err; return; }
+    try { await fn({action: 'create_rep', operation: r.op, username: lg.user, password: lg.pass, full_name: r.name, rep_name: r.name}); closeDrawer(); toast('Login @' + lg.user + ' made for ' + r.name + '. Give the rep the username and password.'); go(); }
+    catch (e) { $('tmErr').textContent = e.message; }
+  }
+  async function lgReset() {
+    const r = panelRep(), a = acctOf(r), p = $('lgPass').value || '';
+    if (p.length < 8) { $('tmErr').textContent = 'The password needs at least 8 characters (press "Make one").'; return; }
+    try { await fn({action: 'rep_password', id: a.id, password: p}); closeDrawer(); toast('New password saved for @' + a.username + '. Give it to the rep.'); }
+    catch (e) { $('tmErr').textContent = e.message; }
+  }
+  async function lgActive(on) {
+    const r = panelRep(), a = acctOf(r);
+    if (!$('lgSure').checked) { $('lgSure').closest('label').style.color = 'var(--danger)'; return; }
+    try { await fn({action: 'rep_active', id: a.id, active: on}); closeDrawer(); toast('Login @' + a.username + (on ? ' switched on' : ' switched off')); go(); }
+    catch (e) { const er = $('tmErr'); if (er) er.textContent = e.message; else toast(e.message); }
   }
 
   // ---------- assign outlets ----------
@@ -272,6 +337,11 @@
     else if (k === 'assign') assignForm(b.dataset.op, b.dataset.n);
     else if (k === 'close') closeDrawer();
     else if (k === 'saverep') guard(saveRep);
+    else if (k === 'login') loginForm(repList().find(r => r.op === b.dataset.op && r.name === b.dataset.n));
+    else if (k === 'genpass') { const i = $('lgPass'); if (i) { i.value = genPass(); i.type = 'text'; } }
+    else if (k === 'lgcreate') guard(lgCreate);
+    else if (k === 'lgreset') guard(lgReset);
+    else if (k === 'lgactive') guard(() => lgActive(b.dataset.on === '1'));
     else if (k === 'saveassign') guard(saveAssign);
     else if (k === 'all') { (T.aList || []).forEach(x => T.pick[x.key] = 1); paintAssign(); }
     else if (k === 'none') { T.pick = {}; paintAssign(); }

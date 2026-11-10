@@ -6,8 +6,8 @@
   const lc = s => String(s || '').trim().toLowerCase();
   const TERMS = {cash: 'Cash', credit: 'Credit', both: 'Cash and credit'};
   const FLD = {chain: 'Chain', phone: 'Contact no', address: 'Address', br_no: 'BR no', credit_ref: 'Credit policy reference', credit_no: 'Credit policy no', pay_terms: 'Cash / credit', rep: 'Sales rep'};
-  const opsAll = () => ops.filter(o => rank(lvl(o.code, 'receivable')) > 0 || rank(lvl(o.code, 'rep')) > 0);
-  const canMgr = o => rank(lvl(o, 'receivable')) >= 2;
+  const opsAll = () => ops.filter(o => rank(lvl(o.code, 'receivable')) > 0 || rank(lvl(o.code, 'rep')) > 0 || rank(lvl(o.code, 'team')) > 0);
+  const canMgr = o => rank(lvl(o, 'receivable')) >= 2 || rank(lvl(o, 'team')) >= 2;   // Rep Team edit (2026-11-10) can add and edit outlets too
   const canAdd = o => canMgr(o) || rank(lvl(o, 'rep')) >= 2;
   const uid = () => sess && sess.user && sess.user.id;
   const myRepRows = (o, name) => rows.filter(r => r.operation === o && nk(r.outlet) === nk(name) && me.rep_name && nk(r.owner_name) === nk(me.rep_name));

@@ -7,15 +7,16 @@
   const LVTXT = {none: 'None', view: 'View', edit: 'Edit', full: 'Full'};
   const ROLES = [
     {k: 'rep', name: 'Sales Rep', job: 'Sales Rep', hint: 'Own outstanding and to-do (phone app)', m: {rep: 'edit'}, needRep: true},
-    {k: 'ophead', name: 'Operation Head', job: 'Operation Head', hint: 'Outstanding, reps, team, expiry', m: {receivable: 'edit', rep: 'view', collection: 'view', short_expiry: 'edit'}},
+    {k: 'ophead', name: 'Operation Head', job: 'Operation Head', hint: 'Outstanding, reps, team, expiry', m: {receivable: 'edit', rep: 'view', team: 'full', collection: 'view', short_expiry: 'edit'}},
     {k: 'officer', name: 'Operation Officer', job: 'Operation Officer', hint: 'Daily collection entry', m: {collection: 'edit'}},
     {k: 'finance', name: 'Finance', job: 'Accounts', hint: 'Collection, FOC, outstanding view', m: {collection: 'full', receivable: 'view', short_expiry: 'view', foc: 'full'}},
     {k: 'stores', name: 'Stores', job: 'Stores Officer', hint: 'Short expiry upload', m: {short_expiry: 'full'}},
     {k: 'director', name: 'Director', job: 'Director', hint: 'Everything, view + remarks', m: {'*': 'view'}, allOps: true},
     {k: 'legal', name: 'Legal Officer', job: 'Legal Officer', hint: 'Outstanding view + remarks', m: {receivable: 'view'}, allOps: true}];
-  // only these modules can be given in fu_access (fu_access_module_check); Rep Team / Outlets / Visit History / Running Chart come with Outstanding or Sales Reps
-  const GRANT = ['receivable', 'rep', 'collection', 'foc', 'short_expiry', 'grn', 'kpi'];
-  const MODLIST = () => [{id: '*', name: 'All modules', sub: 'Every module, now and later'}].concat(MODS.filter(m => GRANT.includes(m.id)).map(m => ({id: m.id, name: m.name, sub: m.sub + (m.ready ? '' : ' (coming)')})));
+  // only these modules can be given in fu_access (fu_access_module_check, Supabase/33 added 'team'); Outlets / Visit History / Running Chart come with Sales Reps or Rep Team
+  const GRANT = ['receivable', 'rep', 'team', 'collection', 'foc', 'short_expiry', 'grn', 'kpi'];
+  const SUBS = {team: 'Manage reps · View = see reps, outlets, Rep Day · Edit = add reps, add / assign outlets · Full = also make rep app logins'};
+  const MODLIST = () => [{id: '*', name: 'All modules', sub: 'Every module, now and later'}].concat(MODS.filter(m => GRANT.includes(m.id)).map(m => ({id: m.id, name: m.name, sub: (SUBS[m.id] || m.sub) + (m.ready ? '' : ' (coming)')})));
   const rk = l => ({none: 0, view: 1, edit: 2, full: 3}[l] || 0);
   let F = {q: '', show: 'all', newOpen: false}, E = null;   // E = editor state
 
@@ -173,7 +174,7 @@
     h += '<div class="pm-sec"><h4>3. Operations <span>(' + (allOps ? 'all' : E.ops.length) + ' ticked)</span></h4><div class="pm-ops"><button class="pm-chip' + (allOps ? ' on' : '') + '" data-pm="op" data-o="*">All operations</button>' + ops.map(o => '<button class="pm-chip' + (!allOps && E.ops.includes(o.code) ? ' on' : '') + '" data-pm="op" data-o="' + esc(o.code) + '" title="' + esc(o.name) + '"' + (allOps ? ' style="opacity:.5"' : '') + '>' + esc(o.code) + '</button>').join('') + '</div></div>';
     h += '<div class="pm-sec"><h4>4. What they can do</h4><div class="pm-legend">View = read only · Edit = update fields and add remarks · Full = edit + upload lists, write off, change data</div><div class="pm-mods" style="margin-top:6px">' + MODLIST().map(m => {
       const l = E.lv[m.id] || 'none';
-      return '<div class="pm-mod' + (coveredAll && m.id !== '*' ? ' cov' : '') + '"><div class="nm"><b>' + esc(m.name) + '</b><small>' + esc(m.sub) + '</small></div><div class="pm-seg">' + LV.map(x => '<button data-pm="lv" data-m="' + m.id + '" data-l="' + x + '" class="' + (x === l ? 'on' : '') + '">' + LVTXT[x] + '</button>').join('') + '</div></div>'; }).join('') + '</div><div class="pm-legend" style="margin-top:8px">Each module shows only to people who have access to it. Rep Team, Outlets, Visit History and Running Chart come with Sales Reps access.</div></div>';
+      return '<div class="pm-mod' + (coveredAll && m.id !== '*' ? ' cov' : '') + '"><div class="nm"><b>' + esc(m.name) + '</b><small>' + esc(m.sub) + '</small></div><div class="pm-seg">' + LV.map(x => '<button data-pm="lv" data-m="' + m.id + '" data-l="' + x + '" class="' + (x === l ? 'on' : '') + '">' + LVTXT[x] + '</button>').join('') + '</div></div>'; }).join('') + '</div><div class="pm-legend" style="margin-top:8px">Each module shows only to people who have access to it. Outlets, Visit History and Running Chart come with Sales Reps or Rep Team access. Rep Team Full lets the person make app logins for reps (Sales Reps access only).</div></div>';
     h += '</div>';
     const chg = dd.up.length + dd.del.length + (dd.prof ? 1 : 0);
     const noOps = desired().length === 0 && Object.values(E.lv).some(l => l && l !== 'none');

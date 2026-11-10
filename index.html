@@ -212,7 +212,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 
 <script src="ims-cash.js?v=4"></script>
 <script src="ims-rep.js?v=8"></script>
-<script src="ims-outlet.js?v=6"></script>
+<script src="ims-outlet.js?v=7"></script>
 <script src="ims-handover.js?v=2"></script>
 <script src="ims-expiry.js?v=8"></script>
 <script src="ims-foc.js?v=3"></script>
@@ -224,7 +224,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-visit.js?v=8"></script>
 <script src="ims-run.js?v=1"></script>
 <script src="ims-live.js?v=3"></script>
-<script src="ims-team.js?v=2"></script>
+<script src="ims-team.js?v=3"></script>
 <script src="ims-app.js?v=3"></script>
 <script>
 const URL_ = 'https://wsskyomrvhcfpsdukwaw.supabase.co';
@@ -313,7 +313,9 @@ function lvl(o, m) {
 const opsFor = m => ops.filter(o => rank(lvl(o.code, m)) > 0);
 // each module shows only with its own access; Rep Team, Outlets, Visit History and Running Chart come with Sales Reps access (2026-11-09: Outstanding alone shows Outstanding only)
 const REP_SUB = ['team', 'outlets', 'visits', 'runs'];
-const visibleMods = () => MODS.filter(m => me.role === 'admin' || (REP_SUB.includes(m.id) ? opsFor('rep').length > 0 : opsFor(m.id).length > 0));
+// Rep Team access (module 'team', 2026-11-10) also opens these four, for managers who look after reps without Sales Reps access
+const repTeamOps = () => ops.filter(o => rank(lvl(o.code, 'rep')) > 0 || rank(lvl(o.code, 'team')) > 0);
+const visibleMods = () => MODS.filter(m => me.role === 'admin' || (REP_SUB.includes(m.id) ? repTeamOps().length > 0 : opsFor(m.id).length > 0));
 const modOf = id => MODS.find(m => m.id === id);
 const myRows = () => rows.filter(r => !op || r.operation === op);
 
@@ -340,7 +342,7 @@ async function start() {
   if (window.visitAutoStart) visitAutoStart();
 }
 async function loadRows() {
-  const want = opsFor('receivable').length || opsFor('rep').length;
+  const want = opsFor('receivable').length || opsFor('rep').length || opsFor('team').length;
   const [r, c] = await Promise.all([want ? api('/rest/v1/v_receivable?select=*&order=aging_days.desc&limit=5000') : [], want ? fetchContacts() : null]);
   rows = (r || []).map(fixBal); await loadContacts(c);
 }
@@ -353,7 +355,7 @@ const ck = (o, n) => o + '|' + nk(n);
 async function guard(fn) { if (guard.busy) return; guard.busy = true; try { await fn(); } finally { guard.busy = false; } }
 const fetchContacts = () => Promise.all([api('/rest/v1/fu_outlets?select=*'), api('/rest/v1/fu_reps?select=operation,rep_name,phone,by_name,updated_at')]).catch(() => [[], []]);
 async function loadContacts(pre) {
-  CO = {}; CR = {}; if (!rows.length) return;
+  CO = {}; CR = {}; if (!rows.length && !pre && !(me && opsFor('team').length)) return;   // Rep Team managers need outlets even with no outstanding rows
   try {
     const [ol, rp] = pre || await fetchContacts();
     (ol || []).forEach(x => CO[ck(x.operation, x.outlet)] = x);
@@ -375,7 +377,7 @@ function go(p, m) {
     return '<button title="' + esc(m.name) + '" class="mod ' + (m.id === mod && ['items', 'dash', 'report', 'record', 'outlet'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
   }).join('');
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
-  const my = mod === 'rep' || REP_SUB.includes(mod) ? opsFor('rep') : opsFor(mod);
+  const my = mod === 'rep' ? opsFor('rep') : REP_SUB.includes(mod) ? repTeamOps() : opsFor(mod);
   if (needOp && my.length === 1) op = my[0].code; else if (!needOp || my.length > 1) { if (!my.some(o => o.code === op)) op = ''; }
   $('bar').innerHTML = needOp && my.length > 1 ? '<select id="opSel"><option value="">All my operations</option>' + my.map(o => '<option value="' + o.code + '"' + (o.code === op ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>' : '';
   const PG = ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm, record: renderRecord});
@@ -901,5 +903,5 @@ window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#it
 window.addEventListener('hashchange', () => { if (me) route(); });
 if (sess) start();
 </script>
-<script src="ims-perm.js?v=4"></script>
+<script src="ims-perm.js?v=5"></script>
 <script src="ims-mobile.js?v=3"></script></body></html>
