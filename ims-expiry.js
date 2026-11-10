@@ -18,7 +18,7 @@
 
   async function load(force) {
     if (!force && X.at && Date.now() - X.at < 60000) return;
-    const [r, im] = await Promise.all([api('/rest/v1/v_short_expiry?select=*&order=base_date.asc&limit=5000'),
+    const [r, im] = await Promise.all([fetchAll('/rest/v1/v_short_expiry?select=*&order=base_date.asc,id'),
       api('/rest/v1/fu_imports?module=eq.short_expiry&select=operation,as_at,file_name,rows_in,rows_new,rows_closed,by_name,at&order=as_at.desc&limit=200').catch(() => [])]);
     X.rows = r || []; X.imports = im || [];
     X.at = Date.now();

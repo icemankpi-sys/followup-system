@@ -11,7 +11,7 @@
   const repNames = () => [...new Set(scope().map(r => (r.owner_name || '').trim()).filter(Boolean))].sort();
   const current = () => isMgr() ? R.rep : myRep();
   const repRows = name => scope().filter(r => lc(r.owner_name) === lc(name));
-  async function loadTodos() { R.todos = await api('/rest/v1/fu_todos?select=*&order=done.asc,due_date.asc.nullslast&limit=5000'); R.loaded = true; }
+  async function loadTodos() { R.todos = await fetchAll('/rest/v1/fu_todos?select=*&order=done.asc,due_date.asc.nullslast,id'); R.loaded = true; }
   async function run(fn) { $('page').innerHTML = '<div class="hint">Loading...</div>'; try { await loadTodos(); fn(); } catch (e) { $('page').innerHTML = '<div class="card err">Could not load: ' + esc(e.message) + '</div>'; } }
   const canEditRow = r => rank(lvl(r.operation, 'receivable')) >= 2 || (lc(r.owner_name) === lc(myRep()) && rank(lvl(r.operation, 'rep')) >= 2);
   function picker() {

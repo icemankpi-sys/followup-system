@@ -41,7 +41,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     if (C.loaded && !force) return;
     const from = ymd(addD(monday(new Date()), -7 * 53));
     const [ln, t, d] = await Promise.all([api('/rest/v1/cc_lanes?select=*&order=sort,name'), api('/rest/v1/cc_targets?select=lane_id,week_start,target&week_start=gte.' + from),
-      api('/rest/v1/cc_daily?select=lane_id,day,amount,customers,note,by_name,updated_at&day=gte.' + from + '&limit=50000')]);
+      fetchAll('/rest/v1/cc_daily?select=lane_id,day,amount,customers,note,by_name,updated_at&day=gte.' + from + '&order=lane_id,day')]);
     C.lanes = ln;
     C.tmap = {}; t.forEach(x => C.tmap[x.lane_id + '|' + x.week_start] = Number(x.target));
     C.dmap = {}; d.forEach(x => C.dmap[x.lane_id + '|' + x.day] = x);
@@ -50,8 +50,8 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   async function fLoad(force) {
     if (F.loaded && !force) return;
     const from = ymd(addD(monday(new Date()), -7 * 53));
-    const [w, out, chq] = await Promise.all([api('/rest/v1/cf_week?select=*&week_start=gte.' + from), api('/rest/v1/cf_outflow?select=*&deleted=eq.false&day=gte.' + from + '&order=day.desc&limit=20000'),
-      api('/rest/v1/cf_cheques?select=*&order=cheque_date.asc.nullslast&limit=5000'), opsFor('collection').length ? cLoad() : null]);
+    const [w, out, chq] = await Promise.all([api('/rest/v1/cf_week?select=*&week_start=gte.' + from), fetchAll('/rest/v1/cf_outflow?select=*&deleted=eq.false&day=gte.' + from + '&order=day.desc,id'),
+      fetchAll('/rest/v1/cf_cheques?select=*&order=cheque_date.asc.nullslast,id'), opsFor('collection').length ? cLoad() : null]);
     F.week = {}; w.forEach(x => F.week[x.operation + '|' + x.week_start] = x);
     F.out = out; F.chq = chq;
     F.loaded = true;

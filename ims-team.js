@@ -55,9 +55,9 @@
     const [reps, runs, vis, pts, hist] = await Promise.all([
       api('/rest/v1/fu_reps?select=*' + o).catch(() => []),
       api('/rest/v1/fu_runs?day=eq.' + today() + o + '&select=*').catch(() => []),
-      api('/rest/v1/fu_visits?started_at=gte.' + a + o + '&order=started_at.asc&select=*&limit=5000').catch(() => []),
-      api('/rest/v1/fu_track_points?recorded_at=gte.' + a + o + '&order=recorded_at.desc&select=rep_user,recorded_at,battery&limit=5000').catch(() => []),
-      api('/rest/v1/fu_runs?day=gte.' + addD(today(), -60) + o + '&select=rep_user,rep_name&limit=5000').catch(() => [])]);
+      fetchAll('/rest/v1/fu_visits?started_at=gte.' + a + o + '&order=started_at.asc,id&select=*').catch(() => []),
+      fetchAll('/rest/v1/fu_track_points?recorded_at=gte.' + a + o + '&order=recorded_at.desc,id&select=rep_user,recorded_at,battery').catch(() => []),
+      fetchAll('/rest/v1/fu_runs?day=gte.' + addD(today(), -60) + o + '&order=id&select=rep_user,rep_name').catch(() => [])]);
     T.accts = myOps().some(x => canAcct(x.code)) ? ((await fn({action: 'rep_accounts'}).catch(() => null)) || {}).reps || [] : [];
     T.reps = reps || []; T.runs = runs || []; T.visits = vis || []; T.pts = pts || [];
     (hist || []).concat(T.runs).concat(T.visits).forEach(r => { if (r.rep_user && r.rep_name) T.users[nk(r.rep_name)] = r.rep_user; });
@@ -229,7 +229,7 @@
       api('/rest/v1/fu_visits?started_at=gte.' + a + '&started_at=lt.' + b + '&rep_name=eq.' + rn + o + '&order=started_at.asc&select=*').catch(() => [])]) : [[], []];
     (runs || []).concat(vis || []).forEach(x => { if (x.rep_user) T.users[nk(x.rep_name)] = x.rep_user; });
     const uid = T.users[nk(T.rep)];
-    const [pts, stays] = uid ? await Promise.all([api('/rest/v1/fu_track_points?rep_user=eq.' + uid + '&recorded_at=gte.' + a + '&recorded_at=lt.' + b + '&order=recorded_at.asc&select=lat,lng,accuracy_m,battery,recorded_at&limit=5000').catch(() => []),
+    const [pts, stays] = uid ? await Promise.all([fetchAll('/rest/v1/fu_track_points?rep_user=eq.' + uid + '&recorded_at=gte.' + a + '&recorded_at=lt.' + b + '&order=recorded_at.asc,id&select=lat,lng,accuracy_m,battery,recorded_at').catch(() => []),
       api('/rest/v1/fu_track_stays?rep_user=eq.' + uid + '&day=eq.' + T.day + '&order=started_at.asc&select=*').catch(() => [])]) : [[], []];
     T.dRuns = runs || []; T.dVis = vis || []; T.dPts = (pts || []).filter(p => (p.accuracy_m || 0) <= 100); T.dStays = stays || [];
     paintDay(r, list);
@@ -297,8 +297,8 @@
     const [f, t] = perRange(), o = op ? '&operation=eq.' + encodeURIComponent(op) : '';
     const a = encodeURIComponent(dStart(addD(t, -60) < f ? addD(t, -60) : f).toISOString()), z = encodeURIComponent(dStart(addD(t, 1)).toISOString());
     const [reps, vis, runs] = await Promise.all([api('/rest/v1/fu_reps?select=*' + o).catch(() => []),
-      api('/rest/v1/fu_visits?started_at=gte.' + a + '&started_at=lt.' + z + o + '&select=operation,outlet_key,rep_name,started_at&limit=20000').catch(() => []),
-      api('/rest/v1/fu_runs?day=gte.' + f + '&day=lte.' + t + o + '&select=operation,rep_name,day,start_km,end_km&limit=5000').catch(() => [])]);
+      fetchAll('/rest/v1/fu_visits?started_at=gte.' + a + '&started_at=lt.' + z + o + '&order=id&select=operation,outlet_key,rep_name,started_at').catch(() => []),
+      fetchAll('/rest/v1/fu_runs?day=gte.' + f + '&day=lte.' + t + o + '&order=id&select=operation,rep_name,day,start_km,end_km').catch(() => [])]);
     T.reps = reps || [];
     const outs = outletsAll(), inPer = v => { const d = ymd(new Date(v.started_at)); return d >= f && d <= t; };
     const lastV = {}; (vis || []).forEach(v => { const k = v.operation + '|' + v.outlet_key; if (!lastV[k] || v.started_at > lastV[k]) lastV[k] = v.started_at; });

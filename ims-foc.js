@@ -26,7 +26,7 @@
 
   async function load(force) {
     if (!force && X.at && Date.now() - X.at < 60000) return;
-    const [r, im, l] = await Promise.all([api('/rest/v1/v_foc?select=*&order=base_date.asc&limit=5000'),
+    const [r, im, l] = await Promise.all([fetchAll('/rest/v1/v_foc?select=*&order=base_date.asc,id'),
       api('/rest/v1/fu_imports?module=eq.foc&select=operation,as_at,file_name,rows_in,rows_new,rows_closed,total_in,by_name&order=as_at.desc,id.desc&limit=200').catch(() => []),
       api('/rest/v1/fu_lists?module=eq.foc&order=sort&select=kind,value').catch(() => [])]);
     X.rows = (r || []).map(x => window.fixBal ? fixBal(x) : x); X.imports = im || [];

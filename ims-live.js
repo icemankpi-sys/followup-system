@@ -29,8 +29,8 @@
     const a = encodeURIComponent(dayStart(L.from).toISOString()), b = encodeURIComponent(dayStart(addDays(L.to, 1)).toISOString());
     L.err = '';
     const [r, v] = await Promise.all([
-      api('/rest/v1/fu_runs?day=gte.' + L.from + '&day=lte.' + L.to + o + '&order=day.asc&select=*&limit=5000').catch(e => { L.err = e.message; return []; }),
-      api('/rest/v1/fu_visits?started_at=gte.' + a + '&started_at=lt.' + b + o + '&order=started_at.asc&select=*&limit=10000').catch(e => { L.err = e.message; return []; })]);
+      fetchAll('/rest/v1/fu_runs?day=gte.' + L.from + '&day=lte.' + L.to + o + '&order=day.asc,id&select=*').catch(e => { L.err = e.message; return []; }),
+      fetchAll('/rest/v1/fu_visits?started_at=gte.' + a + '&started_at=lt.' + b + o + '&order=started_at.asc,id&select=*').catch(e => { L.err = e.message; return []; })]);
     L.runs = r || []; L.visits = v || []; L.at = new Date();
   }
   function people() {

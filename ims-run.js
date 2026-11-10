@@ -104,7 +104,7 @@
     const key = R.from + '|' + R.to + '|' + op; if (!force && key === R.key && Date.now() - R.at < 60000) return;
     const a = new Date(R.from + 'T00:00:00'); a.setDate(a.getDate() - 35);   // earlier rows only to find the last close before the period
     try {
-      R.hist = await api('/rest/v1/fu_runs?day=gte.' + ymd(a) + '&day=lte.' + R.to + (op ? '&operation=eq.' + encodeURIComponent(op) : '') + '&order=day.asc&limit=20000&select=*') || [];
+      R.hist = await fetchAll('/rest/v1/fu_runs?day=gte.' + ymd(a) + '&day=lte.' + R.to + (op ? '&operation=eq.' + encodeURIComponent(op) : '') + '&order=day.asc,id&select=*') || [];
       R.rows = R.hist.filter(r => r.day >= R.from); R.key = key; R.at = Date.now();
     } catch (e) { R.rows = []; R.hist = []; toast(e.message); }
   }

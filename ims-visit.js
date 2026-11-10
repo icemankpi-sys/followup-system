@@ -108,9 +108,9 @@
     const o = op ? '&operation=eq.' + encodeURIComponent(op) : '';
     try {
       const [vs, rs] = await Promise.all([
-        api('/rest/v1/fu_visits?started_at=gte.' + a.toISOString() + '&started_at=lt.' + b.toISOString() + o
-          + '&order=started_at.asc&limit=10000&select=id,operation,outlet_key,outlet,rep_user,rep_name,started_at,last_at,method,lat,lng,accuracy,distance_m,note'),
-        api('/rest/v1/fu_runs?day=gte.' + H.from + '&day=lte.' + H.to + o + '&order=day.asc&limit=5000&select=id,operation,rep_user,rep_name,day,vehicle,start_km,start_at,start_src,start_photo,end_km,end_at,end_src,end_photo,note').catch(() => [])]);
+        fetchAll('/rest/v1/fu_visits?started_at=gte.' + a.toISOString() + '&started_at=lt.' + b.toISOString() + o
+          + '&order=started_at.asc,id&select=id,operation,outlet_key,outlet,rep_user,rep_name,started_at,last_at,method,lat,lng,accuracy,distance_m,note'),
+        fetchAll('/rest/v1/fu_runs?day=gte.' + H.from + '&day=lte.' + H.to + o + '&order=day.asc,id&select=id,operation,rep_user,rep_name,day,vehicle,start_km,start_at,start_src,start_photo,end_km,end_at,end_src,end_photo,note').catch(() => [])]);
       H.rows = vs || []; H.runs = rs || [];
       H.key = key; H.err = '';
     } catch (e) { H.rows = []; H.runs = []; H.err = e.message; }
