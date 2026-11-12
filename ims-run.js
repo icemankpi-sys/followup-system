@@ -21,8 +21,81 @@
   // ---------- today (Home card for reps) ----------
   window.loadRunsToday = async function () {
     if (!uid()) return;
-    try { R.today = await api('/rest/v1/fu_runs?rep_user=eq.' + uid() + '&day=eq.' + today() + '&select=*') || []; } catch (e) { R.today = []; }
+    await Promise.all([
+      api('/rest/v1/fu_runs?rep_user=eq.' + uid() + '&day=eq.' + today() + '&select=*').then(r => { R.today = r || []; }).catch(() => { R.today = []; }),
+      loadReqs()]);
   };
+  // ---------- v4.7: request for a past day (rep asks, admin approves; Supabase/35 meter requests.sql) ----------
+  R.reqs = []; R.reqOk = false;
+  async function loadReqs() {
+    try { R.reqs = await api('/rest/v1/fu_run_requests?order=created_at.desc&limit=200&select=*') || []; R.reqOk = true; } catch (e) { R.reqs = []; R.reqOk = false; }
+  }
+  const ST = {pending: ['t-a', 'Waiting for admin'], approved: ['t-g', 'Approved'], rejected: ['t-r', 'Rejected']};
+  const stTag = q => '<span class="tag ' + (ST[q.status] || ['', ''])[0] + '">' + esc((ST[q.status] || ['', q.status])[1]) + '</span>';
+  const kmPair = q => (q.start_km != null ? km(q.start_km) : '?') + ' → ' + (q.end_km != null ? km(q.end_km) : '?') + ' km';
+  const pendAll = () => R.reqs.filter(q => q.status === 'pending' && (!op || q.operation === op));
+  function myReqBox() {
+    if (!R.reqOk) return '';
+    const cut = new Date(); cut.setDate(cut.getDate() - 14); const c = cut.toISOString();
+    const L = R.reqs.filter(q => q.rep_user === uid() && (q.status === 'pending' || (q.decided_at || q.created_at) > c)).slice(0, 4);
+    return '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)"><div class="row2" style="justify-content:space-between;gap:8px"><span class="hint">Forgot the meter on a past day?</span><button class="btn" data-rc="req">Ask the admin to add it</button></div>'
+      + L.map(q => '<div class="hint" style="margin-top:6px">' + esc(q.day) + (q.vehicle ? ' · ' + esc(q.vehicle) : '') + ' · ' + kmPair(q) + ' ' + stTag(q) + (q.decide_note ? ' ' + esc(q.decide_note) : '') + '</div>').join('') + '</div>';
+  }
+  function reqDrawer() {
+    const d = new Date(); d.setDate(d.getDate() - 1); const max = ymd(d); d.setDate(d.getDate() - 30); const min = ymd(d);
+    $('panel').innerHTML = '<div class="dh"><div><h3>Meter for a past day</h3><div class="hint">The admin checks your request and adds the reading. It shows as "Manual (admin)".</div></div><button class="btn" data-rc="close">Close</button></div><div class="frm">'
+      + '<label>Day</label><input type="date" id="qDay" value="' + max + '" min="' + min + '" max="' + max + '">'
+      + '<label>Vehicle no</label><input id="qVeh" maxlength="20" value="' + esc(veh) + '" placeholder="e.g. CAB-1234">'
+      + '<label>Start meter (km)</label><input id="qStart" inputmode="numeric" maxlength="7"><label>Close meter (km)</label><input id="qEnd" inputmode="numeric" maxlength="7">'
+      + '<div class="hint">Fill both, or only the one you missed that day.</div>'
+      + '<label>Reason</label><input id="qWhy" maxlength="300" placeholder="e.g. forgot to enter, phone was off">'
+      + '<div class="row2" style="margin-top:10px"><button class="btn p" data-rc="reqsend">Send to admin</button><button class="btn" data-rc="close">Cancel</button></div><div class="err" id="qErr"></div></div>';
+    $('panel').classList.add('open');
+  }
+  async function reqSend() {
+    const v = id => $(id).value.trim(), n = id => v(id) ? Number(v(id).replace(/\D/g, '')) : null, er = t => { $('qErr').textContent = t; };
+    const s = n('qStart'), e = n('qEnd'), day = v('qDay');
+    if (!day || day >= today()) return er('Choose a past day');
+    if (s == null && e == null) return er('Type the start and / or close meter');
+    if (s != null && e != null && e < s) return er('Close meter is lower than the start meter');
+    if (v('qWhy').length < 3) return er('Type the reason');
+    try {
+      await api('/rest/v1/rpc/fu_run_request', {method: 'POST', body: {p_op: myOp(), p_day: day, p_vehicle: v('qVeh'), p_start: s, p_end: e, p_reason: v('qWhy')}});
+      closeDrawer(); await loadReqs(); toast('Request sent to the admin'); go();
+    } catch (x) { er(x.message); }
+  }
+  // list of requests on the Running Chart page: admin decides, managers and the rep only see the status
+  function reqCard() {
+    if (!R.reqOk) return '';
+    const cut = new Date(); cut.setDate(cut.getDate() - 14); const c = cut.toISOString();
+    const L = R.reqs.filter(q => (!op || q.operation === op) && (q.status === 'pending' || (q.decided_at || q.created_at) > c)).sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || b.created_at.localeCompare(a.created_at));
+    if (!L.length) return '';
+    const np = L.filter(q => q.status === 'pending').length;
+    return '<div class="card noprint" style="margin-bottom:10px"><h3>Meter requests for past days' + (np ? ' <span class="badge" style="background:var(--accent,#e8590c);color:#fff">' + np + ' waiting</span>' : '') + '</h3><div class="hint">A rep who forgot the meter asks here. Only the admin approves; an approved reading is saved as "Manual (admin)".</div>'
+      + '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Asked</th><th>Rep</th><th>Day</th><th>Vehicle</th><th class="n">Start km</th><th class="n">Close km</th><th class="n">Km</th><th>Reason</th><th>Status</th></tr></thead><tbody>'
+      + L.map(q => '<tr><td>' + esc(fmtDT(new Date(q.created_at))) + '</td><td>' + esc(q.rep_name || '') + '</td><td><b>' + esc(q.day) + '</b></td><td>' + esc(q.vehicle || '') + '</td><td class="n">' + km(q.start_km) + '</td><td class="n">' + km(q.end_km) + '</td><td class="n">' + (q.start_km != null && q.end_km != null ? km(q.end_km - q.start_km) : '') + '</td><td>' + esc(q.reason || '') + '</td>'
+        + '<td>' + (q.status === 'pending' && isAdmin() ? '<button class="btn p" data-rc="rq" data-id="' + q.id + '">Approve / reject</button>' : stTag(q) + (q.decided_by ? '<div class="hint">' + esc(q.decided_by + (q.decide_note ? ': ' + q.decide_note : '')) + '</div>' : '')) + '</td></tr>').join('')
+      + '</tbody></table></div></div>';
+  }
+  function decideDrawer(id) {
+    const q = R.reqs.find(x => String(x.id) === String(id)); if (!q) return;
+    R.dec = q.id;
+    $('panel').innerHTML = '<div class="dh"><div><h3>Meter request #' + q.id + '</h3><div class="hint">' + esc((q.rep_name || '') + ' · ' + q.operation + ' · asked ' + fmtDT(new Date(q.created_at))) + '</div></div><button class="btn" data-rc="close">Close</button></div><div class="frm">'
+      + '<div class="rcbox"><div class="hint">Day</div><b>' + esc(q.day) + '</b></div><div class="rcbox"><div class="hint">Vehicle</div><b>' + esc(q.vehicle || 'not given') + '</b></div>'
+      + '<div class="rcbox"><div class="hint">Start → Close</div><b>' + kmPair(q) + '</b>' + (q.start_km != null && q.end_km != null ? '<div class="hint">' + km(q.end_km - q.start_km) + ' km run</div>' : '') + '</div>'
+      + '<label>Reason from the rep</label><div>' + esc(q.reason || '') + '</div>'
+      + '<label>Your note (needed to reject)</label><input id="dNote" maxlength="300" placeholder="e.g. checked with the vehicle log">'
+      + '<div class="hint">Approve saves the reading for that day as "Manual (admin)" with your name. Check the km against the days before and after.</div>'
+      + '<div class="row2" style="margin-top:10px"><button class="btn p" data-rc="rqok">Approve and add</button><button class="btn" data-rc="rqno">Reject</button></div><div class="err" id="dErr"></div></div>';
+    $('panel').classList.add('open');
+  }
+  async function decide(okay) {
+    const note = $('dNote').value.trim(); if (!okay && !note) { $('dErr').textContent = 'Type why the request is rejected'; return; }
+    try {
+      await api('/rest/v1/rpc/fu_run_request_decide', {method: 'POST', body: {p_id: R.dec, p_approve: okay, p_note: note || null}});
+      closeDrawer(); R.key = ''; await loadReqs(); toast(okay ? 'Approved: the reading is added' : 'Request rejected'); go();
+    } catch (x) { $('dErr').textContent = x.message; }
+  }
   const myOp = () => { const o = repOps(); return op && o.some(x => x.code === op) ? op : (o[0] || {}).code; };
   function todayBox() {
     const r = R.today.find(x => x.vehicle === veh.toUpperCase().replace(/\s+/g, ' ').trim()) || R.today[0] || {};
@@ -30,9 +103,11 @@
     return '<div class="row2" style="align-items:flex-end;gap:10px"><div><label class="hint">Vehicle no</label><br><input id="rcVeh" maxlength="20" value="' + esc(r.vehicle || veh) + '" placeholder="e.g. CAB-1234" style="width:130px"></div>'
       + '<div class="rcbox"><div class="hint">Start meter</div>' + (st ? '<b>' + km(r.start_km) + ' km</b><div class="hint">' + esc(fmtT(new Date(r.start_at))) + ' ' + srcTag(r.start_src) + '</div>' : '<button class="btn p" data-rc="meter" data-kind="start">&#9998; Start meter</button>') + '</div>'
       + '<div class="rcbox"><div class="hint">Close meter</div>' + (en ? '<b>' + km(r.end_km) + ' km</b><div class="hint">' + esc(fmtT(new Date(r.end_at))) + ' ' + srcTag(r.end_src) + '</div>' : '<button class="btn' + (st ? ' p' : '') + '" data-rc="meter" data-kind="end"' + (st ? '' : ' disabled title="Save the Start meter first"') + '>&#9998; Close meter</button>') + '</div>'
-      + (st && en ? '<div class="rcbox"><div class="hint">Today</div><b>' + km(r.end_km - r.start_km) + ' km</b></div>' : '') + '</div>';
+      + (st && en ? '<div class="rcbox"><div class="hint">Today</div><b>' + km(r.end_km - r.start_km) + ' km</b></div>' : '') + '</div>' + myReqBox();
   }
   window.runHomeCard = function () {
+    if (isAdmin() && !isRep()) { const n = R.reqs.filter(q => q.status === 'pending').length;
+      return n ? '<div class="card mcard" data-mod="runs" data-go="items" style="margin-top:12px"><b>' + n + ' meter request' + (n > 1 ? 's' : '') + ' waiting</b> <span class="badge b-live">Running Chart</span><div class="hint">Reps asked to add the meter for a past day. Open Running Chart to approve or reject.</div></div>' : ''; }
     if (!isRep()) return '';
     return '<div class="card" style="margin-top:12px"><div class="row2" style="justify-content:space-between"><h3>Running Chart today</h3><span class="hint">Type the meter at start and close of the day. Add its photo when you can.</span></div>' + todayBox() + '</div>';
   };
@@ -143,13 +218,13 @@
       + '<select id="rcRep"><option value="">All reps</option>' + reps.map(n => '<option' + (n === R.rep ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></div>';
   }
   async function list() {
-    $('page').innerHTML = '<div class="hint">Loading...</div>'; await load();
+    $('page').innerHTML = '<div class="hint">Loading...</div>'; await Promise.all([load(), loadReqs()]);
     const L = shown(), byRep = {};
     L.forEach(r => { (byRep[r.rep_name || '?'] = byRep[r.rep_name || '?'] || []).push(r); });
     const tot = L.reduce((s, r) => s + (r.start_km != null && r.end_km != null ? r.end_km - r.start_km : 0), 0);
     let h = '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Running Chart</h2><div class="hint">' + esc((R.from === R.to ? R.from : R.from + ' to ' + R.to) + (op ? ' · ' + op : ' · all my operations') + (R.rep ? ' · ' + R.rep : '')) + '</div></div>'
       + '<div class="row2 noprint">' + (isAdmin() ? '<button class="btn" data-rc="manual">+ Manual entry (admin)</button>' : '') + '<button class="btn" data-rc="csv">Download Excel (CSV)</button><button class="btn p" data-rc="print">Print / Save as PDF</button></div></div>'
-      + (isRep() ? '<div class="card noprint" style="margin-bottom:10px"><h3>Today</h3>' + todayBox() + '</div>' : '') + bar()
+      + (isRep() ? '<div class="card noprint" style="margin-bottom:10px"><h3>Today</h3>' + todayBox() + '</div>' : '') + reqCard() + bar()
       + '<div class="grid noprint"><div class="tile"><b>' + km(tot) + ' km</b><span>Total run (' + L.length + ' days)</span></div><div class="tile r"><b>' + L.filter(r => r.end_km == null).length + '</b><span>Close meter missing</span></div>'
       + '<div class="tile a"><b>' + L.filter(r => r.start_src === 'corrected' || r.end_src === 'corrected').length + '</b><span>Typed number differs from photo (check)</span></div><div class="tile"><b>' + L.filter(r => r.start_src === 'manual' || r.end_src === 'manual').length + '</b><span>Manual (admin)</span></div>'
       + '<div class="tile r"><b>' + L.filter(r => r.start_src === 'typed' || r.end_src === 'typed').length + '</b><span>Typed, no photo</span></div></div>';
@@ -212,6 +287,11 @@
     const k = b.dataset.rc;
     if (k === 'meter') openMeter(b.dataset.kind === 'end' ? 'end' : 'start');
     else if (k === 'cam' || k === 'gal') pickFile(k === 'cam');
+    else if (k === 'req') reqDrawer();
+    else if (k === 'reqsend') guard(reqSend);
+    else if (k === 'rq') decideDrawer(b.dataset.id);
+    else if (k === 'rqok') guard(() => decide(true));
+    else if (k === 'rqno') guard(() => decide(false));
     else if (k === 'close') { R.pend = null; closeDrawer(); }
     else if (k === 'save') guard(save);
     else if (k === 'manual') manualDrawer();
