@@ -91,7 +91,7 @@
     const unas = outs.filter(x => !x.rep);
     const anyEdit = myOps().some(o => canEdit(o.code)), anyAcct = myOps().some(o => canAcct(o.code));
     $('page').innerHTML = '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Rep Team</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' · ' + reps.filter(r => r.active).length + ' active reps · ' + outs.length + ' outlets · ' + unas.length + ' without an assigned rep</div></div>'
-      + (anyEdit || anyAcct ? '<div class="row2">' + (anyEdit ? '<button class="btn p" data-tm="add">+ Add rep</button><button class="btn" data-tm="assign" data-op="' + esc(opNow()) + '" data-n="">Assign outlets</button>' : '') + (anyAcct ? '<button class="btn" data-tm="link" data-op="' + esc(opNow()) + '" data-n="">Link existing user</button>' : '') + '</div>' : '') + '</div>'
+      + (anyEdit || anyAcct ? '<div class="row2">' + (anyEdit ? '<button class="btn p" data-tm="add">+ Add rep</button><button class="btn" data-tm="assign" data-op="' + esc(opNow()) + '" data-n="">Assign outlets</button>' : '') + (anyAcct ? '<button class="btn" data-tm="link" data-op="' + esc(opNow()) + '" data-n="">Link existing user</button>' : '') + (me.role === 'admin' ? '<button class="btn" data-tm="gps">GPS archive</button>' : '') + '</div>' : '') + '</div>'
       + '<div class="grid"><div class="tile"><b>' + reps.filter(r => r.active).length + '</b><span>Active reps</span></div><div class="tile g"><b>' + T.runs.filter(r => r.start_km != null && r.end_km == null).length + '</b><span>On duty now</span></div>'
       + '<div class="tile"><b>' + T.visits.length + '</b><span>Check-ins today</span></div><div class="tile a"><b>' + unas.length + '</b><span>Outlets with no assigned rep</span></div></div>'
       + (reps.length ? '<div class="tmlist">' + reps.map(card).join('') + '</div>' : '<div class="card hint">No reps yet for this operation. Press "+ Add rep".</div>');
@@ -314,6 +314,8 @@
     const uid = T.users[nk(T.rep)];
     const [pts, stays] = uid ? await Promise.all([fetchAll('/rest/v1/fu_track_points?rep_user=eq.' + uid + '&recorded_at=gte.' + a + '&recorded_at=lt.' + b + '&order=recorded_at.asc,id&select=lat,lng,accuracy_m,battery,recorded_at').catch(() => []),
       api('/rest/v1/fu_track_stays?rep_user=eq.' + uid + '&day=eq.' + T.day + '&order=started_at.asc&select=*').catch(() => [])]) : [[], []];
+    // v5.0: when the raw points of an old day are archived (Supabase/37), the saved day summary takes their place
+    T.dSum = uid && !(pts || []).length ? ((await api('/rest/v1/fu_track_days?rep_user=eq.' + uid + '&day=eq.' + T.day + '&select=*').catch(() => [])) || [])[0] || null : null;
     T.dRuns = runs || []; T.dVis = vis || []; T.dPts = (pts || []).filter(p => (p.accuracy_m || 0) <= 100); T.dStays = stays || [];
     paintDay(r, list);
     if (T.day === today() && page === 'dash') T.timer = setInterval(() => { if (page === 'dash' && mod === 'team' && T.day === today()) day(); else { clearInterval(T.timer); T.timer = null; } }, 120000);
@@ -325,6 +327,9 @@
     const done = new Set(vis.map(v => v.outlet_key)), miss = plan.filter(x => !done.has(x.key)), offPlan = vis.filter(v => !plan.some(x => x.key === v.outlet_key));
     const fu = rows.filter(x => isActive(x) && r && x.operation === r.op && nk(x.owner_name) === nk(r.name) && x.next_date === T.day && !done.has(nk(x.outlet)));
     let gps = 0; for (let i = 1; i < pts.length; i++) gps += dist(pts[i - 1].lat, pts[i - 1].lng, pts[i].lat, pts[i].lng);
+    const sm = !pts.length ? T.dSum : null, nPts = sm ? sm.points : pts.length;
+    const mapPts = sm ? (sm.route || []).map(p => ({lat: p[0], lng: p[1], recorded_at: T.day + 'T' + p[2] + ':00'})) : pts;
+    if (sm) gps = Number(sm.gps_km || 0) * 1000;
     const rn = runs[0] || {}, mkm = rn.start_km != null && rn.end_km != null ? rn.end_km - rn.start_km : null;
     const away = stays.filter(s => !s.outlet_key), first = vis[0], last = vis[vis.length - 1];
     const ev = [];
@@ -332,6 +337,7 @@
     vis.forEach(v => ev.push({t: v.started_at, h: '<b>Check-in</b> ' + esc(v.outlet || v.outlet_key) + ' <span class="hint">' + (v.method === 'auto' ? 'auto' : v.method === 'both' ? 'auto + button' : 'button') + (v.distance_m != null ? ' · ' + Math.round(v.distance_m) + ' m' : '') + ' · ' + dur(mins(v.started_at, v.last_at || v.started_at)) + (plan.some(x => x.key === v.outlet_key) ? ' · on beat' : ' · not on beat') + '</span>' + (v.note ? '<br><span class="hint">' + esc(v.note) + '</span>' : ''), c: 'b'}));
     away.forEach(s => ev.push({t: s.started_at, h: '<b>Stop away from outlets</b> ' + dur(s.minutes) + ' <a href="' + gmap(s.lat, s.lng) + '" target="_blank" rel="noopener">map</a>', c: 'a'}));
     for (let i = 1; i < pts.length; i++) { const g = mins(pts[i - 1].recorded_at, pts[i].recorded_at); if (g >= 45) ev.push({t: pts[i - 1].recorded_at, h: '<b>No GPS for ' + dur(g) + '</b> <span class="hint">phone off, no signal or app closed</span>', c: 'r'}); }
+    if (sm && sm.gaps45) ev.push({t: sm.first_at, h: '<b>No GPS for 45+ min: ' + sm.gaps45 + ' time(s)</b> <span class="hint">longest ' + dur(sm.longest_gap_min) + ' · from the saved day summary</span>', c: 'r'});
     if (rn.end_at) ev.push({t: rn.end_at, h: '<b>Close meter</b> ' + Number(rn.end_km).toLocaleString('en-US') + ' km' + (mkm != null ? ' · day ' + mkm + ' km' : ''), c: 'g'});
     ev.sort((a, b) => a.t < b.t ? -1 : 1);
     const field = first && last ? mins(first.started_at, last.last_at || last.started_at) : 0;
@@ -344,14 +350,14 @@
       + '<div class="tile"><b>' + vis.length + '</b><span>Check-ins · ' + done.size + ' outlets</span></div>'
       + '<div class="tile ' + (miss.length ? 'a' : 'g') + '"><b>' + (plan.length - miss.length) + ' / ' + plan.length + '</b><span>Beat outlets visited</span></div>'
       + '<div class="tile"><b>' + (first ? hm(first.started_at) + ' - ' + hm(last.last_at || last.started_at) : '-') + '</b><span>First - last check-in' + (field ? ' · ' + dur(field) : '') + '</span></div>'
-      + '<div class="tile ' + (pts.length ? '' : 'a') + '"><b>' + (pts.length ? kmf(gps) + ' km' : 'no GPS') + '</b><span>GPS route · ' + pts.length + ' points' + (mkm != null && pts.length ? ' · meter ' + mkm + ' km' : '') + '</span></div>'
+      + '<div class="tile ' + (nPts ? '' : 'a') + '"><b>' + (nPts ? kmf(gps) + ' km' : 'no GPS') + '</b><span>GPS route · ' + nPts + ' points' + (sm ? ' · archived, day summary' : '') + (mkm != null && nPts ? ' · meter ' + mkm + ' km' : '') + '</span></div>'
       + '<div class="tile ' + (away.length ? 'a' : '') + '"><b>' + away.length + '</b><span>Stops away from outlets (10+ min)</span></div></div>'
-      + '<div class="card" style="padding:0;overflow:hidden"><div id="tdMap" style="height:380px;max-height:60vh"></div><div class="hint" style="padding:6px 12px"><span style="color:#2f6fe0">&#9632;</span> route &nbsp; <span style="color:#0f9b8e">&#9679;</span> check-in &nbsp; <span style="color:#e8590c">&#9679;</span> stop away from outlets &nbsp; <span style="color:#be123c">&#9679;</span> beat outlet not visited</div></div>'
+      + '<div class="card" style="padding:0;overflow:hidden"><div id="tdMap" style="height:380px;max-height:60vh"></div><div class="hint" style="padding:6px 12px"><span style="color:#2f6fe0">&#9632;</span> route &nbsp; <span style="color:#0f9b8e">&#9679;</span> check-in &nbsp; <span style="color:#e8590c">&#9679;</span> stop away from outlets &nbsp; <span style="color:#be123c">&#9679;</span> beat outlet not visited' + (sm ? '<br>The raw GPS points of this day are archived (Google Drive). The route shown is the saved summary, one point every 5 minutes.' : '') + '</div></div>'
       + '<div class="grid2" style="margin-top:12px"><div class="card"><h3>Timeline</h3>' + (ev.length ? '<div class="tdtl">' + ev.map(e => '<div class="tde ' + e.c + '"><time>' + hm(e.t) + '</time><div>' + e.h + '</div></div>').join('') + '</div>' : '<div class="hint">Nothing recorded this day.</div>') + '</div>'
       + '<div class="side"><div class="card"><h3>Beat outlets not visited (' + miss.length + ')</h3>' + (plan.length ? (miss.length ? miss.map(x => '<div class="row2" style="border-bottom:1px solid var(--line);padding:4px 0"><span style="flex:1"><b>' + esc(x.outlet) + '</b>' + (x.bal ? ' <span class="hint">' + money0(x.bal) + '</span>' : '') + '</span>' + (x.loc ? '' : '<span class="tag t-b">no location</span>') + '</div>').join('') : '<div class="hint">All beat outlets visited.</div>') : '<div class="hint">No beat plan for ' + esc(dk) + '. Set visit days in Rep Team → Assign outlets.</div>') + '</div>'
       + '<div class="card"><h3>Visits not on the beat (' + offPlan.length + ')</h3>' + (offPlan.length ? offPlan.map(v => '<div>' + hm(v.started_at) + ' · ' + esc(v.outlet || v.outlet_key) + '</div>').join('') : '<div class="hint">None.</div>') + '</div>'
       + '<div class="card"><h3>Follow-ups due this day, not visited (' + fu.length + ')</h3>' + (fu.length ? fu.map(x => '<div class="row" data-open="' + x.id + '" style="cursor:pointer;padding:3px 0"><b>' + esc(x.outlet) + '</b> <span class="hint">' + money0(x.amount) + ' · ' + esc(x.next_step || '') + '</span></div>').join('') : '<div class="hint">None.</div>') + '</div></div></div>');
-    if (r) drawMap(vis, pts, away, miss);
+    if (r) drawMap(vis, mapPts, away, miss);
   }
   async function drawMap(vis, pts, away, miss) {
     const el = $('tdMap'); if (!el) return;
@@ -368,6 +374,65 @@
     setTimeout(() => m.invalidateSize(), 200);
   }
 
+  // ---------- GPS archive (Admin, v5.0; Supabase/37 gps archive.sql) ----------
+  // GPS points stay 3 months in the database. An older month: download its file, save it to Google Drive, confirm.
+  // The database removes the month only when the confirmed row count equals what it holds, after saving a day summary per rep.
+  T.gps = {info: null, dl: {}, msg: ''};
+  const monName = m => dStart(m).toLocaleDateString('en-GB', {month: 'long', year: 'numeric'});
+  const monNext = m => { const d = dStart(m); return ymd(new Date(d.getFullYear(), d.getMonth() + 1, 1)); };
+  async function gpsForm() {
+    $('panel').innerHTML = '<div class="dh"><div><h3>GPS archive</h3><div class="hint">Loading...</div></div><button class="btn" data-tm="close">Close</button></div>'; $('panel').classList.add('open');
+    try { T.gps.info = await api('/rest/v1/rpc/fu_track_archive_info', {method: 'POST', body: {}}); T.gps.msg = ''; } catch (e) { T.gps.info = null; T.gps.msg = e.message; }
+    gpsPaint();
+  }
+  function gpsPaint() {
+    const I = T.gps.info, G = T.gps;
+    let h = '<div class="dh"><div><h3>GPS archive</h3><div class="hint">Admin only</div></div><button class="btn" data-tm="close">Close</button></div><div class="frm">';
+    if (!I) { $('panel').innerHTML = h + '<div class="err">' + esc(G.msg || 'Could not load') + '</div><div class="hint">If this is new, run Supabase/37 gps archive.sql first.</div></div>'; return; }
+    h += '<div class="hint">GPS points stay in the database for 3 months: points from <b>' + esc(I.keep_from) + '</b> onward are kept. For an older month: 1. download the file, 2. save it in the Google Drive folder, 3. confirm. Only then is that month removed from the database.<br>Never removed: Running Chart, Visit History, stops, outlet locations, and a day summary of every GPS day (km, times, route every 5 minutes).</div>'
+      + '<div class="hint" style="margin-top:6px">In the database now: <b>' + Number(I.db_points).toLocaleString('en-US') + '</b> points · day summaries saved: ' + Number(I.day_summaries).toLocaleString('en-US') + '</div>'
+      + '<label>Months with GPS points in the database</label>';
+    h += (I.months || []).length ? (I.months || []).map(m => { const d = G.dl[m.month];
+      return '<div class="card" style="margin:6px 0;padding:10px"><div class="row2" style="justify-content:space-between"><b>' + esc(monName(m.month)) + '</b><span class="hint">' + Number(m.points).toLocaleString('en-US') + ' points · ' + m.reps + ' reps · ' + m.rep_days + ' rep-days</span></div>'
+        + (!m.ready ? '<div class="hint"><span class="tag t-g">kept</span> inside the 3 months</div>'
+          : '<div class="row2" style="margin-top:6px"><button class="btn' + (d ? '' : ' p') + '" data-tm="gpsdl" data-m="' + m.month + '">' + (d ? 'Download again' : '1. Download the file') + '</button></div>'
+            + (d ? '<div class="hint" style="margin-top:6px">Downloaded <b>' + esc(d.file) + '</b> (' + Number(d.rows).toLocaleString('en-US') + ' rows). 2. Save it in the Google Drive folder, then:</div>'
+              + '<label>File name as saved</label><input id="gpsFile_' + m.month + '" value="' + esc(d.file) + '" maxlength="200"><label>Saved where</label><input id="gpsWhere_' + m.month + '" value="Google Drive" maxlength="200">'
+              + '<label style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="gpsChk_' + m.month + '" style="width:auto"> I opened the file in Google Drive and it is complete</label>'
+              + '<div class="row2" style="margin-top:6px"><button class="btn p" data-tm="gpsok" data-m="' + m.month + '">3. Confirm and remove this month from the database</button></div>' : ''))
+        + '</div>'; }).join('') : '<div class="hint">No GPS points in the database yet.</div>';
+    h += '<div class="err" id="gpsErr">' + esc(G.msg || '') + '</div><label>Archived months</label>'
+      + ((I.archived || []).length ? '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Month</th><th class="n">Points</th><th>File</th><th>By</th></tr></thead><tbody>' + I.archived.map(a => '<tr><td>' + esc(monName(a.month)) + '</td><td class="n">' + Number(a.points).toLocaleString('en-US') + '</td><td>' + esc(a.file_name) + (a.saved_where ? '<div class="hint">' + esc(a.saved_where) + '</div>' : '') + '</td><td>' + esc(a.archived_by || '') + '<div class="hint">' + esc(String(a.archived_at || '').slice(0, 10)) + '</div></td></tr>').join('') + '</tbody></table></div>' : '<div class="hint">None yet.</div>')
+      + '</div>';
+    $('panel').innerHTML = h;
+  }
+  async function gpsDownload(m) {
+    const G = T.gps, er = $('gpsErr'); if (er) er.textContent = 'Preparing the file. A large month can take a few minutes...';
+    try {
+      const a = encodeURIComponent(m + 'T00:00:00+05:30'), b = encodeURIComponent(monNext(m) + 'T00:00:00+05:30');
+      const [pts, ppl] = await Promise.all([fetchAll('/rest/v1/fu_track_points?recorded_at=gte.' + a + '&recorded_at=lt.' + b + '&order=recorded_at.asc,id&select=id,client_id,rep_user,operation,run_id,lat,lng,accuracy_m,speed_ms,battery,recorded_at'),
+        api('/rest/v1/rpc/fu_people', {method: 'POST', body: {}}).catch(() => [])]);
+      const nm = {}; (ppl || []).forEach(p => nm[p.id] = p.full_name);
+      const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+      const lk = t => new Date(new Date(t).getTime() + 19800000).toISOString();   // Sri Lanka time = UTC + 5:30
+      const head = ['Date (Sri Lanka)', 'Time (Sri Lanka)', 'Rep', 'Operation', 'Latitude', 'Longitude', 'Accuracy m', 'Speed m/s', 'Battery %', 'Recorded at (UTC)', 'Rep user id', 'Run id', 'Point id', 'Client id'];
+      const lines = (pts || []).map(p => { const s = lk(p.recorded_at); return [s.slice(0, 10), s.slice(11, 19), nm[p.rep_user] || '', p.operation, p.lat, p.lng, p.accuracy_m, p.speed_ms, p.battery, p.recorded_at, p.rep_user, p.run_id, p.id, p.client_id].map(q).join(','); });
+      const file = 'IMS GPS points ' + m.slice(0, 7) + ' (' + lines.length + ' rows).csv';
+      const el = document.createElement('a'); el.href = URL.createObjectURL(new Blob([String.fromCharCode(65279) + head.map(q).join(',') + '\r\n' + lines.join('\r\n')], {type: 'text/csv'})); el.download = file; document.body.appendChild(el); el.click(); el.remove();
+      G.dl[m] = {rows: lines.length, file}; G.msg = ''; gpsPaint();
+    } catch (e) { G.msg = 'Download failed: ' + e.message; gpsPaint(); }
+  }
+  async function gpsConfirm(m) {
+    const G = T.gps, d = G.dl[m], v = id => (($(id + '_' + m) || {}).value || '').trim(), er = t => { const x = $('gpsErr'); if (x) x.textContent = t; };
+    if (!d) return er('Download the file first');
+    if (!v('gpsFile')) return er('Type the file name');
+    if (!($('gpsChk_' + m) || {}).checked) return er('Tick the box after you have opened the file in Google Drive');
+    if (!confirm('Remove ' + Number(d.rows).toLocaleString('en-US') + ' GPS points of ' + monName(m) + ' from the database?\nThe file in Google Drive becomes the only full copy.')) return;
+    try {
+      const r = await api('/rest/v1/rpc/fu_track_archive_confirm', {method: 'POST', body: {p_month: m, p_rows: d.rows, p_file: v('gpsFile'), p_where: v('gpsWhere') || null}});
+      delete G.dl[m]; toast(monName(m) + ' archived: ' + Number((r || {}).removed || 0).toLocaleString('en-US') + ' points removed, day summaries saved'); await gpsForm();
+    } catch (e) { er(e.message); }
+  }
   // ---------- Coverage ----------
   function perRange() {
     const t = today(), d = dStart(t);
@@ -430,6 +495,9 @@
     else if (k === 'saveassign') guard(saveAssign);
     else if (k === 'all') { (T.aList || []).forEach(x => T.pick[x.key] = 1); paintAssign(); }
     else if (k === 'none') { T.pick = {}; paintAssign(); }
+    else if (k === 'gps') gpsForm();
+    else if (k === 'gpsdl') guard(() => gpsDownload(b.dataset.m));
+    else if (k === 'gpsok') guard(() => gpsConfirm(b.dataset.m));
     else if (k === 'prev') { T.day = addD(T.day, -1); run(day); }
     else if (k === 'next') { T.day = addD(T.day, 1) > today() ? today() : addD(T.day, 1); run(day); }
   });
