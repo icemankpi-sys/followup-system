@@ -11,8 +11,11 @@
   const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const today = () => ymd(new Date());
   const km = v => v == null ? '' : Number(v).toLocaleString('en-US');
-  const SRC = {ocr: 'Photo (OCR)', corrected: 'Photo, number corrected', manual: 'Manual (admin)'};
-  const srcTag = s => s ? '<span class="tag ' + (s === 'ocr' ? 't-g' : s === 'corrected' ? 't-a' : 't-b') + '">' + esc(SRC[s] || s) + '</span>' : '';
+  // v4.5 (2026-11-12): the rep types the reading and adds the photo (camera or gallery) in one form. The photo is still needed to save.
+  // 'ocr' = the typed number is the same as the number read from the photo; 'corrected' = different, or the photo could not be read.
+  // v4.6: the photo is optional. 'typed' = the rep typed the number and added no photo (Supabase/34 meter photo optional.sql).
+  const SRC = {ocr: 'Photo matches', corrected: 'Typed, check photo', typed: 'Typed, no photo', manual: 'Manual (admin)'};
+  const srcTag = s => s ? '<span class="tag ' + (s === 'ocr' ? 't-g' : s === 'corrected' ? 't-a' : s === 'typed' ? 't-r' : 't-b') + '">' + esc(SRC[s] || s) + '</span>' : '';
   let veh = ''; try { veh = localStorage.getItem('fu_vehicle') || ''; } catch (e) {}
 
   // ---------- today (Home card for reps) ----------
@@ -25,14 +28,13 @@
     const r = R.today.find(x => x.vehicle === veh.toUpperCase().replace(/\s+/g, ' ').trim()) || R.today[0] || {};
     const st = r.start_km != null, en = r.end_km != null;
     return '<div class="row2" style="align-items:flex-end;gap:10px"><div><label class="hint">Vehicle no</label><br><input id="rcVeh" maxlength="20" value="' + esc(r.vehicle || veh) + '" placeholder="e.g. CAB-1234" style="width:130px"></div>'
-      + '<div class="rcbox"><div class="hint">Start meter</div>' + (st ? '<b>' + km(r.start_km) + ' km</b><div class="hint">' + esc(fmtT(new Date(r.start_at))) + ' ' + srcTag(r.start_src) + '</div>' : '<button class="btn p" data-rc="shoot" data-kind="start">&#128247; Start meter photo</button>') + '</div>'
-      + '<div class="rcbox"><div class="hint">Close meter</div>' + (en ? '<b>' + km(r.end_km) + ' km</b><div class="hint">' + esc(fmtT(new Date(r.end_at))) + ' ' + srcTag(r.end_src) + '</div>' : '<button class="btn' + (st ? ' p' : '') + '" data-rc="shoot" data-kind="end"' + (st ? '' : ' disabled title="Take the Start meter photo first"') + '>&#128247; Close meter photo</button>') + '</div>'
-      + (st && en ? '<div class="rcbox"><div class="hint">Today</div><b>' + km(r.end_km - r.start_km) + ' km</b></div>' : '') + '</div>'
-      + '<input type="file" id="rcFile" accept="image/*" capture="environment" hidden>';
+      + '<div class="rcbox"><div class="hint">Start meter</div>' + (st ? '<b>' + km(r.start_km) + ' km</b><div class="hint">' + esc(fmtT(new Date(r.start_at))) + ' ' + srcTag(r.start_src) + '</div>' : '<button class="btn p" data-rc="meter" data-kind="start">&#9998; Start meter</button>') + '</div>'
+      + '<div class="rcbox"><div class="hint">Close meter</div>' + (en ? '<b>' + km(r.end_km) + ' km</b><div class="hint">' + esc(fmtT(new Date(r.end_at))) + ' ' + srcTag(r.end_src) + '</div>' : '<button class="btn' + (st ? ' p' : '') + '" data-rc="meter" data-kind="end"' + (st ? '' : ' disabled title="Save the Start meter first"') + '>&#9998; Close meter</button>') + '</div>'
+      + (st && en ? '<div class="rcbox"><div class="hint">Today</div><b>' + km(r.end_km - r.start_km) + ' km</b></div>' : '') + '</div>';
   }
   window.runHomeCard = function () {
     if (!isRep()) return '';
-    return '<div class="card" style="margin-top:12px"><div class="row2" style="justify-content:space-between"><h3>Running Chart today</h3><span class="hint">Photo of the meter at start and close of the day</span></div>' + todayBox() + '</div>';
+    return '<div class="card" style="margin-top:12px"><div class="row2" style="justify-content:space-between"><h3>Running Chart today</h3><span class="hint">Type the meter at start and close of the day. Add its photo when you can.</span></div>' + todayBox() + '</div>';
   };
 
   // ---------- photo → OCR → confirm → save ----------
@@ -53,37 +55,60 @@
     const ok = min != null ? c.filter(n => n >= min) : c, L = ok.length ? ok : c;
     return min != null ? L.sort((a, b) => (a - min) - (b - min))[0] : L.sort((a, b) => String(b).length - String(a).length)[0];
   }
-  async function onPhoto(file, kind) {
-    const r = R.today[0] || {}, min = kind === 'end' ? r.start_km : null;
-    R.pend = {kind, file, blob: null, ocr: null, op: myOp()};
+  const typedKm = () => Number((($('rcKm') && $('rcKm').value) || '').replace(/\D/g, '')) || 0;
+  // the form opens at once: the rep types the reading, then adds the photo (camera or gallery). Nothing waits for the number reader.
+  function openMeter(kind) {
+    R.pend = {kind, blob: null, ocr: null, op: myOp(), seq: 0};
     $('panel').innerHTML = '<div class="dh"><div><h3>' + (kind === 'start' ? 'Start' : 'Close') + ' meter</h3><div class="hint">' + today() + ' · ' + esc(me.full_name || '') + '</div></div><button class="btn" data-rc="close">Close</button></div><div class="frm">'
-      + '<img id="rcImg" alt="meter photo" style="width:100%;border-radius:8px;margin-bottom:8px"><div id="rcRead" class="hint">Reading the number...</div>'
-      + '<label>Meter reading (km)</label><input id="rcKm" inputmode="numeric" maxlength="7" style="font-size:22px;font-weight:700;letter-spacing:2px">'
-      + '<div class="hint">Check the number against the photo. If you change it, the record is marked "number corrected" and the photo is kept for checking.</div>'
-      + '<div class="row2"><button class="btn p" data-rc="save" id="rcSave" disabled>Save</button><button class="btn" data-rc="retake">Take again</button></div><div class="err" id="rcErr"></div></div>';
+      + '<label>1. Meter reading (km)</label><input id="rcKm" inputmode="numeric" maxlength="7" placeholder="Type the number on the meter" style="font-size:22px;font-weight:700;letter-spacing:2px">'
+      + '<label>2. Meter photo (optional)</label><img id="rcImg" alt="meter photo" hidden style="width:100%;border-radius:8px;margin-bottom:8px">'
+      + '<div class="row2"><button class="btn p" data-rc="cam" id="rcCam">&#128247; Take photo</button><button class="btn" data-rc="gal" id="rcGal">&#128444; Choose from gallery</button></div>'
+      + '<div id="rcRead" class="hint">You can save without a photo. A clear photo of the meter is kept with the reading; without one it is marked "Typed, no photo".</div>'
+      + '<div class="row2" style="margin-top:10px"><button class="btn p" data-rc="save" id="rcSave">Save</button><button class="btn" data-rc="close">Cancel</button></div><div class="err" id="rcErr"></div></div>';
     $('panel').classList.add('open');
-    try {
-      R.pend.blob = await shrink(file, 1280, false); $('rcImg').src = URL.createObjectURL(R.pend.blob);
+    setTimeout(() => { const k = $('rcKm'); if (k) k.focus(); }, 200);
+  }
+  function pickFile(camera) {
+    const f = $('rcFile') || Object.assign(document.createElement('input'), {type: 'file', accept: 'image/*', id: 'rcFile', hidden: true});
+    if (camera) f.setAttribute('capture', 'environment'); else f.removeAttribute('capture');
+    if (!f.isConnected) document.body.appendChild(f); f.value = ''; f.click();
+  }
+  async function onPhoto(file) {
+    const P = R.pend; if (!P || !$('rcImg')) return;
+    const seq = ++P.seq, r = R.today[0] || {}, min = P.kind === 'end' ? r.start_km : null, live = () => R.pend === P && P.seq === seq && $('rcRead');
+    P.blob = null; P.ocr = null; P.busy = true; $('rcErr').textContent = ''; $('rcRead').textContent = 'Preparing the photo...';
+    try { const b = await shrink(file, 1280, false); if (!live()) return; P.blob = b; P.busy = false; }
+    catch (e) { if (live()) { P.busy = false; $('rcImg').hidden = true; $('rcRead').textContent = 'This photo could not be opened. Take or choose another one, or save without a photo.'; } return; }
+    const im = $('rcImg'); im.src = URL.createObjectURL(P.blob); im.hidden = false;
+    $('rcCam').innerHTML = '&#128247; Take again'; $('rcGal').innerHTML = '&#128444; Choose another';
+    $('rcRead').textContent = 'Photo added. You can save now.';
+    try {   // the number reader is only a check: it never blocks Save and never overwrites a typed number
       await loadTess();
       if (!R.ocrW) { R.ocrW = await Tesseract.createWorker('eng'); await R.ocrW.setParameters({tessedit_char_whitelist: '0123456789'}); }
       const g = await shrink(file, 1600, true), res = await R.ocrW.recognize(g), n = pickNumber(res.data.text, min);
-      R.pend.ocr = n; $('rcKm').value = n != null ? n : '';
-      $('rcRead').innerHTML = n != null ? 'The app read <b>' + n + '</b>. Check it.' : 'The number could not be read. Type it from the photo, or take a clearer photo.';
-    } catch (e) { $('rcRead').textContent = 'The number reader did not work (' + e.message + '). Type the number from the photo.'; }
-    $('rcSave').disabled = false; setTimeout(() => { const k = $('rcKm'); if (k) k.focus(); }, 200);
+      if (!live()) return;
+      P.ocr = n; const t = typedKm();
+      if (n == null) $('rcRead').textContent = 'Photo added. Check that the number you typed is the same as the photo.';
+      else if (!t) { $('rcKm').value = n; $('rcRead').innerHTML = 'Photo added. The app read <b>' + n + '</b> from it. Check it, and change it if it is wrong.'; }
+      else if (t === n) $('rcRead').innerHTML = 'Photo added. It shows <b>' + n + '</b>, the same as you typed.';
+      else $('rcRead').innerHTML = 'Photo added. The app read <b>' + n + '</b> from it, but you typed <b>' + t + '</b>. Check the number before you save.';
+    } catch (e) {}
   }
   const pos = () => new Promise(ok => { if (!navigator.geolocation) return ok(null); navigator.geolocation.getCurrentPosition(g => ok(g.coords), () => ok(null), {enableHighAccuracy: true, timeout: 6000, maximumAge: 60000}); });
   async function save() {
-    const P = R.pend; if (!P || !P.blob) return;
-    const v = Number(($('rcKm').value || '').replace(/\D/g, '')); if (!v) { $('rcErr').textContent = 'Type the meter reading'; return; }
+    const P = R.pend; if (!P) return;
+    const v = typedKm(); if (!v) { $('rcErr').textContent = 'Type the meter reading'; $('rcKm').focus(); return; }
+    if (P.busy) { $('rcErr').textContent = 'The photo is still being prepared. Try again in a moment.'; return; }
     const vh = (($('rcVeh') && $('rcVeh').value) || veh || '').trim(); try { localStorage.setItem('fu_vehicle', vh); } catch (e) {}
-    const path = P.op + '/' + uid() + '/' + today() + '-' + P.kind + '-' + Date.now() + '.jpg';
+    const path = P.blob ? P.op + '/' + uid() + '/' + today() + '-' + P.kind + '-' + Date.now() + '.jpg' : null;
     try {
-      $('rcSave').disabled = true; $('rcErr').textContent = 'Saving the photo...';
-      const up = await fetch(URL_ + '/storage/v1/object/meter-photos/' + path, {method: 'POST', headers: {apikey: KEY, Authorization: 'Bearer ' + sess.access_token, 'Content-Type': 'image/jpeg', 'x-upsert': 'false'}, body: P.blob});
-      if (!up.ok) { const j = await up.json().catch(() => ({})); throw new Error(j.message || j.error || ('photo upload failed, HTTP ' + up.status)); }
+      $('rcSave').disabled = true; $('rcErr').textContent = path ? 'Saving the photo...' : 'Saving...';
+      if (path) {
+        const up = await fetch(URL_ + '/storage/v1/object/meter-photos/' + path, {method: 'POST', headers: {apikey: KEY, Authorization: 'Bearer ' + sess.access_token, 'Content-Type': 'image/jpeg', 'x-upsert': 'false'}, body: P.blob});
+        if (!up.ok) { const j = await up.json().catch(() => ({})); throw new Error(j.message || j.error || ('photo upload failed, HTTP ' + up.status)); }
+      }
       const c = await pos();
-      const r = await api('/rest/v1/rpc/fu_run_meter', {method: 'POST', body: {p_op: P.op, p_day: today(), p_kind: P.kind, p_km: v, p_ocr: P.ocr, p_photo: path, p_src: P.ocr === v ? 'ocr' : 'corrected', p_vehicle: vh, p_lat: c ? c.latitude : null, p_lng: c ? c.longitude : null}});
+      const r = await api('/rest/v1/rpc/fu_run_meter', {method: 'POST', body: {p_op: P.op, p_day: today(), p_kind: P.kind, p_km: v, p_ocr: path ? P.ocr : null, p_photo: path, p_src: !path ? 'typed' : P.ocr === v ? 'ocr' : 'corrected', p_vehicle: vh, p_lat: c ? c.latitude : null, p_lng: c ? c.longitude : null}});
       R.pend = null; closeDrawer(); await loadRunsToday(); R.key = '';
       toast((P.kind === 'start' ? 'Start meter saved: ' : 'Close meter saved: ') + km(v) + ' km' + (r && r.km != null ? ' · today ' + km(r.km) + ' km' : '')); go();
     } catch (e) { $('rcSave').disabled = false; $('rcErr').textContent = e.message; }
@@ -126,7 +151,8 @@
       + '<div class="row2 noprint">' + (isAdmin() ? '<button class="btn" data-rc="manual">+ Manual entry (admin)</button>' : '') + '<button class="btn" data-rc="csv">Download Excel (CSV)</button><button class="btn p" data-rc="print">Print / Save as PDF</button></div></div>'
       + (isRep() ? '<div class="card noprint" style="margin-bottom:10px"><h3>Today</h3>' + todayBox() + '</div>' : '') + bar()
       + '<div class="grid noprint"><div class="tile"><b>' + km(tot) + ' km</b><span>Total run (' + L.length + ' days)</span></div><div class="tile r"><b>' + L.filter(r => r.end_km == null).length + '</b><span>Close meter missing</span></div>'
-      + '<div class="tile a"><b>' + L.filter(r => r.start_src === 'corrected' || r.end_src === 'corrected').length + '</b><span>Number corrected (check photo)</span></div><div class="tile"><b>' + L.filter(r => r.start_src === 'manual' || r.end_src === 'manual').length + '</b><span>Manual (admin)</span></div></div>';
+      + '<div class="tile a"><b>' + L.filter(r => r.start_src === 'corrected' || r.end_src === 'corrected').length + '</b><span>Typed number differs from photo (check)</span></div><div class="tile"><b>' + L.filter(r => r.start_src === 'manual' || r.end_src === 'manual').length + '</b><span>Manual (admin)</span></div>'
+      + '<div class="tile r"><b>' + L.filter(r => r.start_src === 'typed' || r.end_src === 'typed').length + '</b><span>Typed, no photo</span></div></div>';
     h += Object.keys(byRep).sort().map(n => {
       const rs = byRep[n].sort((a, b) => a.day.localeCompare(b.day) || a.vehicle.localeCompare(b.vehicle)), t = rs.reduce((s, r) => s + (r.end_km != null && r.start_km != null ? r.end_km - r.start_km : 0), 0);
       return '<div class="card" style="margin-top:12px"><h3>' + esc(n) + '</h3><div class="hint">' + rs.length + ' days · ' + km(t) + ' km run</div><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Date</th><th>Vehicle</th><th class="n">Start km</th><th>Start</th><th class="n">Close km</th><th>Close</th><th class="n">Km run</th><th class="n">Gap from last close</th><th class="noprint">Photos</th></tr></thead><tbody>'
@@ -184,7 +210,8 @@
     const rr = e.target.closest('[data-rcr]'); if (rr) { [R.from, R.to] = range(rr.dataset.rcr); go(); return; }
     const b = e.target.closest('[data-rc]'); if (!b || b.disabled) return;
     const k = b.dataset.rc;
-    if (k === 'shoot' || k === 'retake') { const f = $('rcFile') || Object.assign(document.createElement('input'), {type: 'file', accept: 'image/*', id: 'rcFile', hidden: true}); f.setAttribute('capture', 'environment'); if (!f.isConnected) document.body.appendChild(f); f.dataset.kind = k === 'shoot' ? b.dataset.kind : (R.pend && R.pend.kind) || 'start'; f.value = ''; f.click(); }
+    if (k === 'meter') openMeter(b.dataset.kind === 'end' ? 'end' : 'start');
+    else if (k === 'cam' || k === 'gal') pickFile(k === 'cam');
     else if (k === 'close') { R.pend = null; closeDrawer(); }
     else if (k === 'save') guard(save);
     else if (k === 'manual') manualDrawer();
@@ -194,7 +221,7 @@
   });
   document.addEventListener('change', e => {
     const t = e.target;
-    if (t.id === 'rcFile' && t.files && t.files[0]) onPhoto(t.files[0], t.dataset.kind || 'start');
+    if (t.id === 'rcFile' && t.files && t.files[0]) onPhoto(t.files[0]);
     else if (t.id === 'rcVeh') { veh = t.value.trim(); try { localStorage.setItem('fu_vehicle', veh); } catch (er) {} }
     else if (t.id === 'rcFrom' || t.id === 'rcTo') { R.from = $('rcFrom').value || R.from; R.to = $('rcTo').value || R.to; if (R.to < R.from) R.to = R.from; go(); }
     else if (t.id === 'rcRep') { R.rep = t.value; go(); }

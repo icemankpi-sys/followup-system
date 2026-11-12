@@ -12,7 +12,7 @@
   const km = v => v == null ? '' : Number(v).toLocaleString('en-US');
   const km1 = m => (m / 1000).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1});
   const map = (lat, lng) => 'https://www.google.com/maps?q=' + lat + ',' + lng;
-  const SRC = {ocr: 'photo', corrected: 'photo, number corrected', manual: 'manual (admin)'};
+  const SRC = {ocr: 'photo', corrected: 'typed, check photo', typed: 'typed, no photo', manual: 'manual (admin)'};
   const today = () => ymd(new Date());
   const dayStart = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
   const addDays = (s, n) => { const d = dayStart(s); d.setDate(d.getDate() + n); return ymd(d); };
@@ -171,7 +171,8 @@
     const checks = [];
     if (!runs.length) checks.push(['a', 'No meter reading for this day.']);
     if (runs.some(r => r.start_km != null && r.end_km == null)) checks.push(['a', 'No close meter reading.']);
-    if (runs.some(r => r.start_src === 'corrected' || r.end_src === 'corrected')) checks.push(['a', 'Meter number was changed from the photo reading: open the photo and confirm.']);
+    if (runs.some(r => r.start_src === 'corrected' || r.end_src === 'corrected')) checks.push(['a', 'The typed meter number differs from the photo reading: open the photo and confirm.']);
+    if (runs.some(r => r.start_src === 'typed' || r.end_src === 'typed')) checks.push(['a', 'Meter typed with no photo: nothing to check the number against.']);
     if (runs.some(r => r.start_km != null && r.start_km === r.end_km)) checks.push(['r', 'Start and close meter are the same number.']);
     if (meter > 0 && gps > 0 && meter * 1000 < gps * 0.9) checks.push(['r', 'Meter km (' + km(meter) + ') is less than the straight-line distance between the stops (' + km1(gps) + ' km): a meter reading is wrong.']);
     if (meter > 0 && gps > 0 && meter * 1000 > gps * 2.5 && meter - gps / 1000 > 20) checks.push(['a', 'Meter km (' + km(meter) + ') is much more than the stops explain (' + km1(gps) + ' km straight line, roads add about a third): ask for the route taken.']);

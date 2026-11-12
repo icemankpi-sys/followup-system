@@ -87,7 +87,7 @@
   // ---------- Visit History: every saved visit, any date range, as routes per rep per day ----------
   // v3.8: the same report also shows each rep's Start / Close meter for the day (fu_runs), for Admin and Operation Heads
   const H = {from: '', to: '', rep: '', rows: [], runs: [], key: '', err: '', title: 'Visit History'};
-  const SRC = {ocr: 'photo', corrected: 'photo, number corrected', manual: 'manual (admin)'};
+  const SRC = {ocr: 'photo', corrected: 'typed, check photo', typed: 'typed, no photo', manual: 'manual (admin)'};
   const kmf = n => Number(n).toLocaleString('en-US', {maximumFractionDigits: 1});
   const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const dayOf = s => ymd(new Date(s));
@@ -124,7 +124,7 @@
     const cell = (r, k) => r[k + '_km'] == null ? '<span class="tag t-a">' + (k === 'end' ? 'no close meter' : 'no start meter') + '</span>'
       : '<b>' + kmf(r[k + '_km']) + ' km</b><br><span class="hint">' + esc(r[k + '_at'] ? fmtT(new Date(r[k + '_at'])) : '') + (r[k + '_src'] ? ' · ' + esc(SRC[r[k + '_src']] || r[k + '_src']) : '') + '</span>'
         + (r[k + '_photo'] ? ' <a href="#" class="noprint" data-lvph="' + esc(r[k + '_photo']) + '">photo</a>' : '');
-    const flag = r => [r.start_src === 'corrected' || r.end_src === 'corrected' ? 'number changed from the photo: check the photo' : '', r.start_km != null && r.end_km != null && Number(r.start_km) === Number(r.end_km) ? 'start = close' : ''].filter(Boolean).join(' · ');
+    const flag = r => [r.start_src === 'corrected' || r.end_src === 'corrected' ? 'typed number differs from the photo: check the photo' : '', r.start_src === 'typed' || r.end_src === 'typed' ? 'typed, no meter photo' : '', r.start_km != null && r.end_km != null && Number(r.start_km) === Number(r.end_km) ? 'start = close' : ''].filter(Boolean).join(' · ');
     return '<table class="vmeter"><thead><tr><th>Vehicle</th><th>Start meter</th><th>Close meter</th><th class="n">Km run (meter)</th></tr></thead><tbody>'
       + runs.map(r => '<tr><td>' + esc(r.vehicle || '-') + (flag(r) ? '<br><span class="tag t-r">' + esc(flag(r)) + '</span>' : '') + (r.note ? '<br><span class="hint">' + esc(r.note) + '</span>' : '') + '</td><td>' + cell(r, 'start') + '</td><td>' + cell(r, 'end') + '</td><td class="n"><b>' + (r.start_km != null && r.end_km != null ? kmf(runKm(r)) + ' km' : '-') + '</b></td></tr>').join('')
       + (runs.length > 1 ? '<tr class="tot"><td colspan="3">Total</td><td class="n"><b>' + kmf(runs.reduce((s, r) => s + runKm(r), 0)) + ' km</b></td></tr>' : '') + '</tbody></table>';
