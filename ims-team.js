@@ -86,12 +86,12 @@
         + (last ? '<div class="hint" style="margin-top:6px">Last check-in ' + hm(last.started_at) + ' · ' + esc(last.outlet || last.outlet_key) + '</div>' : '')
         + (canAcct(r.op) ? (acctOf(r) ? '<div class="hint" style="margin-top:6px">App login <span class="pm-un">@' + esc(acctOf(r).username) + '</span>' + (acctOf(r).active ? '' : ' <span class="tag t-b">switched off</span>') + '</div>' : '<div class="hint" style="margin-top:6px">No app login yet</div>') : '')
         + '<div class="row2" style="margin-top:8px"><button class="btn p" data-tm="day" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Rep Day</button>'
-        + (canEdit(r.op) ? '<button class="btn" data-tm="assign" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Assign outlets</button><button class="btn" data-tm="edit" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Edit</button>' : '') + (canAcct(r.op) ? '<button class="btn" data-tm="login" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">' + (acctOf(r) ? 'App login' : '+ App login') + '</button>' : '') + '</div></div>';
+        + (canEdit(r.op) ? '<button class="btn" data-tm="assign" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Assign outlets</button><button class="btn" data-tm="edit" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Edit</button>' : '') + (canAcct(r.op) ? '<button class="btn" data-tm="login" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">' + (acctOf(r) ? 'App login' : '+ App login') + '</button>' : '') + (canAcct(r.op) && !acctOf(r) ? '<button class="btn" data-tm="link" data-op="' + esc(r.op) + '" data-n="' + esc(r.name) + '">Link existing user</button>' : '') + '</div></div>';
     };
     const unas = outs.filter(x => !x.rep);
-    const anyEdit = myOps().some(o => canEdit(o.code));
+    const anyEdit = myOps().some(o => canEdit(o.code)), anyAcct = myOps().some(o => canAcct(o.code));
     $('page').innerHTML = '<div class="row2" style="justify-content:space-between"><div><h2 class="pt">Rep Team</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' · ' + reps.filter(r => r.active).length + ' active reps · ' + outs.length + ' outlets · ' + unas.length + ' without an assigned rep</div></div>'
-      + (anyEdit ? '<div class="row2"><button class="btn p" data-tm="add">+ Add rep</button><button class="btn" data-tm="assign" data-op="' + esc(opNow()) + '" data-n="">Assign outlets</button></div>' : '') + '</div>'
+      + (anyEdit || anyAcct ? '<div class="row2">' + (anyEdit ? '<button class="btn p" data-tm="add">+ Add rep</button><button class="btn" data-tm="assign" data-op="' + esc(opNow()) + '" data-n="">Assign outlets</button>' : '') + (anyAcct ? '<button class="btn" data-tm="link" data-op="' + esc(opNow()) + '" data-n="">Link existing user</button>' : '') + '</div>' : '') + '</div>'
       + '<div class="grid"><div class="tile"><b>' + reps.filter(r => r.active).length + '</b><span>Active reps</span></div><div class="tile g"><b>' + T.runs.filter(r => r.start_km != null && r.end_km == null).length + '</b><span>On duty now</span></div>'
       + '<div class="tile"><b>' + T.visits.length + '</b><span>Check-ins today</span></div><div class="tile a"><b>' + unas.length + '</b><span>Outlets with no assigned rep</span></div></div>'
       + (reps.length ? '<div class="tmlist">' + reps.map(card).join('') + '</div>' : '<div class="card hint">No reps yet for this operation. Press "+ Add rep".</div>');
@@ -207,6 +207,38 @@
     if (!$('lgSure').checked) { $('lgSure').closest('label').style.color = 'var(--danger)'; return; }
     try { await fn({action: 'rep_active', id: a.id, active: on}); closeDrawer(); toast('Login @' + a.username + (on ? ' switched on' : ' switched off')); go(); }
     catch (e) { const er = $('tmErr'); if (er) er.textContent = e.message; else toast(e.message); }
+  }
+
+  // ---------- link an existing user as a rep (Rep Team Full or Admin; edge function actions rep_find / grant_rep, 2026-11-11) ----------
+  const lkNames = o => repList().filter(r => r.op === o && r.active).map(r => '<option value="' + esc(r.name) + '">').join('');
+  function linkForm(o, name) {
+    const ao = myOps().filter(x => canAcct(x.code)); if (!ao.length) return;
+    const o0 = ao.some(x => x.code === o) ? o : (ao.some(x => x.code === opNow()) ? opNow() : ao[0].code);
+    T.lk = {sel: ''};
+    $('panel').innerHTML = '<div class="dh"><div><h3>Link an existing user</h3><div class="hint">Give a user who already has a login Sales Reps access on your operation and link them to their rep name. Only users with no other access can be linked. The rep sees only their own outstanding.</div></div><button class="btn" data-tm="close">Close</button></div><div class="frm">'
+      + '<label>Operation</label><select id="lkOp">' + ao.map(x => '<option value="' + x.code + '"' + (x.code === o0 ? ' selected' : '') + '>' + esc(x.code + ' - ' + x.name) + '</option>').join('') + '</select>'
+      + '<label>Find the user (name or username)</label><input id="lkQ" maxlength="60" autocomplete="off" placeholder="type 2 letters or more">'
+      + '<div id="lkRes" class="talist" style="max-height:30vh"><div class="hint" style="padding:8px">Type a name to search.</div></div>'
+      + '<label>Rep name (as on the outstanding list)</label><input id="lkName" maxlength="80" list="lkReps" autocomplete="off" value="' + esc(name || '') + '" placeholder="pick or write the rep name"><datalist id="lkReps">' + lkNames(o0) + '</datalist>'
+      + '<div class="err" id="tmErr"></div><div class="row2"><button class="btn p" data-tm="lkgo">Give access</button></div></div>';
+    $('panel').classList.add('open');
+  }
+  async function lkFind() {
+    const q = ($('lkQ').value || '').trim(), box = $('lkRes'); if (!box) return;
+    if (q.length < 2) { box.innerHTML = '<div class="hint" style="padding:8px">Type a name to search.</div>'; return; }
+    try {
+      const r = await fn({action: 'rep_find', q}); if (($('lkQ').value || '').trim() !== q) return;
+      const u = (r && r.users) || []; T.lk.sel = '';
+      box.innerHTML = u.length ? u.map(x => '<label class="tar"><input type="radio" name="lkU" value="' + esc(x.id) + '" data-rn="' + esc(x.rep_name || '') + '" style="width:auto"><span style="flex:1;min-width:0"><b>' + esc(x.full_name || x.username || '') + '</b><br><span class="hint">@' + esc(x.username || '') + (x.rep_name ? ' · rep name ' + esc(x.rep_name) : '') + (x.operations && x.operations.length ? ' · already a rep on ' + esc(x.operations.join(', ')) : '') + '</span></span></label>').join('')
+        : '<div class="hint" style="padding:8px">No user found. Only active users with no access (or only Sales Reps access) are shown. Ask the Admin for anyone else.</div>';
+    } catch (e) { box.innerHTML = '<div class="err" style="padding:8px">' + esc(e.message) + '</div>'; }
+  }
+  async function lkGo() {
+    const o = $('lkOp').value, id = T.lk && T.lk.sel, n = ($('lkName').value || '').trim().replace(/\s+/g, ' '), er = $('tmErr');
+    if (!id) { er.textContent = 'Search and select the user first.'; return; }
+    if (!n) { er.textContent = 'Write the rep name (as on the outstanding list).'; return; }
+    try { await fn({action: 'grant_rep', id, operation: o, rep_name: n}); closeDrawer(); toast('Sales Reps access given on ' + o + ' for ' + n + '. Ask the rep to sign out and sign in again.'); go(); }
+    catch (e) { er.textContent = e.message; }
   }
 
   // ---------- assign outlets ----------
@@ -370,6 +402,8 @@
     else if (k === 'close') closeDrawer();
     else if (k === 'saverep') guard(saveRep);
     else if (k === 'login') loginForm(repList().find(r => r.op === b.dataset.op && r.name === b.dataset.n));
+    else if (k === 'link') linkForm(b.dataset.op, b.dataset.n);
+    else if (k === 'lkgo') guard(lkGo);
     else if (k === 'genpass') { const i = $('lgPass'); if (i) { i.value = genPass(); i.type = 'text'; } }
     else if (k === 'lgcreate') guard(lgCreate);
     else if (k === 'lgreset') guard(lgReset);
@@ -383,12 +417,14 @@
   document.addEventListener('change', e => {
     const id = e.target.id;
     if (e.target.dataset && e.target.dataset.tk != null) { if (e.target.checked) T.pick[e.target.dataset.tk] = 1; else delete T.pick[e.target.dataset.tk]; paintAssign(); return; }
+    if (e.target.name === 'lkU') { T.lk.sel = e.target.value; const rn = e.target.dataset.rn; if (rn) $('lkName').value = rn; return; }
+    if (id === 'lkOp') { $('lkReps').innerHTML = lkNames(e.target.value); return; }
     if (id === 'taOp') { T.aOp = e.target.value; T.aRep = ''; T.pick = {}; paintAssign(); }
     else if (id === 'taRep') { T.aRep = e.target.value; paintAssign(); }
     else if (id === 'tdRep') { T.rep = e.target.value; run(day); }
     else if (id === 'tdDay') { T.day = e.target.value > today() ? today() : e.target.value; run(day); }
   });
-  document.addEventListener('input', e => { if (e.target.id === 'taF') { T.f = e.target.value; const s = e.target.selectionStart; paintAssign(); const i = $('taF'); i.focus(); i.setSelectionRange(s, s); } });
+  document.addEventListener('input', e => { if (e.target.id === 'lkQ') { clearTimeout(T.lkT); T.lkT = setTimeout(lkFind, 400); return; } if (e.target.id === 'taF') { T.f = e.target.value; const s = e.target.selectionStart; paintAssign(); const i = $('taF'); i.focus(); i.setSelectionRange(s, s); } });
 
   const css = document.createElement('style');
   css.textContent = '.tmlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:10px}.tmc.off{opacity:.6}.tmh{display:flex;gap:10px;align-items:center}'

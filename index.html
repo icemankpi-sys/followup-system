@@ -224,7 +224,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-visit.js?v=9"></script>
 <script src="ims-run.js?v=2"></script>
 <script src="ims-live.js?v=4"></script>
-<script src="ims-team.js?v=5"></script>
+<script src="ims-team.js?v=6"></script>
 <script src="ims-osdash.js?v=1"></script>
 <script src="ims-app.js?v=3"></script>
 <script>
@@ -338,14 +338,24 @@ async function start() {
   $('login').hidden = true; $('app').hidden = false; $('ice').style.display = 'none';
   $('who').textContent = (me.full_name || me.username) + ' · ' + (myTitle() || 'User');
   mod = visibleMods()[0].id;
-  await Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null, window.fcWarm && visibleMods().some(m => m.id === 'foc') ? fcWarm() : null,window.loadMentions ? loadMentions() : null, window.loadVisitsToday ? loadVisitsToday() : null, window.loadRunsToday ? loadRunsToday() : null]);
+  // show that data is loading, and show the reason with a retry when a read fails (before: a failed read left an empty screen)
+  $('page').innerHTML = '<div class="hint">Loading your data...</div>';
+  const loadAll = () => Promise.all([loadRows(), window.seWarm && visibleMods().some(m => m.id === 'short_expiry') ? seWarm() : null, window.fcWarm && visibleMods().some(m => m.id === 'foc') ? fcWarm() : null,window.loadMentions ? loadMentions() : null, window.loadVisitsToday ? loadVisitsToday() : null, window.loadRunsToday ? loadRunsToday() : null]);
+  try { await loadAll(); }
+  catch (e1) {
+    try { await new Promise(r => setTimeout(r, 1500)); await loadAll(); }   // one quiet retry
+    catch (e) { $('page').innerHTML = '<div class="card err">Could not load your data: ' + esc(e.message) + '<div class="row2" style="margin-top:8px"><button class="btn p" onclick="location.reload()">Try again</button></div></div>'; return; }
+  }
   route();
   if (window.visitAutoStart) visitAutoStart();
 }
 // the database gives at most 1000 rows per request (Supabase limit): read page by page, 4 pages at a time (2026-11-10, Horeca list = 1811 lines)
 async function fetchAll(path, page = 1000) {
-  const out = [];
-  for (let start = 0; ; start += page * 4) {
+  // first page alone: most lists of a rep fit in one page, so 3 heavy extra reads per list are saved (2026-11-12, slow / empty first screen for reps)
+  const first = await api(path + '&offset=0&limit=' + page) || [];
+  if (first.length < page) return first;
+  const out = first.slice();
+  for (let start = page; ; start += page * 4) {
     const parts = await Promise.all([0, 1, 2, 3].map(i => api(path + '&offset=' + (start + i * page) + '&limit=' + page)));
     parts.forEach(p => out.push(...(p || [])));
     if (parts.some(p => !p || p.length < page)) return out;
