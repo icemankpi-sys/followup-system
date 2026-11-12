@@ -34,6 +34,8 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   // ---------- state ----------
   const C = {loaded: false, lanes: [], dmap: {}, tmap: {}, wk: null, n: 13, mgr: '', lane: ''};
   const F = {loaded: false, week: {}, out: [], chq: [], wk: null, sub: 'out', n: 13, from: '', to: ''};
+  // v4.8: Daily Collection is the first sub category of the main category "Account". Admin and the Director Board (all-module access or a Director job title) get the Board dashboard.
+  const isBoard = () => !!me && (me.role === 'admin' || (access || []).some(a => a.module === '*') || /director/i.test(me.job_title || ''));
   const canC = (o, need) => rank(lvl(o, 'collection')) >= rank(need);
   const canF = (o, need) => rank(lvl(o, 'cashflow')) >= rank(need);
 
@@ -233,7 +235,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const pOpts = [[4, 'Last 4 weeks'], [8, 'Last 8 weeks'], [13, 'Last 13 weeks'], [26, 'Last 26 weeks'], [52, 'Last 52 weeks']];
     const opName = op ? ((ops.find(o => o.code === op) || {}).name || op) : '';
     let h = (my.length > 1 ? '<div class="subtabs noprint"><button data-dop="" class="' + (main ? 'on' : '') + '">Main dashboard</button>' + my.map(o => '<button data-dop="' + o.code + '" class="' + (op === o.code ? 'on' : '') + '" title="' + esc(o.name) + '">' + o.code + '</button>').join('') + '</div>' : '')
-      + '<h2 class="pt">' + (main ? 'Main dashboard &middot; all operations' : 'Operation dashboard &middot; ' + esc(opName || 'my operation')) + '</h2><div class="hint">Daily Collection &middot; figures come from what each operation enters &middot; period figures use full weeks only</div>'
+      + '<h2 class="pt">' + (main ? (isBoard() ? 'Admin &amp; Director Board dashboard &middot; Account' : 'Main dashboard &middot; all my operations') : 'Operation dashboard &middot; ' + esc(opName || 'my operation')) + '</h2><div class="hint">Account &rsaquo; Daily Collection &middot; figures come from what each operation enters &middot; period figures use full weeks only</div>'
       + '<div class="filters">' + sel('ccN', '', pOpts, C.n) + '</div>' + (main ? '' : cFilters(true))
       + '<div class="grid"><div class="tile"><b>' + money0(pCol) + '</b><span>Collected (' + full.length + ' full weeks)</span></div><div class="tile"><b>' + money0(pTgt) + '</b><span>Target (same weeks)</span></div>'
       + '<div class="tile ' + (pCol >= pTgt ? 'g' : 'r') + '"><b>' + (pTgt ? Math.round(100 * pCol / pTgt) + '%' : '-') + '</b><span>Achievement</span></div><div class="tile ' + (pCol - pTgt >= 0 ? 'g' : 'r') + '"><b>' + money0(pCol - pTgt) + '</b><span>Excess / (Short)</span></div>'
@@ -249,9 +251,9 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       + '</div>';
     if (main) {
       const wsC = W[W.length - 1];
-      h += '<div class="card" style="margin-bottom:12px"><h3>Operations this week</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Operation</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th>Pace</th><th class="n">Period %</th><th>Trend</th><th class="n">Entered ' + fmtD(yd) + '</th></tr></thead><tbody>'
+      h += '<div class="card" style="margin-bottom:12px"><h3>Operations this week</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Operation</th><th>Accountant / officer</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th>Pace</th><th class="n">Period %</th><th>Trend</th><th class="n">Entered ' + fmtD(yd) + '</th></tr></thead><tbody>'
         + per.map(x => { const tg = wkTgt(x.u.lanes, wsC), c = wkSum(x.u.lanes, wsC), pv = tg * wd / 6, ent = x.u.lanes.filter(l => amt(l, ydk) != null).length;
-          return '<tr class="row" data-dop="' + x.u.code + '"><td><b>' + esc(x.u.code) + '</b> ' + esc(x.u.title) + '</td><td class="n">' + money0(tg) + '</td><td class="n">' + money0(c) + '</td><td class="n">' + (tg ? pct(c, tg) + '%' : '') + '</td><td>' + (tg ? (c >= pv ? '<span class="up">on pace</span>' : '<span class="down">behind ' + money0(pv - c) + '</span>') : '<span class="hint">no target</span>') + '</td><td class="n">' + (x.ach == null ? '' : Math.round(x.ach) + '%') + '</td><td>' + (x.slope > 3 ? '<span class="up">&#9650; rising</span>' : x.slope < -3 ? '<span class="down">&#9660; falling</span>' : '<span class="hint">steady</span>') + '</td><td class="n"><span class="' + (ent < x.u.lanes.length ? 'down' : 'up') + '">' + ent + ' / ' + x.u.lanes.length + '</span></td></tr>'; }).join('')
+          return '<tr class="row" data-dop="' + x.u.code + '"><td><b>' + esc(x.u.code) + '</b> ' + esc(x.u.title) + '</td><td>' + (esc([...new Set(x.u.lanes.map(l => l.officer).filter(Boolean))].join(', ')) || '<span class="hint">not set</span>') + '</td><td class="n">' + money0(tg) + '</td><td class="n">' + money0(c) + '</td><td class="n">' + (tg ? pct(c, tg) + '%' : '') + '</td><td>' + (tg ? (c >= pv ? '<span class="up">on pace</span>' : '<span class="down">behind ' + money0(pv - c) + '</span>') : '<span class="hint">no target</span>') + '</td><td class="n">' + (x.ach == null ? '' : Math.round(x.ach) + '%') + '</td><td>' + (x.slope > 3 ? '<span class="up">&#9650; rising</span>' : x.slope < -3 ? '<span class="down">&#9660; falling</span>' : '<span class="hint">steady</span>') + '</td><td class="n"><span class="' + (ent < x.u.lanes.length ? 'down' : 'up') + '">' + ent + ' / ' + x.u.lanes.length + '</span></td></tr>'; }).join('')
         + '</tbody></table></div><div class="hint">Click an operation to open its dashboard.</div></div>';
     }
     h += '<div class="grid2">'
@@ -287,8 +289,8 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   }
   function cCard(m) {
     setTimeout(async () => { try { await cLoad(); const ls = C.lanes.filter(l => l.active), ws = monday(new Date()), c = wkSum(ls, ws), t = wkTgt(ls, ws), el = document.getElementById('card-collection');
-      if (el) el.innerHTML = '<b>' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">' + esc(m.sub) + '</div><div style="font-size:20px;font-weight:700;margin-top:6px">' + money0(c) + '</div><div class="hint">this week of ' + money0(t) + ' target' + (t ? ' (' + pct(c, t) + '%)' : '') + ' &middot; ' + ls.length + ' lines</div>'; } catch (e) {} }, 0);
-    return '<div class="card mcard" data-mod="collection" data-go="items" id="card-collection"><b>' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">Loading...</div></div>';
+      if (el) el.innerHTML = '<b>Account &middot; ' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">' + esc(isBoard() ? 'Admin & Director Board dashboard · all operations' : m.sub) + '</div><div style="font-size:20px;font-weight:700;margin-top:6px">' + money0(c) + '</div><div class="hint">this week of ' + money0(t) + ' target' + (t ? ' (' + pct(c, t) + '%)' : '') + ' &middot; ' + ls.length + ' lines</div>'; } catch (e) {} }, 0);
+    return '<div class="card mcard" data-mod="collection" data-go="' + (isBoard() ? 'dash' : 'items') + '" id="card-collection"><b>Account &middot; ' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">Loading...</div></div>';
   }
 
   // ================= CASH FLOW =================

@@ -33,6 +33,7 @@ header h1{font-size:16px;margin:0;font-weight:700}header .sub{font-size:12px;opa
 aside{width:236px;flex:none;background:var(--surface);border-right:1px solid var(--line);padding:12px 10px;position:sticky;top:0;align-self:stretch}
 .sh{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin:2px 8px 8px}
 .mod{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:9px 10px;cursor:pointer;color:var(--ink2);margin-bottom:2px}
+.sh.modgrp{margin:12px 8px 4px;padding-top:10px;border-top:1px solid var(--line);font-weight:700;color:var(--primary)}.mod.sub{margin-left:10px;width:calc(100% - 10px)}aside.col .mod.sub{margin-left:0;width:100%}
 .mod:hover{background:var(--surface2)}.mod.on{background:var(--primary-soft);color:var(--primary);font-weight:700}
 .mod .ic{width:30px;height:30px;border-radius:8px;background:var(--primary);color:var(--primary-ink);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
 .mod.soon .ic{background:var(--line2);color:var(--surface)}.mod .tx{flex:1;min-width:0}.mod .tx small{display:block;font-weight:400;color:var(--muted);font-size:11px}
@@ -210,7 +211,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
   <div id="panel"></div>
 </div>
 
-<script src="ims-cash.js?v=5"></script>
+<script src="ims-cash.js?v=6"></script>
 <script src="ims-rep.js?v=9"></script>
 <script src="ims-outlet.js?v=8"></script>
 <script src="ims-handover.js?v=2"></script>
@@ -240,11 +241,12 @@ const MODS = [
   {id:'outlets', name:'Outlets', sub:'Outlet profiles, location, history', ic:'OL', ready:true},
   {id:'visits', name:'Visit History', sub:'Rep routes and check-ins, any date', ic:'VH', ready:true},
   {id:'runs', name:'Running Chart', sub:'Start / close meter by photo', ic:'RC', ready:true},
-  {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true},
   {id:'foc', name:'FOC', sub:'FOC not passed · MT-Colombo', ic:'FC', ready:true},
   {id:'short_expiry', name:'Short Expiry', sub:'Expired or expiring in 90 days', ic:'SE', ready:true},
   {id:'grn', name:'GRN Outstanding', sub:'GRN pending and errors', ic:'GR', ready:false},
-  {id:'kpi', name:'KPI', sub:'KPI documents', ic:'KP', ready:false}];
+  {id:'kpi', name:'KPI', sub:'KPI documents', ic:'KP', ready:false},
+  // v4.8: main category "Account" (grp); its sub categories are the modules that carry grp:'Account'. More can be added the same way.
+  {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true, grp:'Account'}];
 const PAGES = [['home','Home'],['items','Follow-up'],['dash','Dashboard'],['report','Report'],['perm','Permission']];
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -395,9 +397,11 @@ function go(p, m) {
   document.querySelector('aside').classList.toggle('col', sbCol); $('sbToggle').innerHTML = sbCol ? '&rsaquo;' : '&lsaquo;'; $('sbToggle').title = sbCol ? 'Expand menu' : 'Collapse menu';
   $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + ((mod === 'team' && ['items', 'dash', 'report'].includes(page) && {items: 'Team', dash: 'Rep Day', report: 'Coverage'}[x[0]]) || x[1]) +(x[0] === 'home' && window.MY_MENTIONS && MY_MENTIONS.length ? ' <span class="nbadge" title="My to-do">' + MY_MENTIONS.length + '</span>' : '') + '</button>').join('');
   const act = rows.filter(isActive);
+  let lastGrp = '';
   $('mods').innerHTML = visibleMods().map(m => {
     const n = m.id === 'receivable' ? act.filter(r => !op || r.operation === op).length : 0;
-    return '<button title="' + esc(m.name) + '" class="mod ' + (m.id === mod && ['items', 'dash', 'report', 'record', 'outlet'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
+    const gh = (m.grp || '') !== lastGrp && m.grp ? '<div class="sh modgrp">' + esc(m.grp) + '</div>' : ''; lastGrp = m.grp || '';
+    return gh + '<button title="' + esc((m.grp ? m.grp + ' · ' : '') + m.name) + '" class="mod ' + (m.grp ? 'sub ' : '') + (m.id === mod && ['items', 'dash', 'report', 'record', 'outlet'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
   }).join('');
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
   const my = mod === 'rep' ? opsFor('rep') : REP_SUB.includes(mod) ? repTeamOps() : opsFor(mod);
@@ -926,5 +930,5 @@ window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#it
 window.addEventListener('hashchange', () => { if (me) route(); });
 if (sess) start();
 </script>
-<script src="ims-perm.js?v=6"></script>
+<script src="ims-perm.js?v=7"></script>
 <script src="ims-mobile.js?v=3"></script></body></html>

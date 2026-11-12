@@ -9,13 +9,23 @@
     {k: 'rep', name: 'Sales Rep', job: 'Sales Rep', hint: 'Own outstanding and to-do (phone app)', m: {rep: 'edit'}, needRep: true},
     {k: 'ophead', name: 'Operation Head', job: 'Operation Head', hint: 'Outstanding, reps, team, expiry', m: {receivable: 'edit', rep: 'view', team: 'full', collection: 'view', short_expiry: 'edit'}},
     {k: 'officer', name: 'Operation Officer', job: 'Operation Officer', hint: 'Daily collection entry', m: {collection: 'edit'}},
+    {k: 'accountant', name: 'Accountant', job: 'Accountant', hint: 'Account: Daily Collection entry for the ticked operations', m: {collection: 'edit'}},
     {k: 'finance', name: 'Finance', job: 'Accounts', hint: 'Collection, FOC, outstanding view', m: {collection: 'full', receivable: 'view', short_expiry: 'view', foc: 'full'}},
     {k: 'stores', name: 'Stores', job: 'Stores Officer', hint: 'Short expiry upload', m: {short_expiry: 'full'}},
     {k: 'director', name: 'Director', job: 'Director', hint: 'Everything, view + remarks', m: {'*': 'view'}, allOps: true},
     {k: 'legal', name: 'Legal Officer', job: 'Legal Officer', hint: 'Outstanding view + remarks', m: {receivable: 'view'}, allOps: true}];
   // only these modules can be given in fu_access (fu_access_module_check, Supabase/33 added 'team'); Outlets / Visit History / Running Chart come with Sales Reps or Rep Team
   const GRANT = ['receivable', 'rep', 'team', 'collection', 'foc', 'short_expiry', 'grn', 'kpi'];
-  const SUBS = {team: 'Manage reps · View = see reps, outlets, Rep Day · Edit = add reps, add / assign outlets · Full = also make rep app logins'};
+  // v4.8: Accountant = job title "Accountant" with Daily Collection edit / full; assigned per operation by ticking operations in the editor
+  const isAcct = u => /accountant/i.test(u.job_title || '');
+  function acctCard() {
+    const rowsH = ops.map(o => {
+      const who = uData.users.filter(u => u.active && u.role !== 'admin' && isAcct(u) && accOf(u.id).some(a => ['collection', '*'].includes(a.module) && [o.code, '*'].includes(a.operation) && rk(a.level) >= 2));
+      return '<tr><td><b>' + esc(o.code) + '</b> ' + esc(o.name) + '</td><td>' + (who.length ? who.map(u => '<a data-uact="acc" data-id="' + u.id + '" style="cursor:pointer">' + esc(u.full_name || u.username) + '</a>').join(', ') : '<span class="tag t-r">not assigned</span>') + '</td></tr>'; }).join('');
+    return '<div class="card" style="margin-top:12px"><h3>Accountants by operation</h3><div class="hint">An Accountant enters the Daily Collection of the operations ticked for them (Account &rsaquo; Daily Collection). To assign: open the user, press the role "Accountant", tick the operations, Save.</div>'
+      + '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Operation</th><th>Accountant</th></tr></thead><tbody>' + rowsH + '</tbody></table></div></div>';
+  }
+  const SUBS = {collection: 'Account · Daily collection vs weekly target · Edit = enter own operation, Full = also targets and lines', team: 'Manage reps · View = see reps, outlets, Rep Day · Edit = add reps, add / assign outlets · Full = also make rep app logins'};
   const MODLIST = () => [{id: '*', name: 'All modules', sub: 'Every module, now and later'}].concat(MODS.filter(m => GRANT.includes(m.id)).map(m => ({id: m.id, name: m.name, sub: (SUBS[m.id] || m.sub) + (m.ready ? '' : ' (coming)')})));
   const rk = l => ({none: 0, view: 1, edit: 2, full: 3}[l] || 0);
   let F = {q: '', show: 'all', newOpen: false}, E = null;   // E = editor state
@@ -87,14 +97,15 @@
     const list = uData.users.filter(u => {
       const q = F.q.toLowerCase(), hit = !q || [u.full_name, u.username, u.rep_name, u.job_title].some(v => String(v || '').toLowerCase().includes(q));
       const s = F.show, ac = accOf(u.id).length;
-      return hit && (s === 'all' || (s === 'admin' && u.role === 'admin') || (s === 'none' && u.role !== 'admin' && !ac && u.active) || (s === 'off' && !u.active) || (s === 'reps' && (u.rep_name || /rep/i.test(u.job_title || ''))));
+      return hit && (s === 'all' || (s === 'admin' && u.role === 'admin') || (s === 'none' && u.role !== 'admin' && !ac && u.active) || (s === 'off' && !u.active) || (s === 'reps' && (u.rep_name || /rep/i.test(u.job_title || ''))) || (s === 'acct' && isAcct(u)));
     });
-    const cnt = k => uData.users.filter(u => k === 'admin' ? u.role === 'admin' : k === 'none' ? u.role !== 'admin' && !accOf(u.id).length && u.active : k === 'off' ? !u.active : k === 'reps' ? (u.rep_name || /rep/i.test(u.job_title || '')) : true).length;
+    const cnt = k => uData.users.filter(u => k === 'acct' ? isAcct(u) : k === 'admin' ? u.role === 'admin' : k === 'none' ? u.role !== 'admin' && !accOf(u.id).length && u.active : k === 'off' ? !u.active : k === 'reps' ? (u.rep_name || /rep/i.test(u.job_title || '')) : true).length;
     let h = '<div class="card"><div class="pm-top"><h2 class="pt" style="margin:0">Permission</h2><input id="pmQ" class="pm-search" placeholder="Search name, username, rep, job title" value="' + esc(F.q) + '"><button class="btn p" data-uact="newtoggle">+ New user</button></div>'
-      + '<div class="pm-chips" style="margin-top:10px">' + [['all', 'All'], ['reps', 'Sales reps'], ['none', 'No access'], ['admin', 'Admins'], ['off', 'Switched off']].map(c => '<button class="pm-chip' + (F.show === c[0] ? ' on' : '') + '" data-uact="show" data-id="' + c[0] + '">' + c[1] + ' (' + cnt(c[0]) + ')</button>').join('') + '</div>'
+      + '<div class="pm-chips" style="margin-top:10px">' + [['all', 'All'], ['reps', 'Sales reps'], ['acct', 'Accountants'], ['none', 'No access'], ['admin', 'Admins'], ['off', 'Switched off']].map(c => '<button class="pm-chip' + (F.show === c[0] ? ' on' : '') + '" data-uact="show" data-id="' + c[0] + '">' + c[1] + ' (' + cnt(c[0]) + ')</button>').join('') + '</div>'
       + '<div class="err" id="uMsg" style="margin-top:6px">' + esc(msg || '') + '</div>'
       + (F.newOpen ? '<div class="pm-new"><input id="nName" placeholder="Full name"><input id="nUser" placeholder="Username or email"><input id="nPass" type="password" placeholder="Password (8+ characters)" autocomplete="new-password"><select id="nRole"><option value="user">User</option><option value="admin">Admin</option></select><button class="btn p" data-uact="create">Create and set access</button></div>' : '')
       + '</div>';
+    if (F.show === 'acct') h += acctCard();
     h += '<div class="pm-list">' + (list.map(u => '<div class="pm-user' + (u.active ? '' : ' off') + '" data-uact="acc" data-id="' + u.id + '"><div class="pm-av">' + esc(initials(u.full_name || u.username)) + '</div>'
       + '<div class="pm-who"><b>' + esc(u.full_name || u.username) + (u.active ? '' : ' <span class="tag t-b">off</span>') + '</b><span class="pm-un">@' + esc(String(u.username || '').replace(/@iceman-followup\.local$/i, '')) + '</span><small>' + esc([u.job_title, u.rep_name ? 'rep: ' + u.rep_name : ''].filter(Boolean).join(' · ')) + '</small></div>'
       + '<div class="pm-acc">' + summary(u) + '</div>'
@@ -181,7 +192,7 @@
     if (E.mixed) h += '<div class="pm-warn">' + (E.touched ? 'Save will replace the rows below with one level per module for the ticked operations.' : 'This user has different levels per operation. Nothing changes unless you change the boxes below.') + '<br>Now: ' + accOf(E.id).map(a => esc(pmName(a.module)) + ' / ' + esc(a.operation === '*' ? 'all' : a.operation) + ' ' + a.level).join(' · ') + '</div>';
     h += '<div class="pm-sec"><h4>1. Start from a role <span>(fills the boxes below, nothing is saved yet)</span></h4><div class="pm-roles">' + ROLES.map(r => '<button class="pm-role' + (E.role === r.k ? ' on' : '') + '" data-pm="role" data-k="' + r.k + '"><b>' + r.name + '</b><small>' + r.hint + '</small></button>').join('') + '<button class="pm-role" data-pm="clear"><b>Clear all</b><small>Remove every access</small></button></div>'
       + (others.length ? '<div class="row2" style="margin-top:8px"><span class="hint">or copy from</span><select id="pmCopy"><option value="">choose a user...</option>' + others.map(x => '<option value="' + x.id + '">' + esc(x.full_name || x.username) + (x.job_title ? ' · ' + esc(x.job_title) : '') + '</option>').join('') + '</select></div>' : '') + '</div>';
-    h += '<div class="pm-sec"><h4>2. Profile</h4><div class="pm-grid2"><label>Job title (shown on remarks)<input id="pmJob" list="pmJobs" value="' + esc(E.job) + '" placeholder="e.g. Operation Head"></label><datalist id="pmJobs">' + ['Sales Rep', 'Operation Head', 'Operation Officer', 'Accounts', 'Finance Manager', 'Director', 'Legal Officer', 'Stores Officer', 'AM Operations'].map(n => '<option value="' + n + '">').join('') + '</datalist>'
+    h += '<div class="pm-sec"><h4>2. Profile</h4><div class="pm-grid2"><label>Job title (shown on remarks)<input id="pmJob" list="pmJobs" value="' + esc(E.job) + '" placeholder="e.g. Operation Head"></label><datalist id="pmJobs">' + ['Sales Rep', 'Operation Head', 'Operation Officer', 'Accountant', 'Accounts', 'Finance Manager', 'Director', 'Legal Officer', 'Stores Officer', 'AM Operations'].map(n => '<option value="' + n + '">').join('') + '</datalist>'
       + '<label class="' + (rl && rl.needRep && !E.rep ? 'need' : '') + '">Sales rep name (as in the outstanding list)' + '<input id="pmRep" list="pmReps" value="' + esc(E.rep) + '" placeholder="needed for the Sales Rep role"></label><datalist id="pmReps">' + [...new Set(rows.map(r => r.owner_name).filter(Boolean))].sort().map(n => '<option value="' + esc(n) + '">').join('') + '</datalist></div>'
       + (rp ? '<div class="pm-warn" style="margin-top:8px">' + esc(rp) + '<div style="margin-top:6px"><button class="btn q" data-pm="repok">' + (E.repOk ? 'Will save anyway ✓ (tap to undo)' : 'Save anyway (new rep, not on any list yet)') + '</button></div></div>' : '') + '</div>';
     h += '<div class="pm-sec"><h4>3. Operations <span>(' + (allOps ? 'all' : E.ops.length) + ' ticked)</span></h4><div class="pm-ops"><button class="pm-chip' + (allOps ? ' on' : '') + '" data-pm="op" data-o="*">All operations</button>' + ops.map(o => '<button class="pm-chip' + (!allOps && E.ops.includes(o.code) ? ' on' : '') + '" data-pm="op" data-o="' + esc(o.code) + '" title="' + esc(o.name) + '"' + (allOps ? ' style="opacity:.5"' : '') + '>' + esc(o.code) + '</button>').join('') + '</div></div>';
