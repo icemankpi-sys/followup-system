@@ -157,11 +157,23 @@
     if (E.mixed && !E.touched) return {want: have, up: [], del: [], prof};
     return {want, up, del, prof};
   }
+  // Guard (2026-11-12): Sales Reps access needs a rep name that is on the list of one of the ticked operations (wrong name or wrong operation = the rep sees nothing)
+  function repProblem() {
+    const n = (E.rep || '').trim(); if (!n || !E.lv.rep || E.lv.rep === 'none') return '';
+    const k = nk(n), all = window.imsRepNames ? imsRepNames() : [], found = all.find(x => nk(x.name) === k);
+    if (!found) {
+      const part = all.find(x => nk(x.name).length >= 6 && k.includes(nk(x.name)));
+      return part ? 'The rep name looks like "' + part.name + '" (' + [...part.ops].join(', ') + ') with extra words. Pick that name from the list; write only the name.'
+        : 'No outstanding line or outlet has the rep name "' + n + '". The rep will see nothing. Pick the name from the list.';
+    }
+    if (!E.ops.includes('*') && E.ops.length && !E.ops.some(o => found.ops.has(o))) return found.name + ' is a rep on ' + [...found.ops].join(', ') + ', but the ticked operations are ' + E.ops.join(', ') + '. Tick ' + [...found.ops].join(', ') + ' in "3. Operations".';
+    return '';
+  }
   function paintDrawer() {
     if (!E) return;
     if (!$('pmBack')) { const b = document.createElement('div'); b.id = 'pmBack'; b.onclick = closeEditor; document.body.appendChild(b); }
     let d = $('pmDrawer'); if (!d) { d = document.createElement('div'); d.id = 'pmDrawer'; document.body.appendChild(d); d.onclick = drawerClick; d.oninput = drawerInput; }
-    const u = E.u, admin = u.role === 'admin', rl = ROLES.find(r => r.k === E.role), dd = diff(), allOps = E.ops.includes('*');
+    const u = E.u, admin = u.role === 'admin', rl = ROLES.find(r => r.k === E.role), dd = diff(), allOps = E.ops.includes('*'), rp = admin ? '' : repProblem();
     const others = uData.users.filter(x => x.id !== u.id && x.role !== 'admin' && accOf(x.id).length);
     const coveredAll = E.lv['*'] && E.lv['*'] !== 'none';
     let h = '<div class="pm-dh"><div class="pm-av" style="background:#fff">' + esc(initials(u.full_name || u.username)) + '</div><b>' + esc(u.full_name || u.username) + '<br><small style="opacity:.75;font-weight:400">' + esc(u.username) + '</small></b><button class="hbtn" data-pm="close">Close</button></div><div class="pm-db">';
@@ -170,7 +182,8 @@
     h += '<div class="pm-sec"><h4>1. Start from a role <span>(fills the boxes below, nothing is saved yet)</span></h4><div class="pm-roles">' + ROLES.map(r => '<button class="pm-role' + (E.role === r.k ? ' on' : '') + '" data-pm="role" data-k="' + r.k + '"><b>' + r.name + '</b><small>' + r.hint + '</small></button>').join('') + '<button class="pm-role" data-pm="clear"><b>Clear all</b><small>Remove every access</small></button></div>'
       + (others.length ? '<div class="row2" style="margin-top:8px"><span class="hint">or copy from</span><select id="pmCopy"><option value="">choose a user...</option>' + others.map(x => '<option value="' + x.id + '">' + esc(x.full_name || x.username) + (x.job_title ? ' · ' + esc(x.job_title) : '') + '</option>').join('') + '</select></div>' : '') + '</div>';
     h += '<div class="pm-sec"><h4>2. Profile</h4><div class="pm-grid2"><label>Job title (shown on remarks)<input id="pmJob" list="pmJobs" value="' + esc(E.job) + '" placeholder="e.g. Operation Head"></label><datalist id="pmJobs">' + ['Sales Rep', 'Operation Head', 'Operation Officer', 'Accounts', 'Finance Manager', 'Director', 'Legal Officer', 'Stores Officer', 'AM Operations'].map(n => '<option value="' + n + '">').join('') + '</datalist>'
-      + '<label class="' + (rl && rl.needRep && !E.rep ? 'need' : '') + '">Sales rep name (as in the outstanding list)' + '<input id="pmRep" list="pmReps" value="' + esc(E.rep) + '" placeholder="needed for the Sales Rep role"></label><datalist id="pmReps">' + [...new Set(rows.map(r => r.owner_name).filter(Boolean))].sort().map(n => '<option value="' + esc(n) + '">').join('') + '</datalist></div></div>';
+      + '<label class="' + (rl && rl.needRep && !E.rep ? 'need' : '') + '">Sales rep name (as in the outstanding list)' + '<input id="pmRep" list="pmReps" value="' + esc(E.rep) + '" placeholder="needed for the Sales Rep role"></label><datalist id="pmReps">' + [...new Set(rows.map(r => r.owner_name).filter(Boolean))].sort().map(n => '<option value="' + esc(n) + '">').join('') + '</datalist></div>'
+      + (rp ? '<div class="pm-warn" style="margin-top:8px">' + esc(rp) + '<div style="margin-top:6px"><button class="btn q" data-pm="repok">' + (E.repOk ? 'Will save anyway ✓ (tap to undo)' : 'Save anyway (new rep, not on any list yet)') + '</button></div></div>' : '') + '</div>';
     h += '<div class="pm-sec"><h4>3. Operations <span>(' + (allOps ? 'all' : E.ops.length) + ' ticked)</span></h4><div class="pm-ops"><button class="pm-chip' + (allOps ? ' on' : '') + '" data-pm="op" data-o="*">All operations</button>' + ops.map(o => '<button class="pm-chip' + (!allOps && E.ops.includes(o.code) ? ' on' : '') + '" data-pm="op" data-o="' + esc(o.code) + '" title="' + esc(o.name) + '"' + (allOps ? ' style="opacity:.5"' : '') + '>' + esc(o.code) + '</button>').join('') + '</div></div>';
     h += '<div class="pm-sec"><h4>4. What they can do</h4><div class="pm-legend">View = read only · Edit = update fields and add remarks · Full = edit + upload lists, write off, change data</div><div class="pm-mods" style="margin-top:6px">' + MODLIST().map(m => {
       const l = E.lv[m.id] || 'none';
@@ -178,16 +191,17 @@
     h += '</div>';
     const chg = dd.up.length + dd.del.length + (dd.prof ? 1 : 0);
     const noOps = desired().length === 0 && Object.values(E.lv).some(l => l && l !== 'none');
-    h += '<div class="pm-df"><div class="sum">' + (noOps ? '<span style="color:var(--danger)">Tick at least one operation.</span>' : (dd.want.length + ' access rows · ' + (chg ? '<b>' + chg + ' change' + (chg > 1 ? 's' : '') + '</b> to save' : 'no changes'))) + (E.msg ? '<br><span style="color:var(--danger)">' + esc(E.msg) + '</span>' : '') + '</div><button class="btn" data-pm="close">Cancel</button><button class="btn p" data-pm="save"' + (chg && !noOps && !admin ? '' : ' disabled') + '>Save</button></div>';
+    h += '<div class="pm-df"><div class="sum">' + (noOps ? '<span style="color:var(--danger)">Tick at least one operation.</span>' : (dd.want.length + ' access rows · ' + (chg ? '<b>' + chg + ' change' + (chg > 1 ? 's' : '') + '</b> to save' : 'no changes'))) + (E.msg ? '<br><span style="color:var(--danger)">' + esc(E.msg) + '</span>' : '') + '</div><button class="btn" data-pm="close">Cancel</button><button class="btn p" data-pm="save"' + (chg && !noOps && !admin && (!rp || E.repOk) ? '' : ' disabled') + '>Save</button></div>';
     const st = d.querySelector('.pm-db'), top = st ? st.scrollTop : 0;
     d.innerHTML = h; const nb = d.querySelector('.pm-db'); if (nb) nb.scrollTop = top;
     const cp = $('pmCopy'); if (cp) cp.onchange = () => { const s = fromAccess(uData.users.find(x => x.id === cp.value)); E.ops = s.ops; E.lv = s.lv; E.role = ''; E.touched = true; paintDrawer(); };
   }
-  function drawerInput(e) { if (e.target.id === 'pmJob') { E.job = e.target.value; refreshFoot(); } else if (e.target.id === 'pmRep') { E.rep = e.target.value; refreshFoot(); } }
+  function drawerInput(e) { if (e.target.id === 'pmJob') { E.job = e.target.value; refreshFoot(); } else if (e.target.id === 'pmRep') { E.rep = e.target.value; E.repOk = false; refreshFoot(); } }
   function refreshFoot() { const a = document.activeElement, id = a && a.id, p = a && a.selectionStart; paintDrawer(); if (id && $(id)) { $(id).focus(); try { $(id).setSelectionRange(p, p); } catch (x) {} } }
   async function drawerClick(e) {
     const b = e.target.closest('[data-pm]'); if (!b || !E) return; const k = b.dataset.pm;
     if (k === 'close') return closeEditor();
+    if (k === 'repok') { E.repOk = !E.repOk; return paintDrawer(); }
     if (['role','clear','op','lv'].includes(k)) E.touched = true;
     if (k === 'role') { const r = ROLES.find(x => x.k === b.dataset.k); E.role = r.k; E.lv = Object.assign({}, r.m); if (r.allOps) E.ops = ['*']; if (!E.job || ROLES.some(x => x.job === E.job)) E.job = r.job; return paintDrawer(); }
     if (k === 'clear') { E.role = ''; E.lv = {}; E.ops = []; return paintDrawer(); }

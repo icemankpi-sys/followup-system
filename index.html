@@ -224,7 +224,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-visit.js?v=9"></script>
 <script src="ims-run.js?v=2"></script>
 <script src="ims-live.js?v=4"></script>
-<script src="ims-team.js?v=6"></script>
+<script src="ims-team.js?v=7"></script>
 <script src="ims-osdash.js?v=1"></script>
 <script src="ims-app.js?v=3"></script>
 <script>
@@ -347,6 +347,9 @@ async function start() {
     catch (e) { $('page').innerHTML = '<div class="card err">Could not load your data: ' + esc(e.message) + '<div class="row2" style="margin-top:8px"><button class="btn p" onclick="location.reload()">Try again</button></div></div>'; return; }
   }
   route();
+  // a rep login with nothing linked to it: say why, so a wrong rep name or operation is found on the first sign-in (2026-11-12)
+  if (me.role !== 'admin' && opsFor('rep').length && !opsFor('receivable').length && !rows.length)
+    $('page').insertAdjacentHTML('afterbegin', '<div class="card err">No outstanding is linked to this login. Rep name: "' + esc(me.rep_name || 'not set') + '" · operation: ' + esc(opsFor('rep').map(o => o.code).join(', ')) + '. If you have outstanding or outlets, tell your Operation Head: the rep name or the operation of this login is wrong.</div>');
   if (window.visitAutoStart) visitAutoStart();
 }
 // the database gives at most 1000 rows per request (Supabase limit): read page by page, 4 pages at a time (2026-11-10, Horeca list = 1811 lines)
@@ -923,5 +926,5 @@ window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#it
 window.addEventListener('hashchange', () => { if (me) route(); });
 if (sess) start();
 </script>
-<script src="ims-perm.js?v=5"></script>
+<script src="ims-perm.js?v=6"></script>
 <script src="ims-mobile.js?v=3"></script></body></html>

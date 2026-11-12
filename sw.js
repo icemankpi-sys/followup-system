@@ -1,7 +1,7 @@
 // Iceman IMS - phone app cache (2026-11-03)
 // Network first: when online the phone always gets the newest files; with no signal the app still opens from the cache.
 // Only the app's own files are kept. Database and storage calls (supabase.co) and the OCR library are never cached here.
-const CACHE = 'ims-20261112-1';
+const CACHE = 'ims-20261112-2';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).catch(() => {})); self.skipWaiting(); });
 self.addEventListener('activate', e => {

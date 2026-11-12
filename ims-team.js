@@ -131,9 +131,25 @@
       : 'Pick a rep who is already on the list so no second profile is made. Choose "+ New rep" only for a rep who is not on the list.';
     if (v === '__new') $('tmName').focus();
   }
+  // Guard (2026-11-12): a rep name typed by hand must not be a rep of another operation, and must not be an existing name with extra words
+  // (a login was made on MT for an MTH rep as "S.Pradeep Rangana form outstanding list", so the rep saw nothing).
+  const allRepNames = () => {
+    const m = {}, add = (o, n) => { const k = nk(n); if (!k || !String(n).trim()) return; (m[k] = m[k] || {name: String(n).trim(), ops: new Set()}).ops.add(o); };
+    rows.forEach(r => add(r.operation, r.owner_name || '')); Object.values(CO || {}).forEach(p => p.rep && add(p.operation, p.rep)); T.reps.forEach(r => add(r.operation, r.rep_name));
+    return Object.values(m);
+  };
+  function nameClash(o, n) {
+    const k = nk(n); if (!k) return '';
+    const all = allRepNames(), same = all.find(x => nk(x.name) === k);
+    if (same && !same.ops.has(o)) return same.name + ' is a rep on ' + [...same.ops].join(', ') + ', not on ' + o + '. Change the Operation to ' + [...same.ops][0] + ' and pick the name from the list.';
+    const part = all.find(x => nk(x.name) !== k && nk(x.name).length >= 6 && k.includes(nk(x.name)));
+    if (part) return 'This looks like "' + part.name + '" (' + [...part.ops].join(', ') + ') with extra words. ' + (part.ops.has(o) ? 'Pick that name from the list' : 'Change the Operation to ' + [...part.ops][0] + ' and pick that name from the list') + '; write only the rep name.';
+    return '';
+  }
+  window.imsRepNameClash = nameClash; window.imsRepNames = allRepNames;   // the Permission page uses the same guard
   function warnSame() {
     const n = nk($('tmName').value), same = n && repList().find(y => y.op === $('tmOp').value && nk(y.name) === n);
-    $('tmErr').textContent = same ? same.name + ' is already on the list. Pick the name from the drop-down instead.' : '';
+    $('tmErr').textContent = same ? same.name + ' is already on the list. Pick the name from the drop-down instead.' : nameClash($('tmOp').value, $('tmName').value);
   }
   async function saveRep() {
     const k = $('panel').dataset.rep, r = k ? repList().find(x => x.op + '|' + x.name === k) : null;
@@ -143,6 +159,7 @@
     if (!r && $('tmPick').value === '__new') {
       const same = repList().find(y => y.op === o && nk(y.name) === nk(n));
       if (same) { $('tmErr').textContent = same.name + ' is already on the list. Pick the name from the drop-down instead.'; return; }
+      const cl = nameClash(o, n); if (cl) { $('tmErr').textContent = cl; return; }
     }
     // keep the saved row's key (lists loaded by SQL use lower(name), older app saves used nk(name)) so no second row is made
     const old = T.reps.find(x => x.operation === o && nk(x.rep_name) === nk(n));
@@ -153,7 +170,7 @@
     try { await api('/rest/v1/fu_reps?on_conflict=operation,rep_key', {method: 'POST', headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}, body}); }
     catch (e) { $('tmErr').textContent = /column/.test(e.message) ? 'The database needs Supabase/31 rep team.sql first. ' + e.message : e.message; return; }
     if (lg) {
-      try { await fn({action: 'create_rep', operation: o, username: lg.user, password: lg.pass, full_name: n, rep_name: n}); }
+      try { await fn({action: 'create_rep', operation: o, username: lg.user, password: lg.pass, full_name: n, rep_name: n, new_rep: true}); }
       catch (e) { $('tmErr').textContent = 'Rep saved, but the login was not made: ' + e.message; return; }
       // create_rep also writes a fu_reps row keyed lower(name); remove it when the existing profile has another key
       if (old && old.rep_key !== n.toLowerCase()) await api('/rest/v1/fu_reps?operation=eq.' + encodeURIComponent(o) + '&rep_key=eq.' + encodeURIComponent(n.toLowerCase()), {method: 'DELETE', headers: {Prefer: 'return=minimal'}}).catch(() => {});
@@ -193,7 +210,7 @@
     const r = panelRep(), lg = readLogin();
     if (!lg) { $('tmErr').textContent = 'Write a username and a password.'; return; }
     if (lg.err) { $('tmErr').textContent = lg.err; return; }
-    try { await fn({action: 'create_rep', operation: r.op, username: lg.user, password: lg.pass, full_name: r.name, rep_name: r.name}); closeDrawer(); toast('Login @' + lg.user + ' made for ' + r.name + '. Give the rep the username and password.'); go(); }
+    try { await fn({action: 'create_rep', operation: r.op, username: lg.user, password: lg.pass, full_name: r.name, rep_name: r.name, new_rep: true}); closeDrawer(); toast('Login @' + lg.user + ' made for ' + r.name + '. Give the rep the username and password.'); go(); }
     catch (e) { $('tmErr').textContent = e.message; }
   }
   async function lgReset() {
@@ -237,7 +254,9 @@
     const o = $('lkOp').value, id = T.lk && T.lk.sel, n = ($('lkName').value || '').trim().replace(/\s+/g, ' '), er = $('tmErr');
     if (!id) { er.textContent = 'Search and select the user first.'; return; }
     if (!n) { er.textContent = 'Write the rep name (as on the outstanding list).'; return; }
-    try { await fn({action: 'grant_rep', id, operation: o, rep_name: n}); closeDrawer(); toast('Sales Reps access given on ' + o + ' for ' + n + '. Ask the rep to sign out and sign in again.'); go(); }
+    const known = repList().find(x => x.op === o && nk(x.name) === nk(n));
+    if (!known) { er.textContent = nameClash(o, n) || 'No rep named "' + n + '" on the list of ' + o + '. Pick the name from the list, or add the rep first with "+ Add rep".'; return; }
+    try { await fn({action: 'grant_rep', id, operation: o, rep_name: known.name, new_rep: true}); closeDrawer(); toast('Sales Reps access given on ' + o + ' for ' + n + '. Ask the rep to sign out and sign in again.'); go(); }
     catch (e) { er.textContent = e.message; }
   }
 
