@@ -58,7 +58,14 @@
 
   // ---------- outlet page ----------
   async function page() {
-    const x = find(window.OUTLET_ID || '');
+    // 2026-11-12: the profile (location, phone, address) is read once at sign-in, so a manager's open session showed "No location yet"
+    // after a rep had saved it. Read this outlet's profile again every time its page opens.
+    const id0 = window.OUTLET_ID || '';
+    if (id0) {
+      const [o0, k0] = decodeURIComponent(id0).split('|');
+      try { const r = await api('/rest/v1/fu_outlets?operation=eq.' + encodeURIComponent(o0) + '&outlet_key=eq.' + encodeURIComponent(k0) + '&select=*'); if (r && r[0]) CO[ck(r[0].operation, r[0].outlet)] = r[0]; } catch (e) { /* keep the copy already loaded */ }
+    }
+    const x = find(id0);
     if (!x) { $('page').innerHTML = '<div class="card">This outlet was not found, or you do not have access.<div class="row2"><button class="btn p" data-oact="back">Back to outlets</button></div></div>'; return; }
     const p = x.prof || {}, ce = canEdit(x), recs = x.recs.slice().sort((a, b) => (isActive(b) - isActive(a)) || (b.aging_days - a.aging_days)), closed = recs.filter(r => !isActive(r));
     $('page').innerHTML = '<div class="crumb noprint"><a data-oact="back">Outlets</a> &rsaquo; <b>' + esc(x.outlet) + '</b></div>'
