@@ -36,6 +36,8 @@
 .cal-day-list td{vertical-align:top}
 .cal-day-list .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
 .cal-empty{color:var(--muted);font-size:13px;padding:8px 0}
+.cal-none{color:var(--muted);font-size:12.5px;margin:0 0 6px;font-style:italic}
+.cal-notes{border:1px solid var(--line2);border-radius:8px;min-height:110px;margin-top:10px;padding:6px 8px;color:var(--muted);font-size:12px}
 @media(max-width:820px){.cal-month .dc{min-height:78px}.cal-nav b{min-width:150px}}
 @media print{
   .cal-scroll{overflow:visible!important}
@@ -70,7 +72,7 @@
   const legend = () => '<div class="cal-legend">' + TYPES.map(t => '<span><i style="background:' + t[2] + '"></i>' + t[1] + '</span>').join('') + '</div>';
 
   // ---------- state ----------
-  const C = {range: null, events: [], mo: null, wk: null, day: null, error: ''};
+  const C = {range: null, events: [], mo: null, wk: null, day: null, error: '', blank: false};   // blank = print without events (empty calendar sheet to write on)
   const initDates = () => { if (!C.mo) { const t = todayD(); C.mo = new Date(t.getFullYear(), t.getMonth(), 1); C.wk = monday(t); C.day = t; } };
 
   // ---------- access ----------
@@ -90,7 +92,7 @@
     C.events = await fetchAll('/rest/v1/cal_events?select=*&event_date=lte.' + t2 + '&or=(end_date.gte.' + f2 + ',event_date.gte.' + f2 + ')&order=event_date.asc,start_time.asc.nullsfirst,id.asc');
     C.range = [f2, t2];
   }
-  const dayEvents = k => C.events.filter(e => e.event_date <= k && (e.end_date || e.event_date) >= k && (!op || !e.operation || e.operation === op))
+  const dayEvents = k => C.blank ? [] : C.events.filter(e => e.event_date <= k && (e.end_date || e.event_date) >= k && (!op || !e.operation || e.operation === op))
     .sort((a, b) => (a.start_time ? 1 : 0) - (b.start_time ? 1 : 0) || String(a.start_time || '').localeCompare(String(b.start_time || '')) || a.id - b.id);
   async function show(draw, from, to) {
     $('page').innerHTML = '<div class="hint">Loading...</div>';
@@ -98,6 +100,11 @@
     catch (e) { $('page').innerHTML = '<div class="card err">Could not load the calendar: ' + esc(e.message) + '<div class="hint">If this is new, the database section (Supabase/39 calendar.sql) may not be set up yet.</div></div>'; }
   }
   const refresh = () => { C.range = null; return go(); };
+  // v5.4.1: "Print without events" tick: the screen and the PDF show an empty calendar / time sheet (events hidden); no events at all in the period = a short note on the sheet
+  const blankCtl = () => '<label class="noprint" style="display:inline-flex;gap:6px;align-items:center;font-size:13px"><input type="checkbox" id="cBlank" style="width:auto"' + (C.blank ? ' checked' : '') + '> Print without events (blank sheet)</label>';
+  const bindBlank = () => { const b = document.getElementById('cBlank'); if (b) b.onchange = () => { C.blank = b.checked; go(); }; };
+  const blankHint = () => C.blank ? '<div class="hint cal-hint">Blank sheet: the events are hidden so an empty sheet prints. Untick the box to see them again.</div>' : '';
+  const noneNote = (a, b) => { if (C.blank) return ''; for (let d = new Date(a); d <= b; d = addD(d, 1)) if (dayEvents(ymd(d)).length) return ''; return '<div class="cal-none">No events in this period.</div>'; };
 
   // ---------- event chips ----------
   const chipTxt = e => (e.start_time ? '<small>' + hm(e.start_time) + '</small>' : '') + esc(e.title);
@@ -115,14 +122,15 @@
         + evs.map((e, i) => chip(e, i >= 3 ? 'ex' : '')).join('') + (evs.length > 3 ? '<div class="mr">+' + (evs.length - 3) + ' more</div>' : '') + '</div>';
     }
     $('page').innerHTML = '<div class="cal-nav noprint"><button class="btn" id="cPrev">&lsaquo; Previous</button><b>' + esc(label) + '</b><button class="btn" id="cNext">Next &rsaquo;</button><button class="btn" id="cNow">Today</button>'
-      + (canAdd() ? '<button class="btn p" id="cAdd">+ Add event</button>' : '') + '<button class="btn p" id="rPrint">Print / Save as PDF</button></div>'
-      + '<h2 class="pt">Calendar &middot; ' + esc(label) + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' (and events for all operations)' : 'All my operations') + ' &middot; Iceman IMS</div>' + legend()
-      + '<div class="cal-scroll"><div class="cal-month" data-print-land="1">' + cells + '</div></div>'
+      + (canAdd() ? '<button class="btn p" id="cAdd">+ Add event</button>' : '') + '<button class="btn p" id="rPrint">Print / Save as PDF</button>' + blankCtl() + '</div>'
+      + '<h2 class="pt">Calendar &middot; ' + esc(label) + (C.blank ? ' (blank sheet)' : '') + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' (and events for all operations)' : 'All my operations') + ' &middot; Iceman IMS</div>' + legend()
+      + noneNote(gs, ge) + '<div class="cal-scroll"><div class="cal-month" data-print-land="1">' + cells + '</div></div>' + blankHint()
       + '<div class="hint cal-hint">' + (canAdd() ? 'Click a date to add an event, click an event to open it, click the date number to see that day by time.' : 'You can view events. Ask the Admin for Edit access to add events.') + '</div>';
     $('cPrev').onclick = () => { C.mo = new Date(m0.getFullYear(), m0.getMonth() - 1, 1); go(); };
     $('cNext').onclick = () => { C.mo = new Date(m0.getFullYear(), m0.getMonth() + 1, 1); go(); };
     $('cNow').onclick = () => { const t = todayD(); C.mo = new Date(t.getFullYear(), t.getMonth(), 1); go(); };
     if ($('cAdd')) $('cAdd').onclick = () => evForm(null, {date: ymd(todayD())});
+    bindBlank();
     bind($('page'));
     document.querySelectorAll('#page .dc').forEach(c => c.onclick = e => { if (e.target.closest('[data-ev],[data-day]')) return; if (canAdd()) evForm(null, {date: c.dataset.d}); });
     document.querySelectorAll('#page [data-day]').forEach(s => s.onclick = () => { C.day = pd(s.dataset.day); go('report', 'calendar'); });
@@ -169,14 +177,15 @@
   function drawWeek() {
     const ws = C.wk, days = [...Array(7)].map((_, i) => addD(ws, i)), label = 'Week ' + isoW(ws) + ' (' + fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' ' + addD(ws, 6).getFullYear() + ')';
     $('page').innerHTML = '<div class="cal-nav noprint"><button class="btn" id="cPrev">&lsaquo; Previous week</button><b>' + esc(label) + '</b><button class="btn" id="cNext">Next week &rsaquo;</button><button class="btn" id="cNow">This week</button>'
-      + (canAdd() ? '<button class="btn p" id="cAdd">+ Add event</button>' : '') + '<button class="btn p" id="rPrint">Print / Save as PDF</button></div>'
-      + '<h2 class="pt">Calendar &middot; ' + esc(label) + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' (and events for all operations)' : 'All my operations') + ' &middot; Iceman IMS</div>' + legend()
-      + '<div class="cal-scroll">' + timeGrid(days, true) + '</div>'
+      + (canAdd() ? '<button class="btn p" id="cAdd">+ Add event</button>' : '') + '<button class="btn p" id="rPrint">Print / Save as PDF</button>' + blankCtl() + '</div>'
+      + '<h2 class="pt">Calendar &middot; ' + esc(label) + (C.blank ? ' (blank sheet)' : '') + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' (and events for all operations)' : 'All my operations') + ' &middot; Iceman IMS</div>' + legend()
+      + noneNote(days[0], days[6]) + '<div class="cal-scroll">' + timeGrid(days, true) + '</div>' + blankHint()
       + '<div class="hint cal-hint">' + (canAdd() ? 'Click a time slot to add an event at that time, click an event to open it, click a day name to open that day.' : 'You can view events.') + '</div>';
     $('cPrev').onclick = () => { C.wk = addD(ws, -7); go(); };
     $('cNext').onclick = () => { C.wk = addD(ws, 7); go(); };
     $('cNow').onclick = () => { C.wk = monday(todayD()); go(); };
     if ($('cAdd')) $('cAdd').onclick = () => evForm(null, {date: ymd(todayD())});
+    bindBlank();
     bindGrid(gridFrom(days));
   }
 
@@ -185,16 +194,17 @@
     const d = C.day, k = ymd(d), evs = dayEvents(k), label = fmtL(d);
     const rows = evs.map(e => '<tr><td style="white-space:nowrap">' + (e.start_time ? hm(e.start_time) + (e.end_time ? ' - ' + hm(e.end_time) : '') : 'All day') + '</td><td><span class="dot" style="background:' + typeOf(e.etype)[2] + '"></span><b>' + esc(e.title) + '</b></td><td>' + esc(typeOf(e.etype)[1]) + '</td><td>' + esc(opName(e.operation)) + '</td><td>' + esc(e.owner_name || '') + '</td><td>' + esc(e.description || '') + '</td></tr>').join('');
     $('page').innerHTML = '<div class="cal-nav noprint"><button class="btn" id="cPrev">&lsaquo; Previous day</button><b>' + esc(label) + '</b><button class="btn" id="cNext">Next day &rsaquo;</button><button class="btn" id="cNow">Today</button><input type="date" id="cPick" value="' + k + '">'
-      + (canAdd() ? '<button class="btn p" id="cAdd">+ Add event</button>' : '') + '<button class="btn p" id="rPrint">Print / Save as PDF</button></div>'
-      + '<h2 class="pt">Day schedule &middot; ' + esc(label) + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' (and events for all operations)' : 'All my operations') + ' &middot; ' + evs.length + ' event' + (evs.length === 1 ? '' : 's') + ' &middot; Iceman IMS</div>' + legend()
-      + '<div class="cal-scroll">' + timeGrid([d], false) + '</div>'
-      + '<div class="card" style="margin-top:12px"><h3>Events of the day</h3>' + (evs.length ? '<div class="wrap" style="box-shadow:none"><table class="cal-day-list"><thead><tr><th>Time</th><th>Event</th><th>Type</th><th>Operation</th><th>Owner</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="cal-empty">No events on this day.</div>') + '</div>'
+      + (canAdd() ? '<button class="btn p" id="cAdd">+ Add event</button>' : '') + '<button class="btn p" id="rPrint">Print / Save as PDF</button>' + blankCtl() + '</div>'
+      + '<h2 class="pt">Day schedule &middot; ' + esc(label) + (C.blank ? ' (blank sheet)' : '') + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' (and events for all operations)' : 'All my operations') + (C.blank ? '' : ' &middot; ' + evs.length + ' event' + (evs.length === 1 ? '' : 's')) + ' &middot; Iceman IMS</div>' + legend()
+      + noneNote(d, d) + '<div class="cal-scroll">' + timeGrid([d], false) + '</div>' + blankHint()
+      + (C.blank ? '<div class="cal-notes">Notes</div>' : '<div class="card" style="margin-top:12px"><h3>Events of the day</h3>' + (evs.length ? '<div class="wrap" style="box-shadow:none"><table class="cal-day-list"><thead><tr><th>Time</th><th>Event</th><th>Type</th><th>Operation</th><th>Owner</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="cal-empty">No events on this day.</div>') + '</div>')
       + '<div class="hint cal-hint">' + (canAdd() ? 'Click a time slot to add an event at that time.' : 'You can view events.') + '</div>';
     $('cPrev').onclick = () => { C.day = addD(d, -1); go(); };
     $('cNext').onclick = () => { C.day = addD(d, 1); go(); };
     $('cNow').onclick = () => { C.day = todayD(); go(); };
     $('cPick').onchange = e => { if (e.target.value) { C.day = pd(e.target.value); go(); } };
     if ($('cAdd')) $('cAdd').onclick = () => evForm(null, {date: k});
+    bindBlank();
     bindGrid(gridFrom([d]));
   }
 
