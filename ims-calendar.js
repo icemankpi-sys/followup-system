@@ -11,11 +11,11 @@
 .cal-nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 8px}.cal-nav b{min-width:210px;text-align:center}
 .cal-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:2px 0 8px}.cal-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 .cal-scroll{overflow-x:auto}
-.cal-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));min-width:640px;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:var(--surface)}
-.cal-month .dh{background:var(--primary);color:var(--primary-ink);font-weight:700;font-size:12px;text-align:center;padding:5px 2px}
-.cal-month .dc{min-height:104px;border-top:1px solid var(--line);border-left:1px solid var(--line);padding:3px;cursor:pointer;overflow:hidden}
-.cal-month .dc:nth-child(7n+8){border-left:0}
-.cal-month .dc.out{background:var(--surface2);opacity:.65}.cal-month .dc.sun{background:var(--surface2)}
+table.cal-month{width:100%;min-width:640px;table-layout:fixed;border-collapse:separate;border-spacing:0;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:var(--surface);margin:0}
+.cal-month th{background:var(--primary);color:var(--primary-ink);font-weight:700;font-size:12px;text-align:center;padding:5px 2px;border:0}
+.cal-month td.dc{height:104px;vertical-align:top;border-top:1px solid var(--line);border-left:1px solid var(--line);border-right:0;border-bottom:0;padding:3px;cursor:pointer;overflow:hidden;background:transparent}
+.cal-month td.dc:first-child{border-left:0}
+.cal-month td.dc.out{background:var(--surface2);opacity:.65}.cal-month td.dc.sun{background:var(--surface2)}
 .cal-month .dc.today{outline:2px solid var(--accent);outline-offset:-2px}
 .cal-month .dn{font-size:12px;font-weight:700;display:inline-block;min-width:22px;text-align:center;border-radius:11px;padding:0 4px;color:var(--ink2)}
 .cal-month .dc.today .dn{background:var(--accent);color:#fff}
@@ -23,28 +23,37 @@
 .cev{display:block;font-size:11px;line-height:1.25;border-radius:4px;padding:1px 4px;margin:2px 0;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-align:left;width:100%;border:0}
 .cev small{opacity:.9;margin-right:3px}
 .cal-month .ex{display:none}.cal-month .mr{font-size:11px;color:var(--muted);padding:0 4px}
-.cal-tg{display:grid;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:var(--surface);min-width:640px}
+.cal-tg{--hh:48px;display:grid;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:var(--surface);min-width:640px}
 .cal-tg.one{min-width:300px}
 .cal-tg .th{background:var(--primary);color:var(--primary-ink);font-weight:700;font-size:12px;text-align:center;padding:5px 2px;cursor:pointer}
 .cal-tg .th.today{background:var(--accent)}
 .cal-tg .ad{border-top:1px solid var(--line);border-left:1px solid var(--line);padding:2px;min-height:26px}
 .cal-tg .hl{font-size:11px;color:var(--muted);text-align:right;padding:0 4px;position:relative}
-.cal-tg .col{position:relative;border-left:1px solid var(--line);border-top:1px solid var(--line);cursor:pointer;background-image:linear-gradient(to bottom,var(--line) 1px,transparent 1px);background-size:100% var(--hh)}
+.cal-tg .hl.hrs{height:calc(var(--hh) * var(--hrs))}.cal-tg .hl.hrs i{position:absolute;right:4px;font-style:normal;transform:translateY(-50%)}.cal-tg .hl.hrs i:first-child{transform:none}
+.cal-tg .col{position:relative;height:calc(var(--hh) * var(--hrs));border-left:1px solid var(--line);border-top:1px solid var(--line);cursor:pointer;background-image:linear-gradient(to bottom,var(--line) 1px,transparent 1px);background-size:100% var(--hh)}
 .cal-tg .col.sun{background-color:var(--surface2)}
-.cal-tg .te{position:absolute;border-radius:5px;color:#fff;font-size:11px;line-height:1.25;padding:2px 4px;overflow:hidden;cursor:pointer;border:1px solid rgba(255,255,255,.6);box-sizing:border-box}
+.cal-tg .te{position:absolute;min-height:17px;border-radius:5px;color:#fff;font-size:11px;line-height:1.25;padding:2px 4px;overflow:hidden;cursor:pointer;border:1px solid rgba(255,255,255,.6);box-sizing:border-box}
 .cal-tg .te b{display:block;font-size:11px}
+.cal-tg .te.short{white-space:nowrap;text-overflow:ellipsis}.cal-tg .te.short b{display:inline;margin-right:4px}
 .cal-day-list td{vertical-align:top}
 .cal-day-list .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px}
 .cal-empty{color:var(--muted);font-size:13px;padding:8px 0}
 .cal-none{color:var(--muted);font-size:12.5px;margin:0 0 6px;font-style:italic}
 .cal-notes{border:1px solid var(--line2);border-radius:8px;min-height:110px;margin-top:10px;padding:6px 8px;color:var(--muted);font-size:12px}
-@media(max-width:820px){.cal-month .dc{min-height:78px}.cal-nav b{min-width:150px}}
+@media(max-width:820px){.cal-month td.dc{height:78px}.cal-nav b{min-width:150px}}
 @media print{
   .cal-scroll{overflow:visible!important}
+  /* v5.4.2: sized so a month, a week or a day fits ONE page: a tall CSS grid cannot be split across pages in some Chrome versions and the whole calendar then moved to page 2 */
   .cal-month,.cal-tg{min-width:0!important;width:100%!important}
-  .cal-month .dc{min-height:25mm;cursor:default}.cal-month .ex{display:block!important}.cal-month .mr{display:none!important}
+  table.cal-month{table-layout:fixed;border-radius:0;overflow:visible;border:1px solid #9aa3b2}
+  .cal-month td.dc{height:17mm;padding:2px;cursor:default;overflow:visible;border-color:#c3c9d4}
+  .cal-month tr{break-inside:avoid;page-break-inside:avoid}
+  .cal-month .ex{display:block!important}.cal-month .mr{display:none!important}
+  .cal-tg{--hh:34px;border-radius:0;overflow:visible}.cal-tg.one{--hh:36px}
   .cev,.cal-tg .te{white-space:normal;overflow:visible;-webkit-print-color-adjust:exact;print-color-adjust:exact;cursor:default}
-  .cal-month .dh,.cal-tg .th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .cal-tg .te{min-height:11px;font-size:10px;padding:1px 3px}.cal-tg .ad{min-height:20px}
+  .cal-month th,.cal-tg .th{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body,#app,.shell,#content,#page{background:#fff!important}   /* no grey page background on paper */
   .cal-nav,.cal-hint{display:none!important}
   .cal-legend{margin:0 0 4px}
 }`;
@@ -115,16 +124,21 @@
   function drawMonth() {
     const m0 = C.mo, mEnd = new Date(m0.getFullYear(), m0.getMonth() + 1, 0), gs = monday(m0), ge = addD(monday(mEnd), 6), tk = ymd(todayD());
     const label = m0.toLocaleDateString('en-GB', {month: 'long', year: 'numeric'});
-    let cells = DOW.map(d => '<div class="dh">' + d + '</div>').join('');
-    for (let d = gs; d <= ge; d = addD(d, 1)) {
-      const k = ymd(d), evs = dayEvents(k), out = d.getMonth() !== m0.getMonth();
-      cells += '<div class="dc' + (out ? ' out' : '') + (dow(d) === 6 ? ' sun' : '') + (k === tk ? ' today' : '') + '" data-d="' + k + '"><span class="dn" data-day="' + k + '" title="Open the day schedule">' + d.getDate() + '</span>'
-        + evs.map((e, i) => chip(e, i >= 3 ? 'ex' : '')).join('') + (evs.length > 3 ? '<div class="mr">+' + (evs.length - 3) + ' more</div>' : '') + '</div>';
+    let cells = '<thead><tr>' + DOW.map(d => '<th>' + d + '</th>').join('') + '</tr></thead><tbody>';
+    for (let w = gs; w <= ge; w = addD(w, 7)) {
+      cells += '<tr>';
+      for (let i = 0; i < 7; i++) {
+        const d = addD(w, i), k = ymd(d), evs = dayEvents(k), out = d.getMonth() !== m0.getMonth();
+        cells += '<td class="dc' + (out ? ' out' : '') + (dow(d) === 6 ? ' sun' : '') + (k === tk ? ' today' : '') + '" data-d="' + k + '"><span class="dn" data-day="' + k + '" title="Open the day schedule">' + d.getDate() + '</span>'
+          + evs.map((e, j) => chip(e, j >= 3 ? 'ex' : '')).join('') + (evs.length > 3 ? '<div class="mr">+' + (evs.length - 3) + ' more</div>' : '') + '</td>';
+      }
+      cells += '</tr>';
     }
+    cells += '</tbody>';
     $('page').innerHTML = '<div class="cal-nav noprint"><button class="btn" id="cPrev">&lsaquo; Previous</button><b>' + esc(label) + '</b><button class="btn" id="cNext">Next &rsaquo;</button><button class="btn" id="cNow">Today</button>'
       + (canAdd() ? '<button class="btn p" id="cAdd">+ Add event</button>' : '') + '<button class="btn p" id="rPrint">Print / Save as PDF</button>' + blankCtl() + '</div>'
       + '<h2 class="pt">Calendar &middot; ' + esc(label) + (C.blank ? ' (blank sheet)' : '') + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' (and events for all operations)' : 'All my operations') + ' &middot; Iceman IMS</div>' + legend()
-      + noneNote(gs, ge) + '<div class="cal-scroll"><div class="cal-month" data-print-land="1">' + cells + '</div></div>' + blankHint()
+      + noneNote(gs, ge) + '<div class="cal-scroll"><table class="cal-month" data-print-land="1">' + cells + '</table></div>' + blankHint()
       + '<div class="hint cal-hint">' + (canAdd() ? 'Click a date to add an event, click an event to open it, click the date number to see that day by time.' : 'You can view events. Ask the Admin for Edit access to add events.') + '</div>';
     $('cPrev').onclick = () => { C.mo = new Date(m0.getFullYear(), m0.getMonth() - 1, 1); go(); };
     $('cNext').onclick = () => { C.mo = new Date(m0.getFullYear(), m0.getMonth() + 1, 1); go(); };
@@ -142,20 +156,20 @@
   function timeGrid(days, land) {
     let from = 7, to = 19;
     days.forEach(d => dayEvents(ymd(d)).forEach(e => { if (e.start_time) { from = Math.min(from, Math.floor(mins(e.start_time) / 60)); to = Math.max(to, Math.ceil((e.end_time ? mins(e.end_time) : mins(e.start_time) + 60) / 60)); } }));
-    to = Math.min(24, to); const H = (to - from) * HH, n = days.length, tk = ymd(todayD());
-    let h = '<div class="cal-tg' + (n === 1 ? ' one' : '') + '"' + (land ? ' data-print-land="1"' : '') + ' style="--hh:' + HH + 'px;grid-template-columns:46px repeat(' + n + ',minmax(0,1fr))"><div></div>'
+    to = Math.min(24, to); const hrs = to - from, span = hrs * 60, n = days.length, tk = ymd(todayD());
+    let h = '<div class="cal-tg' + (n === 1 ? ' one' : '') + '"' + (land ? ' data-print-land="1"' : '') + ' style="--hrs:' + hrs + ';grid-template-columns:46px repeat(' + n + ',minmax(0,1fr))"><div></div>'
       + days.map(d => '<div class="th' + (ymd(d) === tk ? ' today' : '') + '" data-day="' + ymd(d) + '">' + DOW[dow(d)] + ' ' + d.getDate() + '</div>').join('')
       + '<div class="hl" style="padding-top:4px">all day</div>'
       + days.map(d => '<div class="ad" data-add="' + ymd(d) + '">' + dayEvents(ymd(d)).filter(e => !e.start_time).map(e => chip(e)).join('') + '</div>').join('')
-      + '<div class="hl" style="height:' + H + 'px">' + Array.from({length: to - from}, (_, i) => '<div style="position:absolute;top:' + Math.max(0, i * HH - 7) + 'px;right:4px">' + pad(from + i) + ':00</div>').join('') + '</div>';
+      + '<div class="hl hrs">' + Array.from({length: hrs}, (_, i) => '<i style="top:calc(var(--hh) * ' + i + ')">' + pad(from + i) + ':00</i>').join('') + '</div>';
     days.forEach(d => {
       const k = ymd(d), evs = dayEvents(k).filter(e => e.start_time).map(e => ({e, s: mins(e.start_time), t: e.end_time ? mins(e.end_time) : mins(e.start_time) + 60}));
       const lanes = []; evs.forEach(x => { let i = lanes.findIndex(end => end <= x.s); if (i < 0) { i = lanes.length; lanes.push(0); } lanes[i] = x.t; x.lane = i; });
       // overlapping events share the width: the lane count of each cluster
       evs.forEach(x => { x.cols = Math.max(...evs.filter(y => y.s < x.t && y.t > x.s).map(y => y.lane)) + 1; });
-      h += '<div class="col' + (dow(d) === 6 ? ' sun' : '') + '" data-slot="' + k + '" style="height:' + H + 'px">' + evs.map(x => {
-        const top = (x.s - from * 60) * HH / 60, ht = Math.max(18, (x.t - x.s) * HH / 60 - 1), w = 100 / x.cols;
-        return '<div class="te" data-ev="' + x.e.id + '" style="top:' + top + 'px;height:' + ht + 'px;left:calc(' + (x.lane * w) + '% + 1px);width:calc(' + w + '% - 2px);background:' + typeOf(x.e.etype)[2] + '" title="' + chipTitle(x.e) + '"><b>' + hm(x.e.start_time) + (x.e.end_time ? ' - ' + hm(x.e.end_time) : '') + '</b>' + esc(x.e.title) + '</div>';
+      h += '<div class="col' + (dow(d) === 6 ? ' sun' : '') + '" data-slot="' + k + '">' + evs.map(x => {
+        const top = (x.s - from * 60) * 100 / span, ht = (x.t - x.s) * 100 / span, w = 100 / x.cols;
+        return '<div class="te' + (x.t - x.s <= 45 ? ' short' : '') + '" data-ev="' + x.e.id + '" style="top:' + top.toFixed(3) + '%;height:calc(' + ht.toFixed(3) + '% - 1px);left:calc(' + (x.lane * w) + '% + 1px);width:calc(' + w + '% - 2px);background:' + typeOf(x.e.etype)[2] + '" title="' + chipTitle(x.e) + '"><b>' + hm(x.e.start_time) + (x.e.end_time ? ' - ' + hm(x.e.end_time) : '') + '</b>' + esc(x.e.title) + '</div>';
       }).join('') + '</div>';
     });
     return h + '</div>';
