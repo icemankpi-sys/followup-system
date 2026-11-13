@@ -33,7 +33,16 @@ header h1{font-size:16px;margin:0;font-weight:700}header .sub{font-size:12px;opa
 aside{width:236px;flex:none;background:var(--surface);border-right:1px solid var(--line);padding:12px 10px;position:sticky;top:0;align-self:stretch}
 .sh{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin:2px 8px 8px}
 .mod{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:9px 10px;cursor:pointer;color:var(--ink2);margin-bottom:2px}
-.sh.modgrp{margin:12px 8px 4px;padding-top:10px;border-top:1px solid var(--line);font-weight:700;color:var(--primary)}.mod.sub{margin-left:10px;width:calc(100% - 10px)}aside.col .mod.sub{margin-left:0;width:100%}
+/* v5.1 left menu: main category (.mgh, folds on click) with its sub categories (.mgb) */
+.mg{border-top:1px solid var(--line);margin-top:6px;padding-top:6px}.mg:first-child{border-top:0;margin-top:0;padding-top:0}
+.mgh{display:flex;align-items:center;gap:6px;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:7px 8px;margin-bottom:2px;cursor:pointer;font-size:11px;letter-spacing:.8px;text-transform:uppercase;font-weight:700;color:var(--primary)}
+.mgh:hover{background:var(--surface2)}.mgh:focus-visible{outline:2px solid var(--primary);outline-offset:1px}.mgh .mgn{flex:1;min-width:0}
+.mgh .mgc{font-weight:600;color:var(--muted);letter-spacing:0}.mgh .chev{flex:none;font-size:16px;line-height:1;transition:transform .15s}
+.mg.shut .chev{transform:rotate(-90deg)}.mg.shut .mgb{display:none}.mgb{padding-left:8px}
+aside.col .mgh{display:none}aside.col .mg .mgb{display:block;padding-left:0}
+html.m-skin aside .mgh{display:flex;color:#fff;font-size:12px;padding:10px 8px}html.m-skin aside .mgh:hover{background:rgba(255,255,255,.12)}html.m-skin aside .mgh .mgc{color:rgba(255,255,255,.75)}
+html.m-skin aside .mg{border-top-color:rgba(255,255,255,.22)}html.m-skin aside.col .mg .mgb{padding-left:8px}html.m-skin aside.col .mg.shut .mgb{display:none}
+@media(prefers-reduced-motion:reduce){.mgh .chev{transition:none}}
 .mod:hover{background:var(--surface2)}.mod.on{background:var(--primary-soft);color:var(--primary);font-weight:700}
 .mod .ic{width:30px;height:30px;border-radius:8px;background:var(--primary);color:var(--primary-ink);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none}
 .mod.soon .ic{background:var(--line2);color:var(--surface)}.mod .tx{flex:1;min-width:0}.mod .tx small{display:block;font-weight:400;color:var(--muted);font-size:11px}
@@ -210,7 +219,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
   </header>
   <nav id="tabs"></nav>
   <div class="shell">
-    <aside><button class="sbt" id="sbToggle" title="Collapse menu">&lsaquo;</button><div class="sh">Follow-up items</div><div id="mods"></div></aside>
+    <aside><button class="sbt" id="sbToggle" title="Collapse menu">&lsaquo;</button><div class="sh">Menu</div><div id="mods"></div></aside>
     <section id="content"><div id="bar"></div><div id="page"></div></section>
   </div>
   <div id="panel"></div>
@@ -240,18 +249,21 @@ const STATUS = {open:'Open',promised:'Promised',dispute:'Dispute',action_pending
 // v3.7: the view gives balance_now = list balance less the half-settled payments; the app shows and totals that, list_amount keeps the list's own figure
 function fixBal(r) { if (r && r.balance_now != null && r.list_amount === undefined) { r.list_amount = Number(r.amount); r.amount = Number(r.balance_now); } return r; }   // a function (not const) so ims-foc.js finds it on window
 const MODS = [
-  {id:'receivable', name:'Outstanding', sub:'Over 30 / 60 / 90 / 120 / 240', ic:'OS', ready:true},
-  {id:'rep', name:'Sales Reps', sub:'Rep outstanding and to-do', ic:'SR', ready:true},
-  {id:'team', name:'Rep Team', sub:'Reps, outlet beat plan, Rep Day map, coverage', ic:'RT', ready:true},
-  {id:'outlets', name:'Outlets', sub:'Outlet profiles, location, history', ic:'OL', ready:true},
-  {id:'visits', name:'Visit History', sub:'Rep routes and check-ins, any date', ic:'VH', ready:true},
-  {id:'runs', name:'Running Chart', sub:'Start / close meter by photo', ic:'RC', ready:true},
-  {id:'foc', name:'FOC', sub:'FOC not passed · MT-Colombo', ic:'FC', ready:true},
-  {id:'short_expiry', name:'Short Expiry', sub:'Expired or expiring in 90 days', ic:'SE', ready:true},
-  {id:'grn', name:'GRN Outstanding', sub:'GRN pending and errors', ic:'GR', ready:false},
-  {id:'kpi', name:'KPI', sub:'KPI documents', ic:'KP', ready:false},
+  {id:'receivable', name:'Outstanding', sub:'Over 30 / 60 / 90 / 120 / 240', ic:'OS', ready:true, grp:'Follow-up'},
+  {id:'rep', name:'Sales Reps', sub:'Rep outstanding and to-do', ic:'SR', ready:true, grp:'Sales Team'},
+  {id:'team', name:'Rep Team', sub:'Reps, outlet beat plan, Rep Day map, coverage', ic:'RT', ready:true, grp:'Sales Team'},
+  {id:'outlets', name:'Outlets', sub:'Outlet profiles, location, history', ic:'OL', ready:true, grp:'Sales Team'},
+  {id:'visits', name:'Visit History', sub:'Rep routes and check-ins, any date', ic:'VH', ready:true, grp:'Sales Team'},
+  {id:'runs', name:'Running Chart', sub:'Start / close meter by photo', ic:'RC', ready:true, grp:'Sales Team'},
+  {id:'foc', name:'FOC', sub:'FOC not passed · MT-Colombo', ic:'FC', ready:true, grp:'Follow-up'},
+  {id:'short_expiry', name:'Short Expiry', sub:'Expired or expiring in 90 days', ic:'SE', ready:true, grp:'Follow-up'},
+  {id:'grn', name:'GRN Outstanding', sub:'GRN pending and errors', ic:'GR', ready:false, grp:'Follow-up'},
+  {id:'kpi', name:'KPI', sub:'KPI documents', ic:'KP', ready:false, grp:'KPI'},
   // v4.8: main category "Account" (grp); its sub categories are the modules that carry grp:'Account'. More can be added the same way.
   {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true, grp:'Account'}];
+// v5.1: every module sits under a main category (grp). MGRP = the order of the main categories in the left menu;
+// a module with a grp that is not listed here shows after them, one without a grp under "Other". To move a module, change its grp.
+const MGRP = ['Follow-up', 'Sales Team', 'Account', 'KPI'];
 const PAGES = [['home','Home'],['items','Follow-up'],['dash','Dashboard'],['report','Report'],['perm','Permission']];
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -394,6 +406,31 @@ async function loadContacts(pre) {
   rows.forEach(r => { const o = CO[ck(r.operation, r.outlet)] || {}, p = CR[ck(r.operation, r.owner_name)] || {}; r.outlet_address = o.address || null; r.outlet_phone = o.phone || null; r.rep_phone = p.phone || null; });
 }
 
+// ---------- left menu (v5.1): main categories with their sub categories; a click on a main category folds / unfolds it ----------
+// Only the modules the user may see are listed (visibleMods), and a main category with none of them is not shown at all.
+// The folded categories are remembered on this device for each user (localStorage fu_grp_<username>).
+let grpShut = {}, grpFor = null;
+const grpKey = () => 'fu_grp_' + ((me && me.username) || '');
+function saveGrp() { try { localStorage.setItem(grpKey(), JSON.stringify(grpShut)); } catch (e) {} }
+function paintMods(keepOpen) {
+  if (grpFor !== grpKey()) { grpFor = grpKey(); grpShut = {}; try { const o = JSON.parse(localStorage.getItem(grpFor) || '{}'); if (o && typeof o === 'object' && !Array.isArray(o)) grpShut = o; } catch (e) {} }
+  const act = rows.filter(isActive), vis = visibleMods(), gOf = m => m.grp || 'Other';
+  const cur = ['items', 'dash', 'report', 'record', 'outlet'].includes(page) ? mod : '', curM = cur && modOf(cur), curG = curM ? gOf(curM) : '';
+  if (keepOpen && curG && grpShut[curG]) { delete grpShut[curG]; saveGrp(); }   // the main category of the open page stays open
+  const names = MGRP.concat(vis.map(gOf)).filter((g, i, a) => a.indexOf(g) === i);
+  $('mods').innerHTML = names.map(g => {
+    const ms = vis.filter(m => gOf(m) === g); if (!ms.length) return '';
+    let tot = 0;
+    const items = ms.map(m => {
+      const n = m.id === 'receivable' ? act.filter(r => !op || r.operation === op).length : 0; tot += n;
+      return '<button title="' + esc(g + ' · ' + m.name) + '" class="mod ' + (m.id === cur ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
+    }).join('');
+    const shut = !!grpShut[g];
+    return '<div class="mg' + (shut ? ' shut' : '') + '"><button type="button" class="mgh" data-grp="' + esc(g) + '" aria-expanded="' + (shut ? 'false' : 'true') + '" title="' + esc(g) + (shut ? ': show' : ': hide') + '"><span class="mgn">' + esc(g) + '</span>'
+      + (shut ? '<span class="mgc">' + ms.length + '</span>' + (tot ? '<span class="cnt">' + tot + '</span>' : '') : '') + '<span class="chev" aria-hidden="true">&#9662;</span></button><div class="mgb">' + items + '</div></div>';
+  }).join('');
+}
+
 // ---------- navigation ----------
 function go(p, m) {
   if (p) page = p; if (m) mod = m;
@@ -401,13 +438,7 @@ function go(p, m) {
   $('panel').classList.remove('open'); if (page === 'record') $('panel').innerHTML = '';
   document.querySelector('aside').classList.toggle('col', sbCol); $('sbToggle').innerHTML = sbCol ? '&rsaquo;' : '&lsaquo;'; $('sbToggle').title = sbCol ? 'Expand menu' : 'Collapse menu';
   $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + ((mod === 'team' && ['items', 'dash', 'report'].includes(page) && {items: 'Team', dash: 'Rep Day', report: 'Coverage'}[x[0]]) || x[1]) +(x[0] === 'home' && window.MY_MENTIONS && MY_MENTIONS.length ? ' <span class="nbadge" title="My to-do">' + MY_MENTIONS.length + '</span>' : '') + '</button>').join('');
-  const act = rows.filter(isActive);
-  let lastGrp = '';
-  $('mods').innerHTML = visibleMods().map(m => {
-    const n = m.id === 'receivable' ? act.filter(r => !op || r.operation === op).length : 0;
-    const gh = (m.grp || '') !== lastGrp && m.grp ? '<div class="sh modgrp">' + esc(m.grp) + '</div>' : ''; lastGrp = m.grp || '';
-    return gh + '<button title="' + esc((m.grp ? m.grp + ' · ' : '') + m.name) + '" class="mod ' + (m.grp ? 'sub ' : '') + (m.id === mod && ['items', 'dash', 'report', 'record', 'outlet'].includes(page) ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
-  }).join('');
+  paintMods(true);
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
   const my = mod === 'rep' ? opsFor('rep') : REP_SUB.includes(mod) ? repTeamOps() : opsFor(mod);
   if (needOp && my.length === 1) op = my[0].code; else if (!needOp || my.length > 1) { if (!my.some(o => o.code === op)) op = ''; }
@@ -907,7 +938,10 @@ async function permClick(b) {
 $('lbtn').onclick = signIn; $('lpass').onkeydown = e => { if (e.key === 'Enter') signIn(); };
 $('logout').onclick = signOut;
 $('tabs').onclick = e => { const b = e.target.closest('button[data-page]'); if (b) { clearHash(); go(b.dataset.page); } };
-$('mods').onclick = e => { const b = e.target.closest('button[data-mod]'); if (b) { clearHash(); go(['items', 'dash', 'report'].includes(page) ? page : 'items', b.dataset.mod); } };
+$('mods').onclick = e => {
+  const g = e.target.closest('button[data-grp]');
+  if (g) { const k = g.dataset.grp; if (grpShut[k]) delete grpShut[k]; else grpShut[k] = 1; saveGrp(); paintMods(false); const nb = [...$('mods').querySelectorAll('.mgh')].find(x => x.dataset.grp === k); if (nb) nb.focus(); return; }
+  const b = e.target.closest('button[data-mod]'); if (b) { clearHash(); go(['items', 'dash', 'report'].includes(page) ? page : 'items', b.dataset.mod); } };
 $('bar').onchange = e => { if (e.target.id === 'opSel') { op = e.target.value; go(); } };
 $('page').onclick = e => {
   const u = e.target.closest('[data-uact]'); if (u && u.tagName !== 'SELECT') return permClick(u);
