@@ -32,12 +32,17 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   const weeksBack = n => { const cur = monday(new Date()); return [...Array(n)].map((_, i) => addD(cur, -7 * (n - 1 - i))); };
 
   // ---------- state ----------
-  const C = {loaded: false, lanes: [], dmap: {}, tmap: {}, wk: null, n: 13, mgr: '', lane: ''};
+  const C = {loaded: false, lanes: [], dmap: {}, tmap: {}, wk: null, n: 13, mgr: '', lane: '', dept: ''};
   const F = {loaded: false, week: {}, out: [], chq: [], wk: null, sub: 'out', n: 13, from: '', to: ''};
   // v4.8: Daily Collection is the first sub category of the main category "Account". Admin and the Director Board (all-module access or a Director job title) get the Board dashboard.
   const isBoard = () => !!me && (me.role === 'admin' || (access || []).some(a => a.module === '*') || /director/i.test(me.job_title || ''));
   const canC = (o, need) => rank(lvl(o, 'collection')) >= rank(need);
   const canF = (o, need) => rank(lvl(o, 'cashflow')) >= rank(need);
+  // v5.2: one collection line = one bank account (Oshan's account list, 2026-11-13): acc_no + department (company) + officer = responsible accountant.
+  // The two columns come with Supabase/38 collection accounts.sql; until it is run, hasAcc() is false and the app neither shows nor saves them.
+  const hasAcc = () => C.lanes.length > 0 && Object.prototype.hasOwnProperty.call(C.lanes[0], 'acc_no');
+  const DEPTS = ['Iceman Cold Chain', 'Iceman Distributors'];
+  const accInfo = l => [l.acc_no ? 'A/C ' + l.acc_no : '', l.department || ''].filter(Boolean).join(' · ');
 
   async function cLoad(force) {
     if (C.loaded && !force) return;
@@ -58,7 +63,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     F.out = out; F.chq = chq;
     F.loaded = true;
   }
-  const lanesF = () => C.lanes.filter(l => l.active && (!op || l.operation === op) && (!C.mgr || (l.manager || '') === C.mgr) && (!C.lane || String(l.id) === C.lane));
+  const lanesF = () => C.lanes.filter(l => l.active && (!op || l.operation === op) && (!C.mgr || (l.officer || l.manager || '') === C.mgr) && (!C.lane || String(l.id) === C.lane));
   const amt = (l, day) => { const r = C.dmap[l.id + '|' + day]; return r && r.amount != null ? Number(r.amount) : null; };
   const wkSum = (ls, ws) => { let s = 0; ls.forEach(l => { for (let i = 0; i < 7; i++) s += amt(l, ymd(addD(ws, i))) || 0; }); return s; };
   const wkTgt = (ls, ws) => sumA(ls.map(l => C.tmap[l.id + '|' + ymd(ws)] || 0));
@@ -103,9 +108,9 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
 
   // ================= DAILY COLLECTION =================
   function cFilters(withLane) {
-    const mgrs = [...new Set(C.lanes.filter(l => !op || l.operation === op).map(l => l.manager).filter(Boolean))].sort();
-    return '<div class="filters">' + (mgrs.length ? sel('ccMgr', 'All managers', mgrs.map(m => [m, m]), C.mgr) : '')
-      + (withLane ? sel('ccLane', 'All collection lines', C.lanes.filter(l => l.active && (!op || l.operation === op)).map(l => [l.id, l.name]), C.lane) : '') + '</div>';
+    const accs = [...new Set(C.lanes.filter(l => !op || l.operation === op).map(l => l.officer || l.manager).filter(Boolean))].sort();
+    return '<div class="filters">' + (accs.length ? sel('ccMgr', 'All accountants', accs.map(m => [m, m]), C.mgr) : '')
+      + (withLane ? sel('ccLane', 'All collection accounts', C.lanes.filter(l => l.active && (!op || l.operation === op)).map(l => [l.id, l.name]), C.lane) : '') + '</div>';
   }
   function bindCF(again) { const m = $('ccMgr'); if (m) m.onchange = () => { C.mgr = m.value; again(); }; const l = $('ccLane'); if (l) l.onchange = () => { C.lane = l.value; again(); }; }
 
@@ -114,18 +119,18 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const days = [...Array(7)].map((_, i) => addD(ws, i)), today = ymd(new Date()), ls = lanesF();
     const anyFull = C.lanes.some(l => canC(l.operation, 'full'));
     const tg = wkTgt(ls, ws), col = wkSum(ls, ws), entered = ls.filter(l => amt(l, today) != null).length;
-    let h = '<h2 class="pt">Daily Collection <span class="hint">enter what each collection line collected today</span></h2>'
+    let h = '<h2 class="pt">Daily Collection <span class="hint">enter what each collection account collected today</span></h2>'
       + '<div class="wknav"><button class="btn" id="ccPrev">&lsaquo; Previous week</button><b>' + wkLabel(ws) + ' &middot; ' + fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' ' + addD(ws, 6).getFullYear() + '</b><button class="btn" id="ccNext">Next week &rsaquo;</button><button class="btn" id="ccNow">This week</button>'
-      + (anyFull ? '<button class="btn" id="ccLanes">Manage collection lines</button>' : '') + '</div>' + cFilters(false)
+      + (anyFull ? '<button class="btn" id="ccLanes">Manage collection accounts</button>' : '') + '</div>' + cFilters(false)
       + '<div class="grid"><div class="tile"><b>' + money0(tg) + '</b><span>Week target</span></div><div class="tile ' + (col >= tg ? 'g' : 'a') + '"><b>' + money0(col) + '</b><span>Collected so far</span></div>'
       + '<div class="tile ' + (col - tg >= 0 ? 'g' : 'r') + '"><b>' + money0(col - tg) + '</b><span>Excess / (Short)</span></div><div class="tile"><b>' + (tg ? pct(col, tg) + '%' : 'no target') + '</b><span>Achievement</span></div>'
-      + (ymd(ws) === ymd(monday(new Date())) ? '<div class="tile a"><b>' + entered + ' of ' + ls.length + '</b><span>Lines entered today</span></div>' : '') + '</div>'
-      + '<div class="wrap"><table style="min-width:1100px"><thead><tr><th>Collection line</th><th>Officer</th>' + days.map((d, i) => '<th class="n">' + DOW[i] + ' ' + d.getDate() + '</th>').join('')
+      + (ymd(ws) === ymd(monday(new Date())) ? '<div class="tile a"><b>' + entered + ' of ' + ls.length + '</b><span>Accounts entered today</span></div>' : '') + '</div>'
+      + '<div class="wrap"><table style="min-width:1200px"><thead><tr><th>Collection account</th><th>Accountant</th>' + days.map((d, i) => '<th class="n">' + DOW[i] + ' ' + d.getDate() + '</th>').join('')
       + '<th class="n">Total</th><th class="n">Target</th><th class="n">Excess/(Short)</th><th class="n">%</th><th></th></tr></thead><tbody>';
-    if (!ls.length) h += '<tr><td colspan="14" class="hint">No collection lines for your access. The Admin gives access in Permission (Daily Collection).</td></tr>';
+    if (!ls.length) h += '<tr><td colspan="14" class="hint">No collection accounts for your access. The Admin gives access in Permission (Daily Collection).</td></tr>';
     ls.forEach(l => {
       const e = canC(l.operation, 'edit'), f = canC(l.operation, 'full'), t = C.tmap[l.id + '|' + ymd(ws)];
-      h += '<tr><td><b>' + esc(l.name) + '</b> <span class="tag t-b">' + esc(l.operation) + '</span></td><td>' + esc(l.officer || '') + '</td>'
+      h += '<tr><td><b>' + esc(l.name) + '</b> <span class="tag t-b">' + esc(l.operation) + '</span>' + (accInfo(l) ? '<div class="hint" style="margin:2px 0 0;white-space:nowrap">' + esc(accInfo(l)) + '</div>' : '') + '</td><td>' + esc(l.officer || '') + '</td>'
         + days.map(d => {
           const k = ymd(d), r = C.dmap[l.id + '|' + k], v = r && r.amount != null ? r.amount : '', old = (new Date() - d) / 864e5 > 7.99, lock = k > today || (old && !f);
           return '<td class="n">' + (e && !lock ? '<input class="cin" type="number" step="0.01" min="0" data-l="' + l.id + '" data-d="' + k + '" value="' + v + '"' + (v === '' && k < today ? ' style="background:var(--danger-soft)" placeholder="not entered"' : '') + (r && r.customers ? ' title="' + esc(r.customers) + '"' : '') + '>' : (v === '' ? '<span class="hint">' + (k > today ? '' : '-') + '</span>' : money0(v))) + '</td>';
@@ -190,18 +195,24 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   function lanesPanel() {
     const fullOps = ops.filter(o => canC(o.code, 'full')), lanes = C.lanes.filter(l => canC(l.operation, 'full'));
     const opSel = (v, id) => '<select data-f="operation"' + (id ? '' : ' id="nlOp"') + '>' + fullOps.map(o => '<option value="' + o.code + '"' + (o.code === v ? ' selected' : '') + '>' + o.code + '</option>').join('') + '</select>';
-    $('panel').innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px"><h3>Collection lines</h3><button class="btn" id="pClose">Close</button></div><div class="hint">One line = one collection column of the old sheet. Officer and manager names drive the filters.</div>'
+    const depSel = (v, id) => '<select data-f="department"' + (id ? '' : ' id="nlDept"') + '><option value=""></option>' + DEPTS.map(d => '<option' + (d === v ? ' selected' : '') + '>' + d + '</option>').join('') + '</select>';
+    $('panel').innerHTML = '<div style="display:flex;justify-content:space-between;gap:8px"><h3>Collection accounts</h3><button class="btn" id="pClose">Close</button></div><div class="hint">One line = one bank account collections are banked to. The responsible accountant name drives the filter.</div>'
       + lanes.map(l => '<div class="card" style="margin:8px 0;box-shadow:none;border:1px solid var(--line)" data-lid="' + l.id + '"><div class="frm"><label>Name</label><input data-f="name" value="' + esc(l.name) + '"><label>Operation</label>' + opSel(l.operation, 1)
-        + '<label>Officer</label><input data-f="officer" value="' + esc(l.officer || '') + '"><label>Manager</label><input data-f="manager" value="' + esc(l.manager || '') + '"><label>Order</label><input data-f="sort" type="number" value="' + l.sort + '"><label><input type="checkbox" data-f="active"' + (l.active ? ' checked' : '') + ' style="width:auto"> Active</label></div><div class="row2"><button class="btn p" data-lsave="' + l.id + '">Save</button></div></div>').join('')
-      + '<div class="card" style="margin:8px 0;box-shadow:none;border:1px dashed var(--line2)"><b>Add a line</b><div class="frm"><label>Name</label><input id="nlName"><label>Operation</label>' + opSel(fullOps[0] && fullOps[0].code) + '<label>Officer</label><input id="nlOff"><label>Manager</label><input id="nlMgr"></div><div class="row2"><button class="btn p" id="nlAdd">Add line</button></div></div><div class="err" id="pErr"></div>';
+        + (hasAcc() ? '<label>Acc No</label><input data-f="acc_no" value="' + esc(l.acc_no || '') + '"><label>Department</label>' + depSel(l.department, 1) : '')
+        + '<label>Responsible accountant</label><input data-f="officer" value="' + esc(l.officer || '') + '"><label>Order</label><input data-f="sort" type="number" value="' + l.sort + '"><label><input type="checkbox" data-f="active"' + (l.active ? ' checked' : '') + ' style="width:auto"> Active</label></div><div class="row2"><button class="btn p" data-lsave="' + l.id + '">Save</button></div></div>').join('')
+      + '<div class="card" style="margin:8px 0;box-shadow:none;border:1px dashed var(--line2)"><b>Add an account</b><div class="frm"><label>Name</label><input id="nlName"><label>Operation</label>' + opSel(fullOps[0] && fullOps[0].code) + (hasAcc() ? '<label>Acc No</label><input id="nlAcc"><label>Department</label>' + depSel('') : '') + '<label>Responsible accountant</label><input id="nlOff"></div><div class="row2"><button class="btn p" id="nlAdd">Add account</button></div></div><div class="err" id="pErr"></div>';
     $('panel').classList.add('open'); $('pClose').onclick = () => $('panel').classList.remove('open');
     $('panel').querySelectorAll('[data-lsave]').forEach(b => b.onclick = async () => {
       const box = b.closest('[data-lid]'), g = f => box.querySelector('[data-f="' + f + '"]');
-      try { await api('/rest/v1/cc_lanes?id=eq.' + b.dataset.lsave, {method: 'PATCH', body: {name: g('name').value.trim(), operation: g('operation').value, officer: g('officer').value.trim() || null, manager: g('manager').value.trim() || null, sort: Number(g('sort').value) || 0, active: g('active').checked}, headers: {Prefer: 'return=minimal'}});
+      const body = {name: g('name').value.trim(), operation: g('operation').value, officer: g('officer').value.trim() || null, sort: Number(g('sort').value) || 0, active: g('active').checked};
+      if (hasAcc()) { body.acc_no = g('acc_no').value.trim() || null; body.department = g('department').value || null; }
+      try { await api('/rest/v1/cc_lanes?id=eq.' + b.dataset.lsave, {method: 'PATCH', body: body, headers: {Prefer: 'return=minimal'}});
         await cLoad(true); lanesPanel(); cEntry(); $('panel').classList.add('open'); } catch (e) { $('pErr').textContent = e.message; }
     });
     $('nlAdd').onclick = async () => {
-      try { await api('/rest/v1/cc_lanes', {method: 'POST', body: {name: $('nlName').value.trim(), operation: $('nlOp').value, officer: $('nlOff').value.trim() || null, manager: $('nlMgr').value.trim() || null, sort: 99}, headers: {Prefer: 'return=minimal'}});
+      const body = {name: $('nlName').value.trim(), operation: $('nlOp').value, officer: $('nlOff').value.trim() || null, sort: 99};
+      if (hasAcc()) { body.acc_no = $('nlAcc').value.trim() || null; body.department = $('nlDept').value || null; }
+      try { await api('/rest/v1/cc_lanes', {method: 'POST', body: body, headers: {Prefer: 'return=minimal'}});
         await cLoad(true); lanesPanel(); cEntry(); $('panel').classList.add('open'); } catch (e) { $('pErr').textContent = e.message; }
     };
   }
@@ -251,10 +262,14 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       + '</div>';
     if (main) {
       const wsC = W[W.length - 1];
-      h += '<div class="card" style="margin-bottom:12px"><h3>Operations this week</h3><div class="wrap" style="box-shadow:none"><table><thead><tr><th>Operation</th><th>Accountant / officer</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th>Pace</th><th class="n">Period %</th><th>Trend</th><th class="n">Entered ' + fmtD(yd) + '</th></tr></thead><tbody>'
-        + per.map(x => { const tg = wkTgt(x.u.lanes, wsC), c = wkSum(x.u.lanes, wsC), pv = tg * wd / 6, ent = x.u.lanes.filter(l => amt(l, ydk) != null).length;
-          return '<tr class="row" data-dop="' + x.u.code + '"><td><b>' + esc(x.u.code) + '</b> ' + esc(x.u.title) + '</td><td>' + (esc([...new Set(x.u.lanes.map(l => l.officer).filter(Boolean))].join(', ')) || '<span class="hint">not set</span>') + '</td><td class="n">' + money0(tg) + '</td><td class="n">' + money0(c) + '</td><td class="n">' + (tg ? pct(c, tg) + '%' : '') + '</td><td>' + (tg ? (c >= pv ? '<span class="up">on pace</span>' : '<span class="down">behind ' + money0(pv - c) + '</span>') : '<span class="hint">no target</span>') + '</td><td class="n">' + (x.ach == null ? '' : Math.round(x.ach) + '%') + '</td><td>' + (x.slope > 3 ? '<span class="up">&#9650; rising</span>' : x.slope < -3 ? '<span class="down">&#9660; falling</span>' : '<span class="hint">steady</span>') + '</td><td class="n"><span class="' + (ent < x.u.lanes.length ? 'down' : 'up') + '">' + ent + ' / ' + x.u.lanes.length + '</span></td></tr>'; }).join('')
-        + '</tbody></table></div><div class="hint">Click an operation to open its dashboard.</div></div>';
+      const depts = [...new Set(baseL.map(l => l.department).filter(Boolean))];
+      const dl = (C.dept ? baseL.filter(l => (l.department || '') === C.dept) : baseL).slice().sort((a, b) => (a.sort - b.sort) || a.name.localeCompare(b.name));
+      h += '<div class="card" style="margin-bottom:12px"><h3>Collection accounts this week</h3>'
+        + (depts.length > 1 ? '<div class="subtabs noprint"><button data-ddep="" class="' + (C.dept ? '' : 'on') + '">All departments</button>' + depts.map(d => '<button data-ddep="' + esc(d) + '" class="' + (C.dept === d ? 'on' : '') + '">' + esc(d) + '</button>').join('') + '</div>' : '')
+        + '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Operation / account</th><th>Acc No</th><th>Department</th><th>Responsible accountant</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th>Pace</th><th class="n">Entered ' + fmtD(yd) + '</th></tr></thead><tbody>'
+        + dl.map(l => { const tg = wkTgt([l], wsC), c = wkSum([l], wsC), pv = tg * wd / 6, ent = amt(l, ydk) != null;
+          return '<tr class="row" data-dop="' + esc(l.operation) + '"><td><b>' + esc(l.name) + '</b> <span class="tag t-b">' + esc(l.operation) + '</span></td><td>' + esc(l.acc_no || '') + '</td><td>' + esc(l.department || '') + '</td><td>' + (esc(l.officer || '') || '<span class="hint">not set</span>') + '</td><td class="n">' + money0(tg) + '</td><td class="n">' + money0(c) + '</td><td class="n">' + (tg ? pct(c, tg) + '%' : '') + '</td><td>' + (tg ? (c >= pv ? '<span class="up">on pace</span>' : '<span class="down">behind ' + money0(pv - c) + '</span>') : '<span class="hint">no target</span>') + '</td><td class="n"><span class="' + (ent ? 'up' : 'down') + '">' + (ent ? 'Yes' : 'No') + '</span></td></tr>'; }).join('')
+        + '</tbody></table></div><div class="hint">One row = one bank account (the accountants\' account list). Click a row to open that operation\'s dashboard.</div></div>';
     }
     h += '<div class="grid2">'
       + '<div class="card"><h3>Weekly collection vs target</h3>' + svgCombo(W.map(wkLabel), col, tgt, {pct: true}) + legend([['Collected (met target)', 'var(--primary)'], ['Collected (below target)', 'var(--accent)'], ['Target', 'var(--danger)']]) + '</div>'
@@ -267,29 +282,30 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       + '</tbody></table></div><div class="hint">Green 100% or more, amber 80 to 99%, red below 80%, "-" no target.</div></div>';
     $('page').innerHTML = h;
     $('ccN').onchange = () => { C.n = Number($('ccN').value); cDash(); }; bindCF(cDash);
+    document.querySelectorAll('#page [data-ddep]').forEach(b => b.onclick = () => { C.dept = b.dataset.ddep; cDash(); });
     document.querySelectorAll('#page [data-dop]').forEach(b => b.onclick = () => { op = b.dataset.dop; C.lane = ''; C.mgr = ''; go(); });
   }
   function cReport() {
     const ls = lanesF(), W = weeksBack(26), ws = C.rwk || (W.length > 1 ? W[W.length - 2] : W[0]); C.rwk = ws;
     const prev = addD(ws, -7), groups = {};
-    ls.forEach(l => { const g = l.manager || '(no manager)'; (groups[g] = groups[g] || []).push(l); });
-    const row = l => { const t = C.tmap[l.id + '|' + ymd(ws)] || 0, c = wkSum([l], ws), pc = wkSum([l], prev); return [l.operation, l.name, l.officer || '', t, c, t ? pct(c, t) : null, t ? c - t : null, pc, c - pc]; };
-    const tr = r => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td><td class="n">' + money0(r[3]) + '</td><td class="n">' + money0(r[4]) + '</td><td class="n">' + (r[5] == null ? '' : r[5] + '%') + '</td><td class="n">' + (r[6] == null ? '' : '<span class="' + (r[6] >= 0 ? 'up' : 'down') + '">' + money0(r[6]) + '</span>') + '</td><td class="n">' + money0(r[7]) + '</td><td class="n">' + (r[8] >= 0 ? '+' : '') + money0(r[8]) + '</td></tr>';
+    ls.forEach(l => { const g = l.department || l.manager || '(no department)'; (groups[g] = groups[g] || []).push(l); });
+    const row = l => { const t = C.tmap[l.id + '|' + ymd(ws)] || 0, c = wkSum([l], ws), pc = wkSum([l], prev); return [l.operation, l.name, l.acc_no || '', l.officer || '', t, c, t ? pct(c, t) : null, t ? c - t : null, pc, c - pc]; };
+    const tr = r => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td><td>' + esc(r[3]) + '</td><td class="n">' + money0(r[4]) + '</td><td class="n">' + money0(r[5]) + '</td><td class="n">' + (r[6] == null ? '' : r[6] + '%') + '</td><td class="n">' + (r[7] == null ? '' : '<span class="' + (r[7] >= 0 ? 'up' : 'down') + '">' + money0(r[7]) + '</span>') + '</td><td class="n">' + money0(r[8]) + '</td><td class="n">' + (r[9] >= 0 ? '+' : '') + money0(r[9]) + '</td></tr>';
     const all = [];
     let body = '';
-    Object.keys(groups).sort().forEach(g => { const rs = groups[g].map(row); all.push(...rs); const t = sumA(rs.map(r => r[3])), c = sumA(rs.map(r => r[4])); body += '<tr class="grp"><td colspan="3">' + esc(g) + '</td><td class="n">' + money0(t) + '</td><td class="n">' + money0(c) + '</td><td class="n">' + (t ? pct(c, t) + '%' : '') + '</td><td class="n">' + (t ? money0(c - t) : '') + '</td><td colspan="2"></td></tr>' + rs.map(tr).join(''); });
-    const T = sumA(all.map(r => r[3])), Cc = sumA(all.map(r => r[4])), P = sumA(all.map(r => r[7]));
+    Object.keys(groups).sort().forEach(g => { const rs = groups[g].map(row); all.push(...rs); const t = sumA(rs.map(r => r[4])), c = sumA(rs.map(r => r[5])); body += '<tr class="grp"><td colspan="4">' + esc(g) + '</td><td class="n">' + money0(t) + '</td><td class="n">' + money0(c) + '</td><td class="n">' + (t ? pct(c, t) + '%' : '') + '</td><td class="n">' + (t ? money0(c - t) : '') + '</td><td colspan="2"></td></tr>' + rs.map(tr).join(''); });
+    const T = sumA(all.map(r => r[4])), Cc = sumA(all.map(r => r[5])), P = sumA(all.map(r => r[8]));
     $('page').innerHTML = '<div class="noprint row2">' + sel('ccRw', '', W.slice().reverse().map(w => [ymd(w), wkLabel(w) + ' (' + fmtD(w) + ' to ' + fmtD(addD(w, 6)) + ')']), ymd(ws)) + '<button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="ccCsv">Download Excel (CSV)</button></div>'
       + '<h2 class="pt">Weekly collection report &middot; ' + wkLabel(ws) + '</h2><div class="hint">' + fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' ' + addD(ws, 6).getFullYear() + ' &middot; ' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' &middot; Iceman IMS</div>'
       + '<div class="grid"><div class="tile"><b>' + money0(T) + '</b><span>Target</span></div><div class="tile"><b>' + money0(Cc) + '</b><span>Collected</span></div><div class="tile ' + (Cc >= T ? 'g' : 'r') + '"><b>' + (T ? pct(Cc, T) + '%' : '-') + '</b><span>Achievement</span></div><div class="tile"><b>' + (Cc - P >= 0 ? '+' : '') + money0(Cc - P) + '</b><span>Change vs last week</span></div></div>'
-      + '<div class="wrap"><table><thead><tr><th>Operation</th><th>Line</th><th>Officer</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th class="n">Excess/(Short)</th><th class="n">Last week</th><th class="n">Change</th></tr></thead><tbody>' + body
-      + '<tr class="tot"><td colspan="3">Total</td><td class="n">' + money0(T) + '</td><td class="n">' + money0(Cc) + '</td><td class="n">' + (T ? pct(Cc, T) + '%' : '') + '</td><td class="n">' + (T ? money0(Cc - T) : '') + '</td><td class="n">' + money0(P) + '</td><td class="n">' + money0(Cc - P) + '</td></tr></tbody></table></div>';
+      + '<div class="wrap"><table><thead><tr><th>Operation</th><th>Account</th><th>Acc No</th><th>Accountant</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th class="n">Excess/(Short)</th><th class="n">Last week</th><th class="n">Change</th></tr></thead><tbody>' + body
+      + '<tr class="tot"><td colspan="4">Total</td><td class="n">' + money0(T) + '</td><td class="n">' + money0(Cc) + '</td><td class="n">' + (T ? pct(Cc, T) + '%' : '') + '</td><td class="n">' + (T ? money0(Cc - T) : '') + '</td><td class="n">' + money0(P) + '</td><td class="n">' + money0(Cc - P) + '</td></tr></tbody></table></div>';
     $('ccRw').onchange = () => { C.rwk = pd($('ccRw').value); cReport(); };
-    $('ccCsv').onclick = () => csvDl('Collection ' + wkLabel(ws) + ' ' + ymd(ws), ['Operation', 'Line', 'Officer', 'Target', 'Collected', 'Percent', 'Excess/(Short)', 'Last week', 'Change'], all);
+    $('ccCsv').onclick = () => csvDl('Collection ' + wkLabel(ws) + ' ' + ymd(ws), ['Operation', 'Account', 'Acc No', 'Accountant', 'Target', 'Collected', 'Percent', 'Excess/(Short)', 'Last week', 'Change'], all);
   }
   function cCard(m) {
     setTimeout(async () => { try { await cLoad(); const ls = C.lanes.filter(l => l.active), ws = monday(new Date()), c = wkSum(ls, ws), t = wkTgt(ls, ws), el = document.getElementById('card-collection');
-      if (el) el.innerHTML = '<b>Account &middot; ' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">' + esc(isBoard() ? 'Admin & Director Board dashboard · all operations' : m.sub) + '</div><div style="font-size:20px;font-weight:700;margin-top:6px">' + money0(c) + '</div><div class="hint">this week of ' + money0(t) + ' target' + (t ? ' (' + pct(c, t) + '%)' : '') + ' &middot; ' + ls.length + ' lines</div>'; } catch (e) {} }, 0);
+      if (el) el.innerHTML = '<b>Account &middot; ' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">' + esc(isBoard() ? 'Admin & Director Board dashboard · all operations' : m.sub) + '</div><div style="font-size:20px;font-weight:700;margin-top:6px">' + money0(c) + '</div><div class="hint">this week of ' + money0(t) + ' target' + (t ? ' (' + pct(c, t) + '%)' : '') + ' &middot; ' + ls.length + ' accounts</div>'; } catch (e) {} }, 0);
     return '<div class="card mcard" data-mod="collection" data-go="' + (isBoard() ? 'dash' : 'items') + '" id="card-collection"><b>Account &middot; ' + esc(m.name) + '</b> <span class="badge b-live">Live</span><div class="hint">Loading...</div></div>';
   }
 
