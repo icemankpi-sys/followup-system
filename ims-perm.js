@@ -15,7 +15,7 @@
     {k: 'director', name: 'Director', job: 'Director', hint: 'Everything, view + remarks', m: {'*': 'view'}, allOps: true},
     {k: 'legal', name: 'Legal Officer', job: 'Legal Officer', hint: 'Outstanding view + remarks', m: {receivable: 'view'}, allOps: true}];
   // only these modules can be given in fu_access (fu_access_module_check, Supabase/33 added 'team'); Outlets / Visit History / Running Chart come with Sales Reps or Rep Team
-  const GRANT = ['receivable', 'rep', 'team', 'collection', 'foc', 'short_expiry', 'grn', 'kpi'];
+  const GRANT = ['receivable', 'rep', 'team', 'collection', 'calendar', 'foc', 'short_expiry', 'grn', 'kpi'];
   // v4.8: Accountant = job title "Accountant" with Daily Collection edit / full; assigned per operation by ticking operations in the editor
   const isAcct = u => /accountant/i.test(u.job_title || '');
   function acctCard() {
@@ -25,7 +25,7 @@
     return '<div class="card" style="margin-top:12px"><h3>Accountants by operation</h3><div class="hint">An Accountant enters the Daily Collection of the operations ticked for them (Account &rsaquo; Daily Collection). To assign: open the user, press the role "Accountant", tick the operations, Save.</div>'
       + '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Operation</th><th>Accountant</th></tr></thead><tbody>' + rowsH + '</tbody></table></div></div>';
   }
-  const SUBS = {collection: 'Account · Daily collection vs weekly target · Edit = enter own operation, Full = also targets and lines', team: 'Manage reps · View = see reps, outlets, Rep Day · Edit = add reps, add / assign outlets · Full = also make rep app logins'};
+  const SUBS = {calendar: 'Calendar · events by date and time · View = see the events of the operation · Edit = add events, change / delete your own · Full = change / delete anyone events, add events for all operations', collection: 'Account · Daily collection vs weekly target · Edit = enter own operation, Full = also targets and lines', team: 'Manage reps · View = see reps, outlets, Rep Day · Edit = add reps, add / assign outlets · Full = also make rep app logins'};
   const MODLIST = () => [{id: '*', name: 'All modules', sub: 'Every module, now and later'}].concat(MODS.filter(m => GRANT.includes(m.id)).map(m => ({id: m.id, name: m.name, sub: (SUBS[m.id] || m.sub) + (m.ready ? '' : ' (coming)')})));
   const rk = l => ({none: 0, view: 1, edit: 2, full: 3}[l] || 0);
   let F = {q: '', show: 'all', newOpen: false}, E = null;   // E = editor state

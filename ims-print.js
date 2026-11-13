@@ -66,7 +66,7 @@
     // footer on every page in the page margin (never covers the report); page numbers on the right
     const cs = s => '"' + String(s).replace(/[\\"]/g, '\\$&').replace(/[\r\n]+/g, ' ') + '"';
     // wide tables (many columns or wider than an A4 portrait page) print on A4 landscape so nothing is cut or squeezed
-    let wide = false;
+    let wide = !!page.querySelector('[data-print-land]');   // v4 (2026-11-14): the Calendar month / week grids ask for landscape
     page.querySelectorAll('table').forEach(t => {
       if (t.closest('#prHead') || !t.offsetParent) return;
       const cols = t.rows[0] ? [...t.rows[0].cells].reduce((n, c) => n + (c.colSpan || 1), 0) : 0;

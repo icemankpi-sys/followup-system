@@ -226,6 +226,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 </div>
 
 <script src="ims-cash.js?v=9"></script>
+<script src="ims-calendar.js?v=2"></script>
 <script src="ims-rep.js?v=9"></script>
 <script src="ims-outlet.js?v=8"></script>
 <script src="ims-handover.js?v=2"></script>
@@ -233,7 +234,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
 <script src="ims-foc.js?v=4"></script>
 <script src="ims-osupload.js?v=5"></script>
 <script src="ims-additem.js?v=1"></script>
-<script src="ims-print.js?v=3"></script>
+<script src="ims-print.js?v=4"></script>
 <script src="ims-ops.js?v=1"></script>
 <script src="ims-mention.js?v=1"></script>
 <script src="ims-visit.js?v=10"></script>
@@ -260,10 +261,12 @@ const MODS = [
   {id:'grn', name:'GRN Outstanding', sub:'GRN pending and errors', ic:'GR', ready:false, grp:'Follow-up'},
   {id:'kpi', name:'KPI', sub:'KPI documents', ic:'KP', ready:false, grp:'KPI'},
   // v4.8: main category "Account" (grp); its sub categories are the modules that carry grp:'Account'. More can be added the same way.
-  {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true, grp:'Account'}];
+  {id:'collection', name:'Daily Collection', sub:'Daily collection vs weekly target', ic:'DC', ready:true, grp:'Account'},
+  // v5.4: main category "Calendar". One module (one permission, per operation); `views` = its sub items in the left menu (page, name, text, icon). items = Month, dash = Week, report = Day.
+  {id:'calendar', name:'Calendar', sub:'Events by date and time, print', ic:'CA', ready:true, grp:'Calendar', views:[['items','Month Calendar','Main calendar, events by date','MC'],['dash','Week View','Seven days with time slots','WK'],['report','Day Schedule','Events by time, print','DS']]}];
 // v5.1: every module sits under a main category (grp). MGRP = the order of the main categories in the left menu;
 // a module with a grp that is not listed here shows after them, one without a grp under "Other". To move a module, change its grp.
-const MGRP = ['Follow-up', 'Sales Team', 'Account', 'KPI'];
+const MGRP = ['Follow-up', 'Sales Team', 'Account', 'Calendar', 'KPI'];
 const PAGES = [['home','Home'],['items','Follow-up'],['dash','Dashboard'],['report','Report'],['perm','Permission']];
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -423,6 +426,8 @@ function paintMods(keepOpen) {
     let tot = 0;
     const items = ms.map(m => {
       const n = m.id === 'receivable' ? act.filter(r => !op || r.operation === op).length : 0; tot += n;
+      // a module with `views` shows one sub item per view (same module and permission, different page)
+      if (m.views) return m.views.map(v => '<button title="' + esc(g + ' · ' + v[1]) + '" class="mod ' + (m.id === cur && page === v[0] ? 'on' : '') + '" data-mod="' + m.id + '" data-view="' + v[0] + '"><span class="ic">' + v[3] + '</span><span class="tx">' + esc(v[1]) + '<small>' + esc(v[2]) + '</small></span></button>').join('');
       return '<button title="' + esc(g + ' · ' + m.name) + '" class="mod ' + (m.id === cur ? 'on' : '') + (m.ready ? '' : ' soon') + '" data-mod="' + m.id + '"><span class="ic">' + m.ic + '</span><span class="tx">' + esc(m.name) + '<small>' + esc(m.sub) + '</small></span>' + (n ? '<span class="cnt">' + n + '</span>' : '') + '</button>';
     }).join('');
     const shut = !!grpShut[g];
@@ -437,7 +442,7 @@ function go(p, m) {
   if (page === 'perm' && me.role !== 'admin') page = 'home';
   $('panel').classList.remove('open'); if (page === 'record') $('panel').innerHTML = '';
   document.querySelector('aside').classList.toggle('col', sbCol); $('sbToggle').innerHTML = sbCol ? '&rsaquo;' : '&lsaquo;'; $('sbToggle').title = sbCol ? 'Expand menu' : 'Collapse menu';
-  $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + ((mod === 'team' && ['items', 'dash', 'report'].includes(page) && {items: 'Team', dash: 'Rep Day', report: 'Coverage'}[x[0]]) || x[1]) +(x[0] === 'home' && window.MY_MENTIONS && MY_MENTIONS.length ? ' <span class="nbadge" title="My to-do">' + MY_MENTIONS.length + '</span>' : '') + '</button>').join('');
+  $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + ((mod === 'team' && ['items', 'dash', 'report'].includes(page) && {items: 'Team', dash: 'Rep Day', report: 'Coverage'}[x[0]]) || (mod === 'calendar' && ['items', 'dash', 'report'].includes(page) && {items: 'Month', dash: 'Week', report: 'Day'}[x[0]]) || x[1]) +(x[0] === 'home' && window.MY_MENTIONS && MY_MENTIONS.length ? ' <span class="nbadge" title="My to-do">' + MY_MENTIONS.length + '</span>' : '') + '</button>').join('');
   paintMods(true);
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
   const my = mod === 'rep' ? opsFor('rep') : REP_SUB.includes(mod) ? repTeamOps() : opsFor(mod);
@@ -941,7 +946,7 @@ $('tabs').onclick = e => { const b = e.target.closest('button[data-page]'); if (
 $('mods').onclick = e => {
   const g = e.target.closest('button[data-grp]');
   if (g) { const k = g.dataset.grp; if (grpShut[k]) delete grpShut[k]; else grpShut[k] = 1; saveGrp(); paintMods(false); const nb = [...$('mods').querySelectorAll('.mgh')].find(x => x.dataset.grp === k); if (nb) nb.focus(); return; }
-  const b = e.target.closest('button[data-mod]'); if (b) { clearHash(); go(['items', 'dash', 'report'].includes(page) ? page : 'items', b.dataset.mod); } };
+  const b = e.target.closest('button[data-mod]'); if (b) { clearHash(); go(b.dataset.view || (['items', 'dash', 'report'].includes(page) ? page : 'items'), b.dataset.mod); } };
 $('bar').onchange = e => { if (e.target.id === 'opSel') { op = e.target.value; go(); } };
 $('page').onclick = e => {
   const u = e.target.closest('[data-uact]'); if (u && u.tagName !== 'SELECT') return permClick(u);
@@ -980,5 +985,5 @@ window.addEventListener('hashchange', () => { if (!location.hash.startsWith('#it
 window.addEventListener('hashchange', () => { if (me) route(); });
 if (sess) start();
 </script>
-<script src="ims-perm.js?v=7"></script>
+<script src="ims-perm.js?v=8"></script>
 <script src="ims-mobile.js?v=3"></script></body></html>
