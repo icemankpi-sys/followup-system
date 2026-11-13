@@ -121,7 +121,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const tg = wkTgt(ls, ws), col = wkSum(ls, ws), entered = ls.filter(l => amt(l, today) != null).length;
     let h = '<h2 class="pt">Daily Collection <span class="hint">enter what each collection account collected today</span></h2>'
       + '<div class="wknav"><button class="btn" id="ccPrev">&lsaquo; Previous week</button><b>' + wkLabel(ws) + ' &middot; ' + fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' ' + addD(ws, 6).getFullYear() + '</b><button class="btn" id="ccNext">Next week &rsaquo;</button><button class="btn" id="ccNow">This week</button>'
-      + (anyFull ? '<button class="btn" id="ccLanes">Manage collection accounts</button>' : '') + '</div>' + cFilters(false)
+      + (anyFull ? '<button class="btn" id="ccLanes">Manage collection accounts</button>' : '') + '<button class="btn" id="ccUpd" title="One page per day: every account\'s collection, PDF print">Account Update (PDF)</button></div>' + cFilters(false)
       + '<div class="grid"><div class="tile"><b>' + money0(tg) + '</b><span>Week target</span></div><div class="tile ' + (col >= tg ? 'g' : 'a') + '"><b>' + money0(col) + '</b><span>Collected so far</span></div>'
       + '<div class="tile ' + (col - tg >= 0 ? 'g' : 'r') + '"><b>' + money0(col - tg) + '</b><span>Excess / (Short)</span></div><div class="tile"><b>' + (tg ? pct(col, tg) + '%' : 'no target') + '</b><span>Achievement</span></div>'
       + (ymd(ws) === ymd(monday(new Date())) ? '<div class="tile a"><b>' + entered + ' of ' + ls.length + '</b><span>Accounts entered today</span></div>' : '') + '</div>'
@@ -146,6 +146,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     $('ccNext').onclick = () => { C.wk = addD(ws, 7); cEntry(); };
     $('ccNow').onclick = () => { C.wk = monday(new Date()); cEntry(); };
     if ($('ccLanes')) $('ccLanes').onclick = lanesPanel;
+    $('ccUpd').onclick = () => cUpdate();
     bindCF(cEntry);
     document.querySelectorAll('#page .cin').forEach(i => i.onchange = () => saveCell(i, ls, days));
     document.querySelectorAll('#page .tin').forEach(i => i.onchange = () => saveTarget(i, ws, ls, days));
@@ -217,6 +218,40 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     };
   }
 
+  // v5.2.1 "Account Update": a one-page, PDF-printable update for one day: what every bank account
+  // collected that day and in the week to date, grouped by department, with the day's customers.
+  // The Print button uses the common print header / footer (ims-print.js); 7 columns = A4 portrait.
+  function cUpdate() {
+    const today = ymd(new Date()), dk = C.ud && C.ud <= today ? C.ud : today; C.ud = dk;
+    const d = pd(dk), ws = monday(d), nDays = Math.round((d - ws) / 864e5) + 1;
+    const ls = C.lanes.filter(l => l.active && (!op || l.operation === op)).slice().sort((a, b) => (a.sort - b.sort) || a.name.localeCompare(b.name));
+    const wtd = l => { let s = 0; for (let i = 0; i < nDays; i++) s += amt(l, ymd(addD(ws, i))) || 0; return s; };
+    const groups = {};
+    ls.forEach(l => { const g = l.department || '(no department)'; (groups[g] = groups[g] || []).push(l); });
+    const dayT = sumA(ls.map(l => amt(l, dk) || 0)), wT = sumA(ls.map(wtd)), tgT = wkTgt(ls, ws), ent = ls.filter(l => amt(l, dk) != null).length;
+    const dLab = DOW[(d.getDay() + 6) % 7] + ' ' + fmtD(d) + ' ' + d.getFullYear();
+    let body = '';
+    Object.keys(groups).sort().forEach(g => {
+      const rs = groups[g], gd = sumA(rs.map(l => amt(l, dk) || 0)), gw = sumA(rs.map(wtd)), gt = wkTgt(rs, ws);
+      body += '<tr class="grp"><td colspan="2">' + esc(g) + '</td><td class="n">' + money0(gd) + '</td><td class="n">' + money0(gw) + '</td><td class="n">' + money0(gt) + '</td><td class="n">' + (gt ? pct(gw, gt) + '%' : '') + '</td><td></td></tr>'
+        + rs.map(l => {
+          const v = amt(l, dk), w = wtd(l), t = C.tmap[l.id + '|' + ymd(ws)] || 0, r = C.dmap[l.id + '|' + dk] || {};
+          return '<tr><td><b>' + esc(l.name) + '</b> <span class="tag t-b">' + esc(l.operation) + '</span>' + (l.acc_no ? '<div class="hint" style="margin:0">A/C ' + esc(l.acc_no) + '</div>' : '') + '</td><td>' + esc(l.officer || '') + '</td>'
+            + '<td class="n">' + (v == null ? '<span class="down">not entered</span>' : money0(v)) + '</td><td class="n">' + money0(w) + '</td><td class="n">' + (t ? money0(t) : '<span class="hint">not set</span>') + '</td><td class="n">' + (t ? pct(w, t) + '%' : '') + '</td><td style="font-size:11px">' + esc(r.customers || '') + '</td></tr>';
+        }).join('');
+    });
+    $('page').innerHTML = '<div class="noprint row2"><button class="btn" id="ccBk">&lsaquo; Back</button><input type="date" id="ccUday" value="' + dk + '" max="' + today + '"><button class="btn p" id="rPrint">Print / Save as PDF</button></div>'
+      + '<h2 class="pt">Account Update &middot; ' + esc(dLab) + '</h2><div class="hint">Daily Collection by bank account &middot; ' + (op ? 'Operation ' + esc(op) : 'all operations') + ' &middot; week ' + wkLabel(ws) + ', ' + nDays + ' day(s) to ' + fmtD(d) + ' &middot; Iceman IMS</div>'
+      + '<div class="grid"><div class="tile"><b>' + money0(dayT) + '</b><span>Collected on ' + fmtD(d) + '</span></div><div class="tile"><b>' + money0(wT) + '</b><span>Week to date</span></div><div class="tile"><b>' + money0(tgT) + '</b><span>Week target</span></div>'
+      + '<div class="tile ' + (tgT && wT >= tgT * nDays / 6 ? 'g' : 'a') + '"><b>' + (tgT ? pct(wT, tgT) + '%' : '-') + '</b><span>Achievement (week)</span></div>'
+      + '<div class="tile ' + (ent < ls.length ? 'r' : 'g') + '"><b>' + ent + ' of ' + ls.length + '</b><span>Accounts entered for ' + fmtD(d) + '</span></div></div>'
+      + '<div class="wrap"><table><thead><tr><th>Operation / account</th><th>Accountant</th><th class="n">' + esc(dLab) + '</th><th class="n">Week to date</th><th class="n">Week target</th><th class="n">%</th><th>Customers (day)</th></tr></thead><tbody>' + body
+      + '<tr class="tot"><td colspan="2">Total</td><td class="n">' + money0(dayT) + '</td><td class="n">' + money0(wT) + '</td><td class="n">' + money0(tgT) + '</td><td class="n">' + (tgT ? pct(wT, tgT) + '%' : '') + '</td><td></td></tr></tbody></table></div>'
+      + '<div class="hint noprint">Pick a date, then Print / Save as PDF: the printout gets the Iceman header, created date, user and page numbers.</div>';
+    $('ccBk').onclick = () => go();
+    $('ccUday').onchange = e => { C.ud = e.target.value; cUpdate(); };
+  }
+
   function unitStats(units, W, full) {
     return units.map(u => {
       const p = W.map(ws => { const t = wkTgt(u.lanes, ws); return t ? 100 * wkSum(u.lanes, ws) / t : null; });
@@ -247,7 +282,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const opName = op ? ((ops.find(o => o.code === op) || {}).name || op) : '';
     let h = (my.length > 1 ? '<div class="subtabs noprint"><button data-dop="" class="' + (main ? 'on' : '') + '">Main dashboard</button>' + my.map(o => '<button data-dop="' + o.code + '" class="' + (op === o.code ? 'on' : '') + '" title="' + esc(o.name) + '">' + o.code + '</button>').join('') + '</div>' : '')
       + '<h2 class="pt">' + (main ? (isBoard() ? 'Admin &amp; Director Board dashboard &middot; Account' : 'Main dashboard &middot; all my operations') : 'Operation dashboard &middot; ' + esc(opName || 'my operation')) + '</h2><div class="hint">Account &rsaquo; Daily Collection &middot; figures come from what each operation enters &middot; period figures use full weeks only</div>'
-      + '<div class="filters">' + sel('ccN', '', pOpts, C.n) + '</div>' + (main ? '' : cFilters(true))
+      + '<div class="filters">' + sel('ccN', '', pOpts, C.n) + '<button class="btn noprint" id="ccUpd" title="One page per day: every account\'s collection, PDF print">Account Update (PDF)</button></div>' + (main ? '' : cFilters(true))
       + '<div class="grid"><div class="tile"><b>' + money0(pCol) + '</b><span>Collected (' + full.length + ' full weeks)</span></div><div class="tile"><b>' + money0(pTgt) + '</b><span>Target (same weeks)</span></div>'
       + '<div class="tile ' + (pCol >= pTgt ? 'g' : 'r') + '"><b>' + (pTgt ? Math.round(100 * pCol / pTgt) + '%' : '-') + '</b><span>Achievement</span></div><div class="tile ' + (pCol - pTgt >= 0 ? 'g' : 'r') + '"><b>' + money0(pCol - pTgt) + '</b><span>Excess / (Short)</span></div>'
       + '<div class="tile ' + (curCol >= pace ? 'g' : 'a') + '"><b>' + money0(curCol) + '</b><span>This week so far (pace ' + money0(pace) + ' of ' + money0(curTgt) + ')</span></div>'
@@ -282,26 +317,51 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       + '</tbody></table></div><div class="hint">Green 100% or more, amber 80 to 99%, red below 80%, "-" no target.</div></div>';
     $('page').innerHTML = h;
     $('ccN').onchange = () => { C.n = Number($('ccN').value); cDash(); }; bindCF(cDash);
+    $('ccUpd').onclick = () => cUpdate();
     document.querySelectorAll('#page [data-ddep]').forEach(b => b.onclick = () => { C.dept = b.dataset.ddep; cDash(); });
     document.querySelectorAll('#page [data-dop]').forEach(b => b.onclick = () => { op = b.dataset.dop; C.lane = ''; C.mgr = ''; go(); });
   }
   function cReport() {
-    const ls = lanesF(), W = weeksBack(26), ws = C.rwk || (W.length > 1 ? W[W.length - 2] : W[0]); C.rwk = ws;
-    const prev = addD(ws, -7), groups = {};
+    // v5.3: period choice Daily / Weekly / Monthly / Custom (one date or a range). Targets are weekly, so
+    // outside Weekly each working day (Mon to Sat) counts 1/6 of its week's target and Sundays none: the same
+    // rule as the dashboard's pace. "Prev" column = the previous day / week / calendar month / equal-length period.
+    const ls = lanesF(), W = weeksBack(26), today = new Date(); today.setHours(0, 0, 0, 0);
+    const R = C.rp || (C.rp = {mode: 'weekly', wk: '', d: ymd(today), mo: ymd(today).slice(0, 7), from: ymd(monday(today)), to: ymd(today)});
+    if (!R.wk) R.wk = ymd(W.length > 1 ? W[W.length - 2] : W[0]);
+    let a, b, pa, pb, title, label, prevLab, file;
+    if (R.mode === 'daily') { a = pd(R.d); b = a; pa = pb = addD(a, -1); title = 'Daily collection report'; label = DOW[(a.getDay() + 6) % 7] + ' ' + fmtD(a) + ' ' + a.getFullYear(); prevLab = 'Prev day'; file = 'Daily ' + R.d; }
+    else if (R.mode === 'monthly') { const q = R.mo.split('-').map(Number); a = new Date(q[0], q[1] - 1, 1); b = new Date(q[0], q[1], 0); pa = new Date(q[0], q[1] - 2, 1); pb = new Date(q[0], q[1] - 1, 0); title = 'Monthly collection report'; label = a.toLocaleDateString('en-GB', {month: 'long', year: 'numeric'}); prevLab = 'Last month'; file = 'Monthly ' + R.mo; }
+    else if (R.mode === 'custom') { a = pd(R.from); b = R.to && R.to >= R.from ? pd(R.to) : a; const n0 = Math.round((b - a) / 864e5) + 1; pb = addD(a, -1); pa = addD(a, -n0); title = 'Collection report'; label = ymd(a) === ymd(b) ? DOW[(a.getDay() + 6) % 7] + ' ' + fmtD(a) + ' ' + a.getFullYear() : fmtD(a) + ' to ' + fmtD(b) + ' ' + b.getFullYear(); prevLab = 'Prev period'; file = 'Custom ' + ymd(a) + ' to ' + ymd(b); }
+    else { a = pd(R.wk); b = addD(a, 6); pa = addD(a, -7); pb = addD(a, -1); title = 'Weekly collection report'; label = wkLabel(a) + ' &middot; ' + fmtD(a) + ' to ' + fmtD(b) + ' ' + b.getFullYear(); prevLab = 'Last week'; file = 'Weekly ' + wkLabel(a) + ' ' + ymd(a); }
+    const span = (x, y) => { const out = []; for (let d0 = new Date(x); d0 <= y; d0 = addD(d0, 1)) out.push(ymd(d0)); return out; };
+    const D = span(a, b), PD = span(pa, pb);
+    const rSum = (l, dd) => sumA(dd.map(k => amt(l, k) || 0));
+    const rTgt = l => R.mode === 'weekly' ? (C.tmap[l.id + '|' + ymd(a)] || 0) : Math.round(sumA(D.map(k => { const d0 = pd(k); return d0.getDay() === 0 ? 0 : (C.tmap[l.id + '|' + ymd(monday(d0))] || 0) / 6; })));
+    const groups = {};
     ls.forEach(l => { const g = l.department || l.manager || '(no department)'; (groups[g] = groups[g] || []).push(l); });
-    const row = l => { const t = C.tmap[l.id + '|' + ymd(ws)] || 0, c = wkSum([l], ws), pc = wkSum([l], prev); return [l.operation, l.name, l.acc_no || '', l.officer || '', t, c, t ? pct(c, t) : null, t ? c - t : null, pc, c - pc]; };
+    const row = l => { const t = rTgt(l), c = rSum(l, D), pc = rSum(l, PD); return [l.operation, l.name, l.acc_no || '', l.officer || '', t, c, t ? pct(c, t) : null, t ? c - t : null, pc, c - pc]; };
     const tr = r => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td><td>' + esc(r[3]) + '</td><td class="n">' + money0(r[4]) + '</td><td class="n">' + money0(r[5]) + '</td><td class="n">' + (r[6] == null ? '' : r[6] + '%') + '</td><td class="n">' + (r[7] == null ? '' : '<span class="' + (r[7] >= 0 ? 'up' : 'down') + '">' + money0(r[7]) + '</span>') + '</td><td class="n">' + money0(r[8]) + '</td><td class="n">' + (r[9] >= 0 ? '+' : '') + money0(r[9]) + '</td></tr>';
     const all = [];
     let body = '';
     Object.keys(groups).sort().forEach(g => { const rs = groups[g].map(row); all.push(...rs); const t = sumA(rs.map(r => r[4])), c = sumA(rs.map(r => r[5])); body += '<tr class="grp"><td colspan="4">' + esc(g) + '</td><td class="n">' + money0(t) + '</td><td class="n">' + money0(c) + '</td><td class="n">' + (t ? pct(c, t) + '%' : '') + '</td><td class="n">' + (t ? money0(c - t) : '') + '</td><td colspan="2"></td></tr>' + rs.map(tr).join(''); });
     const T = sumA(all.map(r => r[4])), Cc = sumA(all.map(r => r[5])), P = sumA(all.map(r => r[8]));
-    $('page').innerHTML = '<div class="noprint row2">' + sel('ccRw', '', W.slice().reverse().map(w => [ymd(w), wkLabel(w) + ' (' + fmtD(w) + ' to ' + fmtD(addD(w, 6)) + ')']), ymd(ws)) + '<button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="ccCsv">Download Excel (CSV)</button></div>'
-      + '<h2 class="pt">Weekly collection report &middot; ' + wkLabel(ws) + '</h2><div class="hint">' + fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' ' + addD(ws, 6).getFullYear() + ' &middot; ' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' &middot; Iceman IMS</div>'
-      + '<div class="grid"><div class="tile"><b>' + money0(T) + '</b><span>Target</span></div><div class="tile"><b>' + money0(Cc) + '</b><span>Collected</span></div><div class="tile ' + (Cc >= T ? 'g' : 'r') + '"><b>' + (T ? pct(Cc, T) + '%' : '-') + '</b><span>Achievement</span></div><div class="tile"><b>' + (Cc - P >= 0 ? '+' : '') + money0(Cc - P) + '</b><span>Change vs last week</span></div></div>'
-      + '<div class="wrap"><table><thead><tr><th>Operation</th><th>Account</th><th>Acc No</th><th>Accountant</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th class="n">Excess/(Short)</th><th class="n">Last week</th><th class="n">Change</th></tr></thead><tbody>' + body
+    $('page').innerHTML = '<div class="noprint row2">' + sel('ccRm', '', [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['custom', 'Custom date / range']], R.mode)
+      + (R.mode === 'daily' ? '<input type="date" id="ccRd" value="' + R.d + '" max="' + ymd(today) + '">'
+        : R.mode === 'monthly' ? '<input type="month" id="ccRmo" value="' + R.mo + '" max="' + ymd(today).slice(0, 7) + '">'
+        : R.mode === 'custom' ? '<input type="date" id="ccRf" value="' + ymd(a) + '" max="' + ymd(today) + '"><span class="hint">to</span><input type="date" id="ccRt" value="' + ymd(b) + '" max="' + ymd(today) + '">'
+        : sel('ccRw', '', W.slice().reverse().map(w => [ymd(w), wkLabel(w) + ' (' + fmtD(w) + ' to ' + fmtD(addD(w, 6)) + ')']), ymd(a)))
+      + '<button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="ccCsv">Download Excel (CSV)</button></div>'
+      + '<h2 class="pt">' + title + ' &middot; ' + label + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + (R.mode === 'weekly' ? '' : ' &middot; weekly targets counted 1/6 per working day (Mon to Sat)') + ' &middot; data kept 12 months back &middot; Iceman IMS</div>'
+      + '<div class="grid"><div class="tile"><b>' + money0(T) + '</b><span>Target</span></div><div class="tile"><b>' + money0(Cc) + '</b><span>Collected</span></div><div class="tile ' + (Cc >= T ? 'g' : 'r') + '"><b>' + (T ? pct(Cc, T) + '%' : '-') + '</b><span>Achievement</span></div><div class="tile"><b>' + (Cc - P >= 0 ? '+' : '') + money0(Cc - P) + '</b><span>Change vs ' + prevLab.toLowerCase() + '</span></div></div>'
+      + '<div class="wrap"><table><thead><tr><th>Operation</th><th>Account</th><th>Acc No</th><th>Accountant</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th class="n">Excess/(Short)</th><th class="n">' + prevLab + '</th><th class="n">Change</th></tr></thead><tbody>' + body
       + '<tr class="tot"><td colspan="4">Total</td><td class="n">' + money0(T) + '</td><td class="n">' + money0(Cc) + '</td><td class="n">' + (T ? pct(Cc, T) + '%' : '') + '</td><td class="n">' + (T ? money0(Cc - T) : '') + '</td><td class="n">' + money0(P) + '</td><td class="n">' + money0(Cc - P) + '</td></tr></tbody></table></div>';
-    $('ccRw').onchange = () => { C.rwk = pd($('ccRw').value); cReport(); };
-    $('ccCsv').onclick = () => csvDl('Collection ' + wkLabel(ws) + ' ' + ymd(ws), ['Operation', 'Account', 'Acc No', 'Accountant', 'Target', 'Collected', 'Percent', 'Excess/(Short)', 'Last week', 'Change'], all);
+    $('ccRm').onchange = e => { R.mode = e.target.value; cReport(); };
+    if ($('ccRw')) $('ccRw').onchange = e => { R.wk = e.target.value; cReport(); };
+    if ($('ccRd')) $('ccRd').onchange = e => { if (e.target.value) { R.d = e.target.value; cReport(); } };
+    if ($('ccRmo')) $('ccRmo').onchange = e => { if (e.target.value) { R.mo = e.target.value; cReport(); } };
+    if ($('ccRf')) $('ccRf').onchange = e => { if (e.target.value) { R.from = e.target.value; if (R.to < R.from) R.to = R.from; cReport(); } };
+    if ($('ccRt')) $('ccRt').onchange = e => { if (e.target.value) { R.to = e.target.value; cReport(); } };
+    $('ccCsv').onclick = () => csvDl('Collection ' + file, ['Operation', 'Account', 'Acc No', 'Accountant', 'Target', 'Collected', 'Percent', 'Excess/(Short)', prevLab, 'Change'], all);
   }
   function cCard(m) {
     setTimeout(async () => { try { await cLoad(); const ls = C.lanes.filter(l => l.active), ws = monday(new Date()), c = wkSum(ls, ws), t = wkTgt(ls, ws), el = document.getElementById('card-collection');
