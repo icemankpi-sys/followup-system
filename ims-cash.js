@@ -121,7 +121,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const tg = wkTgt(ls, ws), col = wkSum(ls, ws), entered = ls.filter(l => amt(l, today) != null).length;
     let h = '<h2 class="pt">Daily Collection <span class="hint">enter what each collection account collected today</span></h2>'
       + '<div class="wknav"><button class="btn" id="ccPrev">&lsaquo; Previous week</button><b>' + wkLabel(ws) + ' &middot; ' + fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' ' + addD(ws, 6).getFullYear() + '</b><button class="btn" id="ccNext">Next week &rsaquo;</button><button class="btn" id="ccNow">This week</button>'
-      + (anyFull ? '<button class="btn" id="ccLanes">Manage collection accounts</button>' : '') + '<button class="btn" id="ccUpd" title="One page per day: every account\'s collection, PDF print">Account Update (PDF)</button></div>' + cFilters(false)
+      + (anyFull ? '<button class="btn" id="ccLanes">Manage collection accounts</button><button class="btn" id="ccCopyT" title="Fill this week\'s empty targets with last week\'s targets">Copy last week\'s targets</button>' : '') + '<button class="btn" id="ccUpd" title="One page per day: every account\'s collection, PDF print">Account Update (PDF)</button></div>' + cFilters(false)
       + '<div class="grid"><div class="tile"><b>' + money0(tg) + '</b><span>Week target</span></div><div class="tile ' + (col >= tg ? 'g' : 'a') + '"><b>' + money0(col) + '</b><span>Collected so far</span></div>'
       + '<div class="tile ' + (col - tg >= 0 ? 'g' : 'r') + '"><b>' + money0(col - tg) + '</b><span>Excess / (Short)</span></div><div class="tile"><b>' + (tg ? pct(col, tg) + '%' : 'no target') + '</b><span>Achievement</span></div>'
       + (ymd(ws) === ymd(monday(new Date())) ? '<div class="tile a"><b>' + entered + ' of ' + ls.length + '</b><span>Accounts entered today</span></div>' : '') + '</div>'
@@ -139,13 +139,14 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
         + '<td class="n" id="ccX' + l.id + '"></td><td class="n" id="ccP' + l.id + '"></td><td><button class="btn q" data-cdet="' + l.id + '" title="Customers and notes for the week">&#128221;</button></td></tr>';
     });
     h += '<tr class="tot"><td colspan="2">Total</td>' + days.map((d, i) => '<td class="n" id="ccD' + i + '"></td>').join('') + '<td class="n" id="ccTT"></td><td class="n" id="ccTG"></td><td class="n" id="ccTX"></td><td class="n" id="ccTP"></td><td></td></tr></tbody></table></div>'
-      + '<div class="hint">Type the amount and press Tab: it saves at once. Blank = not entered. Future days are locked; entries older than 7 days need Full access. &#128221; adds the customers collected from.</div><div class="err" id="ccMsg"></div>';
+      + '<div class="hint">Type the amount and press Tab: it saves at once. Blank = not entered. Future days are locked; entries older than 7 days need Full access. Targets are set by Full access (Financial Controller or Admin): type in the Target column, or use Copy last week\'s targets; use Next week to set the coming week. &#128221; adds the customers collected from.</div><div class="err" id="ccMsg"></div>';
     $('page').innerHTML = h;
     calcRows(ls, days);
     $('ccPrev').onclick = () => { C.wk = addD(ws, -7); cEntry(); };
     $('ccNext').onclick = () => { C.wk = addD(ws, 7); cEntry(); };
     $('ccNow').onclick = () => { C.wk = monday(new Date()); cEntry(); };
     if ($('ccLanes')) $('ccLanes').onclick = lanesPanel;
+    if ($('ccCopyT')) $('ccCopyT').onclick = () => copyTargets(ws);
     $('ccUpd').onclick = () => cUpdate();
     bindCF(cEntry);
     document.querySelectorAll('#page .cin').forEach(i => i.onchange = () => saveCell(i, ls, days));
@@ -172,6 +173,19 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       C.dmap[k] = Object.assign(C.dmap[k] || {lane_id: Number(i.dataset.l), day: i.dataset.d}, {amount: v});
       i.classList.remove('bad'); i.classList.add('ok'); setTimeout(() => i.classList.remove('ok'), 1200); $('ccMsg').textContent = ''; calcRows(ls, days);
     } catch (e) { i.classList.add('bad'); $('ccMsg').textContent = e.message; }
+  }
+  // v5.5 (2026-11-14): Full access (Financial Controller, Admin) can fill a week's empty targets from the week before in one step.
+  // Only accounts with no target yet this week and with a target last week are written; nothing that is already set is changed.
+  async function copyTargets(ws) {
+    const k = ymd(ws), pk = ymd(addD(ws, -7));
+    const rows = lanesF().filter(l => canC(l.operation, 'full') && C.tmap[l.id + '|' + k] == null && C.tmap[l.id + '|' + pk] != null)
+      .map(l => ({lane_id: l.id, week_start: k, target: C.tmap[l.id + '|' + pk]}));
+    if (!rows.length) { $('ccMsg').textContent = 'Nothing to copy: every account already has a target this week, or last week had none.'; return; }
+    try {
+      await api('/rest/v1/cc_targets?on_conflict=lane_id,week_start', {method: 'POST', body: rows, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}});
+      rows.forEach(r => C.tmap[r.lane_id + '|' + k] = r.target);
+      cEntry(); toast('Targets copied for ' + rows.length + ' account' + (rows.length === 1 ? '' : 's'));
+    } catch (e) { $('ccMsg').textContent = e.message; }
   }
   async function saveTarget(i, ws, ls, days) {
     const v = i.value === '' ? 0 : Number(i.value);
@@ -286,7 +300,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       + '<div class="grid"><div class="tile"><b>' + money0(pCol) + '</b><span>Collected (' + full.length + ' full weeks)</span></div><div class="tile"><b>' + money0(pTgt) + '</b><span>Target (same weeks)</span></div>'
       + '<div class="tile ' + (pCol >= pTgt ? 'g' : 'r') + '"><b>' + (pTgt ? Math.round(100 * pCol / pTgt) + '%' : '-') + '</b><span>Achievement</span></div><div class="tile ' + (pCol - pTgt >= 0 ? 'g' : 'r') + '"><b>' + money0(pCol - pTgt) + '</b><span>Excess / (Short)</span></div>'
       + '<div class="tile ' + (curCol >= pace ? 'g' : 'a') + '"><b>' + money0(curCol) + '</b><span>This week so far (pace ' + money0(pace) + ' of ' + money0(curTgt) + ')</span></div>'
-      + '<div class="tile ' + (missing.length ? 'r' : 'g') + '"><b>' + (ls.length - missing.length) + ' of ' + ls.length + '</b><span>Lines entered for ' + DOW[(yd.getDay() + 6) % 7] + ' ' + fmtD(yd) + '</span></div></div>'
+      + '<div class="tile ' + (missing.length ? 'r' : 'g') + '"><b>' + (ls.length - missing.length) + ' of ' + ls.length + '</b><span>Accounts entered for ' + DOW[(yd.getDay() + 6) % 7] + ' ' + fmtD(yd) + '</span></div></div>'
       + '<div class="card" style="margin-bottom:12px"><h3>What the figures say</h3>'
       + (standing.length ? '<div class="ins r"><b>Below 80% for 3 weeks in a row (' + word + 's):</b> ' + standing.map(x => esc(x.u.name)).join(', ') + '</div>' : '<div class="ins g">No ' + word + ' has been below 80% for 3 weeks in a row.</div>')
       + (falling.length ? '<div class="ins a"><b>Falling trend, last 8 weeks:</b> ' + falling.map(x => esc(x.u.name)).join(', ') + '</div>' : '')

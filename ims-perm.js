@@ -10,6 +10,7 @@
     {k: 'ophead', name: 'Operation Head', job: 'Operation Head', hint: 'Outstanding, reps, team, expiry', m: {receivable: 'edit', rep: 'view', team: 'full', collection: 'view', short_expiry: 'edit'}},
     {k: 'officer', name: 'Operation Officer', job: 'Operation Officer', hint: 'Daily collection entry', m: {collection: 'edit'}},
     {k: 'accountant', name: 'Accountant', job: 'Accountant', hint: 'Account: Daily Collection entry for the ticked operations', m: {collection: 'edit'}},
+    {k: 'fc', name: 'Financial Controller', job: 'Financial Controller', hint: 'Daily Collection for all operations: set weekly targets, manage accounts, see every dashboard', m: {collection: 'full'}, allOps: true},
     {k: 'finance', name: 'Finance', job: 'Accounts', hint: 'Collection, FOC, outstanding view', m: {collection: 'full', receivable: 'view', short_expiry: 'view', foc: 'full'}},
     {k: 'stores', name: 'Stores', job: 'Stores Officer', hint: 'Short expiry upload', m: {short_expiry: 'full'}},
     {k: 'director', name: 'Director', job: 'Director', hint: 'Everything, view + remarks', m: {'*': 'view'}, allOps: true},
@@ -25,7 +26,7 @@
     return '<div class="card" style="margin-top:12px"><h3>Accountants by operation</h3><div class="hint">An Accountant enters the Daily Collection of the operations ticked for them (Account &rsaquo; Daily Collection). To assign: open the user, press the role "Accountant", tick the operations, Save.</div>'
       + '<div class="wrap" style="box-shadow:none"><table><thead><tr><th>Operation</th><th>Accountant</th></tr></thead><tbody>' + rowsH + '</tbody></table></div></div>';
   }
-  const SUBS = {calendar: 'Calendar · events by date and time · View = see the events of the operation · Edit = add events, change / delete your own · Full = change / delete anyone events, add events for all operations', collection: 'Account · Daily collection vs weekly target · Edit = enter own operation, Full = also targets and lines', team: 'Manage reps · View = see reps, outlets, Rep Day · Edit = add reps, add / assign outlets · Full = also make rep app logins'};
+  const SUBS = {calendar: 'Calendar · events by date and time · View = see the events of the operation · Edit = add events, change / delete your own · Full = change / delete anyone events, add events for all operations', collection: 'Account · Daily collection vs weekly target · Edit = enter own operation, Full = also set weekly targets and manage accounts (Financial Controller)', team: 'Manage reps · View = see reps, outlets, Rep Day · Edit = add reps, add / assign outlets · Full = also make rep app logins'};
   const MODLIST = () => [{id: '*', name: 'All modules', sub: 'Every module, now and later'}].concat(MODS.filter(m => GRANT.includes(m.id)).map(m => ({id: m.id, name: m.name, sub: (SUBS[m.id] || m.sub) + (m.ready ? '' : ' (coming)')})));
   const rk = l => ({none: 0, view: 1, edit: 2, full: 3}[l] || 0);
   let F = {q: '', show: 'all', newOpen: false}, E = null;   // E = editor state
