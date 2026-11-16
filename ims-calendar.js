@@ -40,6 +40,11 @@ table.cal-month{width:100%;min-width:640px;table-layout:fixed;border-collapse:se
 .cal-empty{color:var(--muted);font-size:13px;padding:8px 0}
 .cal-none{color:var(--muted);font-size:12.5px;margin:0 0 6px;font-style:italic}
 .cal-notes{border:1px solid var(--line2);border-radius:8px;min-height:110px;margin-top:10px;padding:6px 8px;color:var(--muted);font-size:12px}
+.cal-mn{border:1px solid var(--line2);border-radius:8px;padding:8px 12px 10px;margin:0 0 12px;background:var(--surface);break-inside:avoid;page-break-inside:avoid}
+.cal-mn h3{margin:0 0 4px;font-size:15px}.cal-mn .meta{font-size:12.5px;color:var(--ink2);margin-bottom:4px}.cal-mn .meta b{color:var(--ink)}
+.cal-mn .desc{font-size:12.5px;margin:4px 0 6px;white-space:pre-wrap}.cal-mn .nl{font-size:12px;font-weight:700;margin-top:6px}
+.cal-mn .ln{border-bottom:1px solid var(--line2);height:30px}
+@media print{.cal-mn{border:1px solid #000;border-radius:0;background:#fff!important;padding:6px 10px 8px;margin:0 0 9px}.cal-mn .meta,.cal-mn .desc{color:#000!important}.cal-mn .ln{border-bottom:1px solid #777;height:8.2mm}}
 @media(max-width:820px){.cal-month td.dc{height:78px}.cal-nav b{min-width:150px}}
 @media print{
   .cal-scroll{overflow:visible!important}
@@ -218,7 +223,7 @@ table.cal-month{width:100%;min-width:640px;table-layout:fixed;border-collapse:se
     const d = C.day, k = ymd(d), evs = dayEvents(k), label = fmtL(d);
     const rows = evs.map(e => '<tr><td style="white-space:nowrap">' + (e.start_time ? hm(e.start_time) + (e.end_time ? ' - ' + hm(e.end_time) : '') : 'All day') + '</td><td><span class="dot" style="background:' + typeOf(e.etype)[2] + '"></span><b>' + esc(e.title) + '</b></td><td>' + esc(typeOf(e.etype)[1]) + '</td><td>' + esc(opName(e.operation)) + '</td><td>' + esc(e.owner_name || '') + '</td><td>' + esc(e.description || '') + '</td></tr>').join('');
     $('page').innerHTML = '<div class="cal-nav noprint"><button class="btn" id="cPrev">&lsaquo; Previous day</button><b>' + esc(label) + '</b><button class="btn" id="cNext">Next day &rsaquo;</button><button class="btn" id="cNow">Today</button><input type="date" id="cPick" value="' + k + '">'
-      + (canAdd() ? '<button class="btn p" id="cAdd">+ Add event</button>' : '') + '<button class="btn p" id="rPrint">Print / Save as PDF</button>' + blankCtl() + '</div>'
+      + (canAdd() ? '<button class="btn p" id="cAdd">+ Add event</button>' : '') + '<button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="cNotes" title="One block per event of the day with 8 lines to write the meeting notes">Meeting notes (PDF)</button>' + blankCtl() + '</div>'
       + '<h2 class="pt">Day schedule &middot; ' + esc(label) + (C.blank ? ' (blank sheet)' : '') + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' (and events for all operations)' : 'All my operations') + (C.blank ? '' : ' &middot; ' + evs.length + ' event' + (evs.length === 1 ? '' : 's')) + ' &middot; Iceman IMS</div>' + legend()
       + noneNote(d, d) + '<div class="cal-scroll">' + timeGrid([d], false) + '</div>' + blankHint()
       + (C.blank ? '<div class="cal-notes">Notes</div>' : '<div class="card" style="margin-top:12px"><h3>Events of the day</h3>' + (evs.length ? '<div class="wrap" style="box-shadow:none"><table class="cal-day-list"><thead><tr><th>Time</th><th>Event</th><th>Type</th><th>Operation</th><th>Owner</th><th>Notes</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<div class="cal-empty">No events on this day.</div>') + '</div>')
@@ -228,8 +233,30 @@ table.cal-month{width:100%;min-width:640px;table-layout:fixed;border-collapse:se
     $('cNow').onclick = () => { C.day = todayD(); go(); };
     $('cPick').onchange = e => { if (e.target.value) { C.day = pd(e.target.value); go(); } };
     if ($('cAdd')) $('cAdd').onclick = () => evForm(null, {date: k});
+    $('cNotes').onclick = () => drawNotes();
     bindBlank();
     bindGrid(gridFrom([d]));
+  }
+
+  // ---------- Meeting notes sheet (v5.4.4, 2026-11-16) ----------
+  // The day's events in time order, each with its details and 8 ruled lines for the meeting notes, then the next event.
+  // Prints portrait with the common Iceman header / footer; a block never splits over two pages.
+  const NOTE_LINES = 8;
+  function drawNotes() {
+    const d = C.day, k = ymd(d), evs = C.events.filter(e => e.event_date <= k && (e.end_date || e.event_date) >= k && (!op || !e.operation || e.operation === op))
+      .sort((a, b) => (a.start_time ? 1 : 0) - (b.start_time ? 1 : 0) || String(a.start_time || '').localeCompare(String(b.start_time || '')) || a.id - b.id);
+    const lines = '<div class="ln"></div>'.repeat(NOTE_LINES);
+    const block = (e, i) => '<div class="cal-mn"><h3>' + (i + 1) + '. ' + esc(e.title) + '</h3>'
+      + '<div class="meta"><b>Time:</b> ' + (e.start_time ? hm(e.start_time) + (e.end_time ? ' - ' + hm(e.end_time) : '') : 'All day') + ' &nbsp;&middot;&nbsp; <b>Type:</b> ' + esc(typeOf(e.etype)[1]) + ' &nbsp;&middot;&nbsp; <b>Operation:</b> ' + esc(opName(e.operation)) + (e.owner_name ? ' &nbsp;&middot;&nbsp; <b>Owner:</b> ' + esc(e.owner_name) : '') + '</div>'
+      + (e.description ? '<div class="desc"><b>Details:</b> ' + esc(e.description) + '</div>' : '')
+      + '<div class="nl">Meeting notes</div>' + lines + '</div>';
+    $('page').innerHTML = '<div class="cal-nav noprint"><button class="btn" id="mnBack">&lsaquo; Back to day schedule</button><button class="btn" id="cPrev">&lsaquo; Previous day</button><b>' + esc(fmtL(d)) + '</b><button class="btn" id="cNext">Next day &rsaquo;</button><input type="date" id="cPick" value="' + k + '"><button class="btn p" id="rPrint">Print / Save as PDF</button></div>'
+      + '<h2 class="pt">Meeting notes &middot; ' + esc(fmtL(d)) + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) + ' (and events for all operations)' : 'All my operations') + ' &middot; ' + evs.length + ' event' + (evs.length === 1 ? '' : 's') + ' &middot; Iceman IMS</div>'
+      + (evs.length ? evs.map(block).join('') : '<div class="cal-mn"><h3>No events on this day</h3><div class="nl">Notes</div>' + lines + '</div>');
+    $('mnBack').onclick = () => go();
+    $('cPrev').onclick = () => { C.day = addD(d, -1); show(drawNotes, C.day, C.day); };
+    $('cNext').onclick = () => { C.day = addD(d, 1); show(drawNotes, C.day, C.day); };
+    $('cPick').onchange = e => { if (e.target.value) { C.day = pd(e.target.value); show(drawNotes, C.day, C.day); } };
   }
 
   // ---------- event form (side panel) ----------
