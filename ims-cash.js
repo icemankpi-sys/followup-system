@@ -47,10 +47,14 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   async function cLoad(force) {
     if (C.loaded && !force) return;
     const from = ymd(addD(monday(new Date()), -7 * 53));
-    const [ln, t, d] = await Promise.all([api('/rest/v1/cc_lanes?select=*&order=sort,name'), api('/rest/v1/cc_targets?select=lane_id,week_start,target&week_start=gte.' + from),
+    // v5.6: payments (money out of the account this week) sit next to the target; until Supabase/40 is run the column is missing and the app hides it.
+    const tq = c => api('/rest/v1/cc_targets?select=' + c + '&week_start=gte.' + from);
+    const [ln, t, d] = await Promise.all([api('/rest/v1/cc_lanes?select=*&order=sort,name'),
+      tq('lane_id,week_start,target,payments').then(r => { C.hasPay = true; return r; }, () => { C.hasPay = false; return tq('lane_id,week_start,target'); }),
       fetchAll('/rest/v1/cc_daily?select=lane_id,day,amount,customers,note,by_name,updated_at&day=gte.' + from + '&order=lane_id,day')]);
     C.lanes = ln;
-    C.tmap = {}; t.forEach(x => C.tmap[x.lane_id + '|' + x.week_start] = Number(x.target));
+    C.tmap = {}; C.pmap = {};
+    t.forEach(x => { const k = x.lane_id + '|' + x.week_start; if (x.target != null) C.tmap[k] = Number(x.target); if (x.payments != null) C.pmap[k] = Number(x.payments); });
     C.dmap = {}; d.forEach(x => C.dmap[x.lane_id + '|' + x.day] = x);
     C.loaded = true;
   }
@@ -67,6 +71,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   const amt = (l, day) => { const r = C.dmap[l.id + '|' + day]; return r && r.amount != null ? Number(r.amount) : null; };
   const wkSum = (ls, ws) => { let s = 0; ls.forEach(l => { for (let i = 0; i < 7; i++) s += amt(l, ymd(addD(ws, i))) || 0; }); return s; };
   const wkTgt = (ls, ws) => sumA(ls.map(l => C.tmap[l.id + '|' + ymd(ws)] || 0));
+  const wkPay = (ls, ws) => sumA(ls.map(l => (C.pmap || {})[l.id + '|' + ymd(ws)] || 0));
   async function run(load, fn) {
     $('page').innerHTML = '<div class="hint">Loading...</div>';
     try { await load(); fn(); } catch (e) { $('page').innerHTML = '<div class="card err">Could not load: ' + esc(e.message) + '<div class="hint">If this is new, the database section may not be set up yet.</div></div>'; }
@@ -118,16 +123,17 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const ws = C.wk || monday(new Date()); C.wk = ws;
     const days = [...Array(7)].map((_, i) => addD(ws, i)), today = ymd(new Date()), ls = lanesF();
     const anyFull = C.lanes.some(l => canC(l.operation, 'full'));
-    const tg = wkTgt(ls, ws), col = wkSum(ls, ws), entered = ls.filter(l => amt(l, today) != null).length;
+    const tg = wkTgt(ls, ws), col = wkSum(ls, ws), entered = ls.filter(l => amt(l, today) != null).length, hp = !!C.hasPay, pay = wkPay(ls, ws);
     let h = '<h2 class="pt">Daily Collection <span class="hint">enter what each collection account collected today</span></h2>'
       + '<div class="wknav"><button class="btn" id="ccPrev">&lsaquo; Previous week</button><b>' + wkLabel(ws) + ' &middot; ' + fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' ' + addD(ws, 6).getFullYear() + '</b><button class="btn" id="ccNext">Next week &rsaquo;</button><button class="btn" id="ccNow">This week</button>'
       + (anyFull ? '<button class="btn" id="ccLanes">Manage collection accounts</button><button class="btn" id="ccCopyT" title="Fill this week\'s empty targets with last week\'s targets">Copy last week\'s targets</button>' : '') + '<button class="btn" id="ccUpd" title="One page per day: every account\'s collection, PDF print">Account Update (PDF)</button></div>' + cFilters(false)
       + '<div class="grid"><div class="tile"><b>' + money0(tg) + '</b><span>Week target</span></div><div class="tile ' + (col >= tg ? 'g' : 'a') + '"><b>' + money0(col) + '</b><span>Collected so far</span></div>'
       + '<div class="tile ' + (col - tg >= 0 ? 'g' : 'r') + '"><b>' + money0(col - tg) + '</b><span>Excess / (Short)</span></div><div class="tile"><b>' + (tg ? pct(col, tg) + '%' : 'no target') + '</b><span>Achievement</span></div>'
+      + (hp ? '<div class="tile"><b id="ccPayT">' + money0(pay) + '</b><span>Payments this week (out)</span></div><div class="tile ' + (col - pay >= 0 ? 'g' : 'r') + '" id="ccNetTile"><b id="ccNetT">' + money0(col - pay) + '</b><span>Net (collected - payments)</span></div>' : '')
       + (ymd(ws) === ymd(monday(new Date())) ? '<div class="tile a"><b>' + entered + ' of ' + ls.length + '</b><span>Accounts entered today</span></div>' : '') + '</div>'
-      + '<div class="wrap"><table style="min-width:1200px"><thead><tr><th>Collection account</th><th>Accountant</th>' + days.map((d, i) => '<th class="n">' + DOW[i] + ' ' + d.getDate() + '</th>').join('')
-      + '<th class="n">Total</th><th class="n">Target</th><th class="n">Excess/(Short)</th><th class="n">%</th><th></th></tr></thead><tbody>';
-    if (!ls.length) h += '<tr><td colspan="14" class="hint">No collection accounts for your access. The Admin gives access in Permission (Daily Collection).</td></tr>';
+      + '<div class="wrap"><table style="min-width:' + (hp ? 1400 : 1200) + 'px"><thead><tr><th>Collection account</th><th>Accountant</th>' + days.map((d, i) => '<th class="n">' + DOW[i] + ' ' + d.getDate() + '</th>').join('')
+      + '<th class="n">Total</th><th class="n">Target</th><th class="n">Excess/(Short)</th><th class="n">%</th>' + (hp ? '<th class="n" title="Total to be paid out of this account this week">Payments (week)</th><th class="n" title="Collected this week minus the payments">Net</th>' : '') + '<th></th></tr></thead><tbody>';
+    if (!ls.length) h += '<tr><td colspan="' + (hp ? 16 : 14) + '" class="hint">No collection accounts for your access. The Admin gives access in Permission (Daily Collection).</td></tr>';
     ls.forEach(l => {
       const e = canC(l.operation, 'edit'), f = canC(l.operation, 'full'), t = C.tmap[l.id + '|' + ymd(ws)];
       h += '<tr><td><b>' + esc(l.name) + '</b> <span class="tag t-b">' + esc(l.operation) + '</span>' + (accInfo(l) ? '<div class="hint" style="margin:2px 0 0;white-space:nowrap">' + esc(accInfo(l)) + '</div>' : '') + '</td><td>' + esc(l.officer || '') + '</td>'
@@ -136,10 +142,12 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
           return '<td class="n">' + (e && !lock ? '<input class="cin" type="number" step="0.01" min="0" data-l="' + l.id + '" data-d="' + k + '" value="' + v + '"' + (v === '' && k < today ? ' style="background:var(--danger-soft)" placeholder="not entered"' : '') + (r && r.customers ? ' title="' + esc(r.customers) + '"' : '') + '>' : (v === '' ? '<span class="hint">' + (k > today ? '' : '-') + '</span>' : money0(v))) + '</td>';
         }).join('')
         + '<td class="n"><b id="ccT' + l.id + '"></b></td><td class="n">' + (f ? '<input class="tin" type="number" step="1" min="0" data-l="' + l.id + '" value="' + (t == null ? '' : t) + '">' : (t == null ? '<span class="hint">not set</span>' : money0(t))) + '</td>'
-        + '<td class="n" id="ccX' + l.id + '"></td><td class="n" id="ccP' + l.id + '"></td><td><button class="btn q" data-cdet="' + l.id + '" title="Customers and notes for the week">&#128221;</button></td></tr>';
+        + '<td class="n" id="ccX' + l.id + '"></td><td class="n" id="ccP' + l.id + '"></td>'
+        + (hp ? (() => { const p = C.pmap[l.id + '|' + ymd(ws)]; return '<td class="n">' + (f ? '<input class="tin pin" type="number" step="0.01" min="0" data-l="' + l.id + '" value="' + (p == null ? '' : p) + '">' : (p == null ? '<span class="hint">-</span>' : money0(p))) + '</td><td class="n" id="ccN' + l.id + '"></td>'; })() : '')
+        + '<td><button class="btn q" data-cdet="' + l.id + '" title="Customers and notes for the week">&#128221;</button></td></tr>';
     });
-    h += '<tr class="tot"><td colspan="2">Total</td>' + days.map((d, i) => '<td class="n" id="ccD' + i + '"></td>').join('') + '<td class="n" id="ccTT"></td><td class="n" id="ccTG"></td><td class="n" id="ccTX"></td><td class="n" id="ccTP"></td><td></td></tr></tbody></table></div>'
-      + '<div class="hint">Type the amount and press Tab: it saves at once. Blank = not entered. Future days are locked; entries older than 7 days need Full access. Targets are set by Full access (Financial Controller or Admin): type in the Target column, or use Copy last week\'s targets; use Next week to set the coming week. &#128221; adds the customers collected from.</div><div class="err" id="ccMsg"></div>';
+    h += '<tr class="tot"><td colspan="2">Total</td>' + days.map((d, i) => '<td class="n" id="ccD' + i + '"></td>').join('') + '<td class="n" id="ccTT"></td><td class="n" id="ccTG"></td><td class="n" id="ccTX"></td><td class="n" id="ccTP"></td>' + (hp ? '<td class="n" id="ccTPay"></td><td class="n" id="ccTN"></td>' : '') + '<td></td></tr></tbody></table></div>'
+      + '<div class="hint">Type the amount and press Tab: it saves at once. Blank = not entered. Future days are locked; entries older than 7 days need Full access. Targets are set by Full access (Financial Controller or Admin): type in the Target column, or use Copy last week\'s targets; use Next week to set the coming week. ' + (hp ? 'Payments (week) = the total to be paid out of that account this week (Full access); Net = collected this week minus those payments. ' : '') + '&#128221; adds the customers collected from.</div><div class="err" id="ccMsg"></div>';
     $('page').innerHTML = h;
     calcRows(ls, days);
     $('ccPrev').onclick = () => { C.wk = addD(ws, -7); cEntry(); };
@@ -150,7 +158,8 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     $('ccUpd').onclick = () => cUpdate();
     bindCF(cEntry);
     document.querySelectorAll('#page .cin').forEach(i => i.onchange = () => saveCell(i, ls, days));
-    document.querySelectorAll('#page .tin').forEach(i => i.onchange = () => saveTarget(i, ws, ls, days));
+    document.querySelectorAll('#page .tin:not(.pin)').forEach(i => i.onchange = () => saveTarget(i, ws, ls, days));
+    document.querySelectorAll('#page .pin').forEach(i => i.onchange = () => savePay(i, ws, ls, days));
     document.querySelectorAll('#page [data-cdet]').forEach(b => b.onclick = () => detPanel(Number(b.dataset.cdet), ws));
   }
   function calcRows(ls, days) {
@@ -160,10 +169,26 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       $('ccT' + l.id).textContent = money0(tot);
       $('ccX' + l.id).innerHTML = t ? '<span class="' + (tot - t >= 0 ? 'up' : 'down') + '">' + money0(tot - t) + '</span>' : '';
       $('ccP' + l.id).textContent = t ? pct(tot, t) + '%' : '';
+      const p = (C.pmap || {})[l.id + '|' + ymd(ws)], n = $('ccN' + l.id);
+      if (n) n.innerHTML = p != null ? '<span class="' + (tot - p >= 0 ? 'up' : 'down') + '">' + money0(tot - p) + '</span>' : '';
     });
     days.forEach((d, i) => $('ccD' + i).textContent = money0(sumA(ls.map(l => amt(l, ymd(d)) || 0))));
-    const T = wkSum(ls, ws), G = wkTgt(ls, ws);
+    const T = wkSum(ls, ws), G = wkTgt(ls, ws), P = wkPay(ls, ws);
     $('ccTT').textContent = money0(T); $('ccTG').textContent = money0(G); $('ccTX').textContent = G ? money0(T - G) : ''; $('ccTP').textContent = G ? pct(T, G) + '%' : '';
+    if ($('ccTPay')) {
+      $('ccTPay').textContent = money0(P); $('ccTN').innerHTML = '<span class="' + (T - P >= 0 ? 'up' : 'down') + '">' + money0(T - P) + '</span>';
+      $('ccPayT').textContent = money0(P); $('ccNetT').textContent = money0(T - P); $('ccNetTile').className = 'tile ' + (T - P >= 0 ? 'g' : 'r');
+    }
+  }
+  // v5.6 (2026-11-16): the week's payments out of each bank account (Full access, same rule as the target). Blank = not set.
+  async function savePay(i, ws, ls, days) {
+    const v = i.value === '' ? null : Number(i.value), k = i.dataset.l + '|' + ymd(ws);
+    if (v != null && (isNaN(v) || v < 0)) { i.classList.add('bad'); return; }
+    try {
+      await api('/rest/v1/cc_targets?on_conflict=lane_id,week_start', {method: 'POST', body: {lane_id: Number(i.dataset.l), week_start: ymd(ws), payments: v}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}});
+      if (v == null) delete C.pmap[k]; else C.pmap[k] = v;
+      i.classList.remove('bad'); i.classList.add('ok'); setTimeout(() => i.classList.remove('ok'), 1200); $('ccMsg').textContent = ''; calcRows(ls, days);
+    } catch (e) { i.classList.add('bad'); $('ccMsg').textContent = e.message; }
   }
   async function saveCell(i, ls, days) {
     const v = i.value === '' ? null : Number(i.value), k = i.dataset.l + '|' + i.dataset.d;
