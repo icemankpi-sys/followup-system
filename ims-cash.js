@@ -267,25 +267,28 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const wtd = l => { let s = 0; for (let i = 0; i < nDays; i++) s += amt(l, ymd(addD(ws, i))) || 0; return s; };
     const groups = {};
     ls.forEach(l => { const g = l.department || '(no department)'; (groups[g] = groups[g] || []).push(l); });
-    const dayT = sumA(ls.map(l => amt(l, dk) || 0)), wT = sumA(ls.map(wtd)), tgT = wkTgt(ls, ws), ent = ls.filter(l => amt(l, dk) != null).length;
+    const dayT = sumA(ls.map(l => amt(l, dk) || 0)), wT = sumA(ls.map(wtd)), tgT = wkTgt(ls, ws), ent = ls.filter(l => amt(l, dk) != null).length, hp = !!C.hasPay, pT = wkPay(ls, ws);
+    // v5.6.1: the week's payments out of each account and Net = week to date minus those payments (only after Supabase/40)
+    const net = (w, p) => p == null ? '' : '<span class="' + (w - p >= 0 ? 'up' : 'down') + '">' + money0(w - p) + '</span>';
     const dLab = DOW[(d.getDay() + 6) % 7] + ' ' + fmtD(d) + ' ' + d.getFullYear();
     let body = '';
     Object.keys(groups).sort().forEach(g => {
-      const rs = groups[g], gd = sumA(rs.map(l => amt(l, dk) || 0)), gw = sumA(rs.map(wtd)), gt = wkTgt(rs, ws);
-      body += '<tr class="grp"><td colspan="2">' + esc(g) + '</td><td class="n">' + money0(gd) + '</td><td class="n">' + money0(gw) + '</td><td class="n">' + money0(gt) + '</td><td class="n">' + (gt ? pct(gw, gt) + '%' : '') + '</td><td></td></tr>'
+      const rs = groups[g], gd = sumA(rs.map(l => amt(l, dk) || 0)), gw = sumA(rs.map(wtd)), gt = wkTgt(rs, ws), gp = wkPay(rs, ws);
+      body += '<tr class="grp"><td colspan="2">' + esc(g) + '</td><td class="n">' + money0(gd) + '</td><td class="n">' + money0(gw) + '</td><td class="n">' + money0(gt) + '</td><td class="n">' + (gt ? pct(gw, gt) + '%' : '') + '</td>' + (hp ? '<td class="n">' + money0(gp) + '</td><td class="n">' + net(gw, gp) + '</td>' : '') + '<td></td></tr>'
         + rs.map(l => {
-          const v = amt(l, dk), w = wtd(l), t = C.tmap[l.id + '|' + ymd(ws)] || 0, r = C.dmap[l.id + '|' + dk] || {};
+          const v = amt(l, dk), w = wtd(l), t = C.tmap[l.id + '|' + ymd(ws)] || 0, r = C.dmap[l.id + '|' + dk] || {}, p = (C.pmap || {})[l.id + '|' + ymd(ws)];
           return '<tr><td><b>' + esc(l.name) + '</b> <span class="tag t-b">' + esc(l.operation) + '</span>' + (l.acc_no ? '<div class="hint" style="margin:0">A/C ' + esc(l.acc_no) + '</div>' : '') + '</td><td>' + esc(l.officer || '') + '</td>'
-            + '<td class="n">' + (v == null ? '<span class="down">not entered</span>' : money0(v)) + '</td><td class="n">' + money0(w) + '</td><td class="n">' + (t ? money0(t) : '<span class="hint">not set</span>') + '</td><td class="n">' + (t ? pct(w, t) + '%' : '') + '</td><td style="font-size:11px">' + esc(r.customers || '') + '</td></tr>';
+            + '<td class="n">' + (v == null ? '<span class="down">not entered</span>' : money0(v)) + '</td><td class="n">' + money0(w) + '</td><td class="n">' + (t ? money0(t) : '<span class="hint">not set</span>') + '</td><td class="n">' + (t ? pct(w, t) + '%' : '') + '</td>' + (hp ? '<td class="n">' + (p == null ? '<span class="hint">-</span>' : money0(p)) + '</td><td class="n">' + net(w, p) + '</td>' : '') + '<td style="font-size:11px">' + esc(r.customers || '') + '</td></tr>';
         }).join('');
     });
     $('page').innerHTML = '<div class="noprint row2"><button class="btn" id="ccBk">&lsaquo; Back</button><input type="date" id="ccUday" value="' + dk + '" max="' + today + '"><button class="btn p" id="rPrint">Print / Save as PDF</button></div>'
       + '<h2 class="pt">Account Update &middot; ' + esc(dLab) + '</h2><div class="hint">Daily Collection by bank account &middot; ' + (op ? 'Operation ' + esc(op) : 'all operations') + ' &middot; week ' + wkLabel(ws) + ', ' + nDays + ' day(s) to ' + fmtD(d) + ' &middot; Iceman IMS</div>'
       + '<div class="grid"><div class="tile"><b>' + money0(dayT) + '</b><span>Collected on ' + fmtD(d) + '</span></div><div class="tile"><b>' + money0(wT) + '</b><span>Week to date</span></div><div class="tile"><b>' + money0(tgT) + '</b><span>Week target</span></div>'
       + '<div class="tile ' + (tgT && wT >= tgT * nDays / 6 ? 'g' : 'a') + '"><b>' + (tgT ? pct(wT, tgT) + '%' : '-') + '</b><span>Achievement (week)</span></div>'
+      + (hp ? '<div class="tile"><b>' + money0(pT) + '</b><span>Payments this week (out)</span></div><div class="tile ' + (wT - pT >= 0 ? 'g' : 'r') + '"><b>' + money0(wT - pT) + '</b><span>Net (week to date - payments)</span></div>' : '')
       + '<div class="tile ' + (ent < ls.length ? 'r' : 'g') + '"><b>' + ent + ' of ' + ls.length + '</b><span>Accounts entered for ' + fmtD(d) + '</span></div></div>'
-      + '<div class="wrap"><table><thead><tr><th>Operation / account</th><th>Accountant</th><th class="n">' + esc(dLab) + '</th><th class="n">Week to date</th><th class="n">Week target</th><th class="n">%</th><th>Customers (day)</th></tr></thead><tbody>' + body
-      + '<tr class="tot"><td colspan="2">Total</td><td class="n">' + money0(dayT) + '</td><td class="n">' + money0(wT) + '</td><td class="n">' + money0(tgT) + '</td><td class="n">' + (tgT ? pct(wT, tgT) + '%' : '') + '</td><td></td></tr></tbody></table></div>'
+      + '<div class="wrap"><table><thead><tr><th>Operation / account</th><th>Accountant</th><th class="n">' + esc(dLab) + '</th><th class="n">Week to date</th><th class="n">Week target</th><th class="n">%</th>' + (hp ? '<th class="n">Payments (week)</th><th class="n">Net</th>' : '') + '<th>Customers (day)</th></tr></thead><tbody>' + body
+      + '<tr class="tot"><td colspan="2">Total</td><td class="n">' + money0(dayT) + '</td><td class="n">' + money0(wT) + '</td><td class="n">' + money0(tgT) + '</td><td class="n">' + (tgT ? pct(wT, tgT) + '%' : '') + '</td>' + (hp ? '<td class="n">' + money0(pT) + '</td><td class="n">' + net(wT, pT) + '</td>' : '') + '<td></td></tr></tbody></table></div>'
       + '<div class="hint noprint">Pick a date, then Print / Save as PDF: the printout gets the Iceman header, created date, user and page numbers.</div>';
     $('ccBk').onclick = () => go();
     $('ccUday').onchange = e => { C.ud = e.target.value; cUpdate(); };
