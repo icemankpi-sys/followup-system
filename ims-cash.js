@@ -70,8 +70,8 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   const amt = (l, day) => { const r = C.dmap[l.id + '|' + day]; return r && r.amount != null ? Number(r.amount) : null; };
   const wkSum = (ls, ws) => { let s = 0; ls.forEach(l => { for (let i = 0; i < 7; i++) s += amt(l, ymd(addD(ws, i))) || 0; }); return s; };
   const wkTgt = (ls, ws) => sumA(ls.map(l => C.tmap[l.id + '|' + ymd(ws)] || 0));
-  // Finance Manager daily entry (v5.7): money in = PEC Collection + Fund Transfers in; money out = Genuine Suppliers + Fund Transfers out
-  const FMF = [['pec_collection', 'PEC Collection', 'in'], ['fund_in', 'Fund Transfers', 'in'], ['genuine_suppliers', 'Genuine Suppliers', 'out'], ['fund_out', 'Fund Transfers', 'out']];
+  // Finance Manager daily entry (v5.7): money in = Pure Collection + Fund Transfers in; money out = Genuine Suppliers + Fund Transfers out
+  const FMF = [['pec_collection', 'Pure Collection', 'in'], ['fund_in', 'Fund Transfers', 'in'], ['genuine_suppliers', 'Genuine Suppliers', 'out'], ['fund_out', 'Fund Transfers', 'out']];
   const fmv = (l, day, f) => { const r = (C.fm || {})[l.id + '|' + day]; return r && r[f] != null ? Number(r[f]) : null; };
   const fmIn = (l, day) => (fmv(l, day, 'pec_collection') || 0) + (fmv(l, day, 'fund_in') || 0);
   const fmOut = (l, day) => (fmv(l, day, 'genuine_suppliers') || 0) + (fmv(l, day, 'fund_out') || 0);
@@ -170,7 +170,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   }
   // ================= FINANCE DAILY ENTRY (v5.7, 2026-11-16) =================
   // The Finance Manager (Daily Collection Full) opens Account on today's date, can pick any date, and enters per bank account:
-  // money in = PEC Collection + Fund Transfers; money out = Genuine Suppliers + Fund Transfers. The week report shows the week of the chosen date.
+  // money in = Pure Collection + Fund Transfers; money out = Genuine Suppliers + Fund Transfers. The week report shows the week of the chosen date.
   function fmTabs(on) {
     if (!fmFull()) return '';
     const t = [['fm', 'Finance daily entry'], ['acc', 'Accountants\' collection'], ['wk', 'Finance week report'], ['rep', 'Collection report']];
@@ -188,7 +188,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     h += '<div class="grid" id="fmTiles"></div>'
       + '<div class="wrap"><table style="min-width:1100px"><thead><tr><th rowspan="2">Bank account</th><th rowspan="2" class="n" title="What the accountant entered in Daily Collection for this day (for reference)">Accountant\'s collection</th>'
       + '<th colspan="3" style="text-align:center">Collection (money in)</th><th colspan="3" style="text-align:center">Payment (money out)</th><th rowspan="2" class="n">Net</th></tr>'
-      + '<tr><th class="n">PEC Collection</th><th class="n">Fund Transfers</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers</th><th class="n">Total out</th></tr></thead><tbody>';
+      + '<tr><th class="n">Pure Collection</th><th class="n">Fund Transfers</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers</th><th class="n">Total out</th></tr></thead><tbody>';
     if (!ls.length) h += '<tr><td colspan="9" class="hint">No bank accounts for your access.</td></tr>';
     Object.keys(G).sort().forEach((g, gi) => {
       h += '<tr class="grp"><td>' + esc(g) + '</td><td class="n" id="fmG' + gi + 'a"></td><td class="n" id="fmG' + gi + 'f0"></td><td class="n" id="fmG' + gi + 'f1"></td><td class="n" id="fmG' + gi + 'in"></td><td class="n" id="fmG' + gi + 'f2"></td><td class="n" id="fmG' + gi + 'f3"></td><td class="n" id="fmG' + gi + 'out"></td><td class="n" id="fmG' + gi + 'net"></td></tr>';
@@ -200,7 +200,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       });
     });
     h += '<tr class="tot"><td>Total</td><td class="n" id="fmTa"></td><td class="n" id="fmTf0"></td><td class="n" id="fmTf1"></td><td class="n" id="fmTin"></td><td class="n" id="fmTf2"></td><td class="n" id="fmTf3"></td><td class="n" id="fmTout"></td><td class="n" id="fmTnet"></td></tr></tbody></table></div>'
-      + '<div class="hint">Pick the date (today by default), type the amount and press Tab: it saves at once. Blank = not entered. Collection: PEC Collection and Fund Transfers received into the account. Payment: Genuine Suppliers and Fund Transfers paid out of the account. Net = total in minus total out. "Accountant\'s collection" is shown for reference only and is not added in.</div><div class="err" id="fmMsg"></div>';
+      + '<div class="hint">Pick the date (today by default), type the amount and press Tab: it saves at once. Blank = not entered. Collection: Pure Collection and Fund Transfers received into the account. Payment: Genuine Suppliers and Fund Transfers paid out of the account. Net = total in minus total out. "Accountant\'s collection" is shown for reference only and is not added in.</div><div class="err" id="fmMsg"></div>';
     $('page').innerHTML = h;
     fmCalc(ls, G, dk);
     const goDay = k => { C.fd = k; fmEntry(); };
@@ -232,7 +232,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       $('fmIn' + l.id).textContent = has ? money0(tin) : ''; $('fmOut' + l.id).textContent = has ? money0(tout) : ''; $('fmNet' + l.id).innerHTML = has ? netSpan(tin - tout) : ''; });
     Object.keys(G).sort().forEach((g, gi) => put('fmG' + gi, G[g]));
     const T = put('fmT', ls), ent = ls.filter(l => FMF.some(x => fmv(l, dk, x[0]) != null)).length;
-    $('fmTiles').innerHTML = '<div class="tile"><b>' + money0(T.v[0]) + '</b><span>PEC Collection</span></div><div class="tile"><b>' + money0(T.v[1]) + '</b><span>Fund Transfers in</span></div>'
+    $('fmTiles').innerHTML = '<div class="tile"><b>' + money0(T.v[0]) + '</b><span>Pure Collection</span></div><div class="tile"><b>' + money0(T.v[1]) + '</b><span>Fund Transfers in</span></div>'
       + '<div class="tile"><b>' + money0(T.v[2]) + '</b><span>Genuine Suppliers</span></div><div class="tile"><b>' + money0(T.v[3]) + '</b><span>Fund Transfers out</span></div>'
       + '<div class="tile ' + (T.tin - T.tout >= 0 ? 'g' : 'r') + '"><b>' + money0(T.tin - T.tout) + '</b><span>Net for the day</span></div><div class="tile ' + (ent ? 'g' : 'a') + '"><b>' + ent + ' of ' + ls.length + '</b><span>Accounts entered</span></div>';
   }
@@ -253,16 +253,16 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     $('page').innerHTML = fmTabs('wk') + '<div class="noprint row2"><button class="btn" id="fwPrev">&lsaquo; Previous week</button><input type="date" id="fwDay" value="' + ymd(base) + '" title="Any date in the week"><button class="btn" id="fwNext">Next week &rsaquo;</button><button class="btn" id="fwNow">This week</button><button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="fwCsv">Download Excel (CSV)</button></div>'
       + '<h2 class="pt">Finance week report &middot; ' + lab + '</h2><div class="hint">Finance daily entry by bank account &middot; ' + (op ? 'Operation ' + esc(op) : 'all operations') + ' &middot; Monday to Sunday &middot; Iceman IMS</div>'
       + (C.hasFm ? '' : '<div class="card err">The Finance daily entry table is not set up yet (Supabase/41 finance daily entry.sql).</div>')
-      + '<div class="grid"><div class="tile"><b>' + money0(S(4)) + '</b><span>PEC Collection</span></div><div class="tile"><b>' + money0(S(5)) + '</b><span>Fund Transfers in</span></div><div class="tile"><b>' + money0(S(7)) + '</b><span>Genuine Suppliers</span></div><div class="tile"><b>' + money0(S(8)) + '</b><span>Fund Transfers out</span></div><div class="tile ' + (S(10) >= 0 ? 'g' : 'r') + '"><b>' + money0(S(10)) + '</b><span>Net for the week</span></div></div>'
-      + '<div class="wrap"><table><thead><tr><th>Day</th><th class="n">PEC Collection</th><th class="n">Fund Transfers in</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers out</th><th class="n">Total out</th><th class="n">Net</th></tr></thead><tbody>'
+      + '<div class="grid"><div class="tile"><b>' + money0(S(4)) + '</b><span>Pure Collection</span></div><div class="tile"><b>' + money0(S(5)) + '</b><span>Fund Transfers in</span></div><div class="tile"><b>' + money0(S(7)) + '</b><span>Genuine Suppliers</span></div><div class="tile"><b>' + money0(S(8)) + '</b><span>Fund Transfers out</span></div><div class="tile ' + (S(10) >= 0 ? 'g' : 'r') + '"><b>' + money0(S(10)) + '</b><span>Net for the week</span></div></div>'
+      + '<div class="wrap"><table><thead><tr><th>Day</th><th class="n">Pure Collection</th><th class="n">Fund Transfers in</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers out</th><th class="n">Total out</th><th class="n">Net</th></tr></thead><tbody>'
       + dayRows.map(r => '<tr><td>' + r[0] + '</td>' + [1, 2, 3, 4, 5, 6].map(i => td(r[i])).join('') + tdn(r[7]) + '</tr>').join('')
       + '<tr class="tot"><td>Week</td>' + [4, 5, 6, 7, 8, 9].map(i => td(S(i))).join('') + tdn(S(10)) + '</tr></tbody></table></div>'
-      + '<h3 style="margin-top:14px">By bank account</h3><div class="wrap"><table><thead><tr><th>Bank account</th><th>Acc No</th><th class="n">PEC Collection</th><th class="n">Fund Transfers in</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers out</th><th class="n">Total out</th><th class="n">Net</th></tr></thead><tbody>' + body
+      + '<h3 style="margin-top:14px">By bank account</h3><div class="wrap"><table><thead><tr><th>Bank account</th><th>Acc No</th><th class="n">Pure Collection</th><th class="n">Fund Transfers in</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers out</th><th class="n">Total out</th><th class="n">Net</th></tr></thead><tbody>' + body
       + '<tr class="tot"><td colspan="2">Total</td>' + [4, 5, 6, 7, 8, 9].map(i => td(S(i))).join('') + tdn(S(10)) + '</tr></tbody></table></div>';
     const goWk = dt => { C.fd = ymd(dt); fmWeek(); };
     $('fwPrev').onclick = () => goWk(addD(ws, -7)); $('fwNext').onclick = () => goWk(addD(ws, 7)); $('fwNow').onclick = () => goWk(new Date());
     $('fwDay').onchange = e => { if (e.target.value) goWk(pd(e.target.value)); };
-    $('fwCsv').onclick = () => csvDl('Finance week ' + wkLabel(ws) + ' ' + ymd(ws), ['Department', 'Operation', 'Bank account', 'Acc No', 'PEC Collection', 'Fund Transfers in', 'Total in', 'Genuine Suppliers', 'Fund Transfers out', 'Total out', 'Net'], all);
+    $('fwCsv').onclick = () => csvDl('Finance week ' + wkLabel(ws) + ' ' + ymd(ws), ['Department', 'Operation', 'Bank account', 'Acc No', 'Pure Collection', 'Fund Transfers in', 'Total in', 'Genuine Suppliers', 'Fund Transfers out', 'Total out', 'Net'], all);
     bindTabs();
   }
   function calcRows(ls, days) {
