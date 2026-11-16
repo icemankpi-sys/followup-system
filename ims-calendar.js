@@ -56,6 +56,16 @@ table.cal-month{width:100%;min-width:640px;table-layout:fixed;border-collapse:se
   html,body,#app,.shell,#content,#page{background:#fff!important}   /* no grey page background on paper */
   .cal-nav,.cal-hint{display:none!important}
   .cal-legend{margin:0 0 4px}
+  /* v5.4.3 (2026-11-16): no colour on paper. Black-and-white printers turned the coloured blocks into dark grey with unreadable text,
+     so events print as white boxes with black text and a black border (thick left edge), headers as white with black bold text. */
+  .cev,.cal-tg .te{background:#fff!important;color:#000!important;border:1px solid #000!important;border-left-width:3px!important;font-weight:600}
+  .cev small,.cal-tg .te b{color:#000!important;opacity:1!important}
+  .cal-month th,.cal-tg .th,.cal-tg .th.today{background:#fff!important;color:#000!important;border-bottom:1.5px solid #000!important}
+  .cal-month td.dc.out,.cal-month td.dc.sun,.cal-tg .col.sun{background:#fff!important;opacity:1!important}
+  .cal-month td.dc.out .dn{color:#888!important}
+  .cal-month .dc.today{outline:1.5px solid #000!important}.cal-month .dc.today .dn{background:#fff!important;color:#000!important;border:1px solid #000}
+  .cal-day-list th{background:#fff!important;color:#000!important;border-bottom:1.5px solid #000!important}
+  .cal-legend,.cal-day-list .dot{display:none!important}
 }`;
   document.head.appendChild(css);
 
