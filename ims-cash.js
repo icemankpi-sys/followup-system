@@ -47,15 +47,14 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   async function cLoad(force) {
     if (C.loaded && !force) return;
     const from = ymd(addD(monday(new Date()), -7 * 53));
-    // v5.6: payments (money out of the account this week) sit next to the target; until Supabase/40 is run the column is missing and the app hides it.
-    const tq = c => api('/rest/v1/cc_targets?select=' + c + '&week_start=gte.' + from);
-    const [ln, t, d] = await Promise.all([api('/rest/v1/cc_lanes?select=*&order=sort,name'),
-      tq('lane_id,week_start,target,payments').then(r => { C.hasPay = true; return r; }, () => { C.hasPay = false; return tq('lane_id,week_start,target'); }),
-      fetchAll('/rest/v1/cc_daily?select=lane_id,day,amount,customers,note,by_name,updated_at&day=gte.' + from + '&order=lane_id,day')]);
+    // v5.7: the Finance Manager's daily figures per account (cc_fm_daily) replace the v5.6 weekly payments; until Supabase/41 is run the table is missing and the app hides them.
+    const [ln, t, d, fm] = await Promise.all([api('/rest/v1/cc_lanes?select=*&order=sort,name'), api('/rest/v1/cc_targets?select=lane_id,week_start,target&week_start=gte.' + from),
+      fetchAll('/rest/v1/cc_daily?select=lane_id,day,amount,customers,note,by_name,updated_at&day=gte.' + from + '&order=lane_id,day'),
+      fetchAll('/rest/v1/cc_fm_daily?select=*&day=gte.' + from + '&order=lane_id,day').then(r => { C.hasFm = true; return r; }, () => { C.hasFm = false; return []; })]);
     C.lanes = ln;
-    C.tmap = {}; C.pmap = {};
-    t.forEach(x => { const k = x.lane_id + '|' + x.week_start; if (x.target != null) C.tmap[k] = Number(x.target); if (x.payments != null) C.pmap[k] = Number(x.payments); });
+    C.tmap = {}; t.forEach(x => { if (x.target != null) C.tmap[x.lane_id + '|' + x.week_start] = Number(x.target); });
     C.dmap = {}; d.forEach(x => C.dmap[x.lane_id + '|' + x.day] = x);
+    C.fm = {}; fm.forEach(x => C.fm[x.lane_id + '|' + x.day] = x);
     C.loaded = true;
   }
   async function fLoad(force) {
@@ -71,7 +70,14 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   const amt = (l, day) => { const r = C.dmap[l.id + '|' + day]; return r && r.amount != null ? Number(r.amount) : null; };
   const wkSum = (ls, ws) => { let s = 0; ls.forEach(l => { for (let i = 0; i < 7; i++) s += amt(l, ymd(addD(ws, i))) || 0; }); return s; };
   const wkTgt = (ls, ws) => sumA(ls.map(l => C.tmap[l.id + '|' + ymd(ws)] || 0));
-  const wkPay = (ls, ws) => sumA(ls.map(l => (C.pmap || {})[l.id + '|' + ymd(ws)] || 0));
+  // Finance Manager daily entry (v5.7): money in = PEC Collection + Fund Transfers in; money out = Genuine Suppliers + Fund Transfers out
+  const FMF = [['pec_collection', 'PEC Collection', 'in'], ['fund_in', 'Fund Transfers', 'in'], ['genuine_suppliers', 'Genuine Suppliers', 'out'], ['fund_out', 'Fund Transfers', 'out']];
+  const fmv = (l, day, f) => { const r = (C.fm || {})[l.id + '|' + day]; return r && r[f] != null ? Number(r[f]) : null; };
+  const fmIn = (l, day) => (fmv(l, day, 'pec_collection') || 0) + (fmv(l, day, 'fund_in') || 0);
+  const fmOut = (l, day) => (fmv(l, day, 'genuine_suppliers') || 0) + (fmv(l, day, 'fund_out') || 0);
+  // payments of the week (n days from Monday; 7 = whole week) = the Finance Manager's money out
+  const wkPay = (ls, ws, n) => { let s = 0; ls.forEach(l => { for (let i = 0; i < (n || 7); i++) s += fmOut(l, ymd(addD(ws, i))); }); return s; };
+  const fmFull = () => C.lanes.some(l => canC(l.operation, 'full'));
   async function run(load, fn) {
     $('page').innerHTML = '<div class="hint">Loading...</div>';
     try { await load(); fn(); } catch (e) { $('page').innerHTML = '<div class="card err">Could not load: ' + esc(e.message) + '<div class="hint">If this is new, the database section may not be set up yet.</div></div>'; }
@@ -123,8 +129,8 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const ws = C.wk || monday(new Date()); C.wk = ws;
     const days = [...Array(7)].map((_, i) => addD(ws, i)), today = ymd(new Date()), ls = lanesF();
     const anyFull = C.lanes.some(l => canC(l.operation, 'full'));
-    const tg = wkTgt(ls, ws), col = wkSum(ls, ws), entered = ls.filter(l => amt(l, today) != null).length, hp = !!C.hasPay, pay = wkPay(ls, ws);
-    let h = '<h2 class="pt">Daily Collection <span class="hint">enter what each collection account collected today</span></h2>'
+    const tg = wkTgt(ls, ws), col = wkSum(ls, ws), entered = ls.filter(l => amt(l, today) != null).length, hp = !!C.hasFm, pay = wkPay(ls, ws);
+    let h = fmTabs('acc') + '<h2 class="pt">Daily Collection <span class="hint">enter what each collection account collected today</span></h2>'
       + '<div class="wknav"><button class="btn" id="ccPrev">&lsaquo; Previous week</button><b>' + wkLabel(ws) + ' &middot; ' + fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' ' + addD(ws, 6).getFullYear() + '</b><button class="btn" id="ccNext">Next week &rsaquo;</button><button class="btn" id="ccNow">This week</button>'
       + (anyFull ? '<button class="btn" id="ccLanes">Manage collection accounts</button><button class="btn" id="ccCopyT" title="Fill this week\'s empty targets with last week\'s targets">Copy last week\'s targets</button>' : '') + '<button class="btn" id="ccUpd" title="One page per day: every account\'s collection, PDF print">Account Update (PDF)</button></div>' + cFilters(false)
       + '<div class="grid"><div class="tile"><b>' + money0(tg) + '</b><span>Week target</span></div><div class="tile ' + (col >= tg ? 'g' : 'a') + '"><b>' + money0(col) + '</b><span>Collected so far</span></div>'
@@ -132,7 +138,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       + (hp ? '<div class="tile"><b id="ccPayT">' + money0(pay) + '</b><span>Payments this week (out)</span></div><div class="tile ' + (col - pay >= 0 ? 'g' : 'r') + '" id="ccNetTile"><b id="ccNetT">' + money0(col - pay) + '</b><span>Net (collected - payments)</span></div>' : '')
       + (ymd(ws) === ymd(monday(new Date())) ? '<div class="tile a"><b>' + entered + ' of ' + ls.length + '</b><span>Accounts entered today</span></div>' : '') + '</div>'
       + '<div class="wrap"><table style="min-width:' + (hp ? 1400 : 1200) + 'px"><thead><tr><th>Collection account</th><th>Accountant</th>' + days.map((d, i) => '<th class="n">' + DOW[i] + ' ' + d.getDate() + '</th>').join('')
-      + '<th class="n">Total</th><th class="n">Target</th><th class="n">Excess/(Short)</th><th class="n">%</th>' + (hp ? '<th class="n" title="Total to be paid out of this account this week">Payments (week)</th><th class="n" title="Collected this week minus the payments">Net</th>' : '') + '<th></th></tr></thead><tbody>';
+      + '<th class="n">Total</th><th class="n">Target</th><th class="n">Excess/(Short)</th><th class="n">%</th>' + (hp ? '<th class="n" title="Genuine Suppliers + Fund Transfers out, entered daily by the Finance Manager">Payments (week)</th><th class="n" title="Collected this week minus the payments">Net</th>' : '') + '<th></th></tr></thead><tbody>';
     if (!ls.length) h += '<tr><td colspan="' + (hp ? 16 : 14) + '" class="hint">No collection accounts for your access. The Admin gives access in Permission (Daily Collection).</td></tr>';
     ls.forEach(l => {
       const e = canC(l.operation, 'edit'), f = canC(l.operation, 'full'), t = C.tmap[l.id + '|' + ymd(ws)];
@@ -143,11 +149,11 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
         }).join('')
         + '<td class="n"><b id="ccT' + l.id + '"></b></td><td class="n">' + (f ? '<input class="tin" type="number" step="1" min="0" data-l="' + l.id + '" value="' + (t == null ? '' : t) + '">' : (t == null ? '<span class="hint">not set</span>' : money0(t))) + '</td>'
         + '<td class="n" id="ccX' + l.id + '"></td><td class="n" id="ccP' + l.id + '"></td>'
-        + (hp ? (() => { const p = C.pmap[l.id + '|' + ymd(ws)]; return '<td class="n">' + (f ? '<input class="tin pin" type="number" step="0.01" min="0" data-l="' + l.id + '" value="' + (p == null ? '' : p) + '">' : (p == null ? '<span class="hint">-</span>' : money0(p))) + '</td><td class="n" id="ccN' + l.id + '"></td>'; })() : '')
+        + (hp ? '<td class="n">' + money0(wkPay([l], ws)) + '</td><td class="n" id="ccN' + l.id + '"></td>' : '')
         + '<td><button class="btn q" data-cdet="' + l.id + '" title="Customers and notes for the week">&#128221;</button></td></tr>';
     });
     h += '<tr class="tot"><td colspan="2">Total</td>' + days.map((d, i) => '<td class="n" id="ccD' + i + '"></td>').join('') + '<td class="n" id="ccTT"></td><td class="n" id="ccTG"></td><td class="n" id="ccTX"></td><td class="n" id="ccTP"></td>' + (hp ? '<td class="n" id="ccTPay"></td><td class="n" id="ccTN"></td>' : '') + '<td></td></tr></tbody></table></div>'
-      + '<div class="hint">Type the amount and press Tab: it saves at once. Blank = not entered. Future days are locked; entries older than 7 days need Full access. Targets are set by Full access (Financial Controller or Admin): type in the Target column, or use Copy last week\'s targets; use Next week to set the coming week. ' + (hp ? 'Payments (week) = the total to be paid out of that account this week (Full access); Net = collected this week minus those payments. ' : '') + '&#128221; adds the customers collected from.</div><div class="err" id="ccMsg"></div>';
+      + '<div class="hint">Type the amount and press Tab: it saves at once. Blank = not entered. Future days are locked; entries older than 7 days need Full access. Targets are set by Full access (Financial Controller or Admin): type in the Target column, or use Copy last week\'s targets; use Next week to set the coming week. ' + (hp ? 'Payments (week) = Genuine Suppliers + Fund Transfers out, entered day by day by the Finance Manager (Finance daily entry); Net = collected this week minus those payments. ' : '') + '&#128221; adds the customers collected from.</div><div class="err" id="ccMsg"></div>';
     $('page').innerHTML = h;
     calcRows(ls, days);
     $('ccPrev').onclick = () => { C.wk = addD(ws, -7); cEntry(); };
@@ -158,9 +164,106 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     $('ccUpd').onclick = () => cUpdate();
     bindCF(cEntry);
     document.querySelectorAll('#page .cin').forEach(i => i.onchange = () => saveCell(i, ls, days));
-    document.querySelectorAll('#page .tin:not(.pin)').forEach(i => i.onchange = () => saveTarget(i, ws, ls, days));
-    document.querySelectorAll('#page .pin').forEach(i => i.onchange = () => savePay(i, ws, ls, days));
+    document.querySelectorAll('#page .tin').forEach(i => i.onchange = () => saveTarget(i, ws, ls, days));
+    bindTabs();
     document.querySelectorAll('#page [data-cdet]').forEach(b => b.onclick = () => detPanel(Number(b.dataset.cdet), ws));
+  }
+  // ================= FINANCE DAILY ENTRY (v5.7, 2026-11-16) =================
+  // The Finance Manager (Daily Collection Full) opens Account on today's date, can pick any date, and enters per bank account:
+  // money in = PEC Collection + Fund Transfers; money out = Genuine Suppliers + Fund Transfers. The week report shows the week of the chosen date.
+  function fmTabs(on) {
+    if (!fmFull()) return '';
+    const t = [['fm', 'Finance daily entry'], ['acc', 'Accountants\' collection'], ['wk', 'Finance week report'], ['rep', 'Collection report']];
+    return '<div class="subtabs noprint">' + t.map(x => '<button data-fmt="' + x[0] + '" class="' + (on === x[0] ? 'on' : '') + '">' + x[1] + '</button>').join('') + '</div>';
+  }
+  function bindTabs() { document.querySelectorAll('#page [data-fmt]').forEach(b => b.onclick = () => ({fm: fmEntry, acc: cEntry, wk: fmWeek, rep: cReport})[b.dataset.fmt]()); }
+  const fmLanes = () => C.lanes.filter(l => l.active && (!op || l.operation === op)).slice().sort((a, b) => ((a.department || '') < (b.department || '') ? -1 : (a.department || '') > (b.department || '') ? 1 : 0) || (a.sort - b.sort) || a.name.localeCompare(b.name));
+  const fmGroups = ls => { const g = {}; ls.forEach(l => { const k = l.department || '(no department)'; (g[k] = g[k] || []).push(l); }); return g; };
+  function fmEntry() {
+    const today = ymd(new Date()), dk = C.fd || today; C.fd = dk;
+    const d = pd(dk), dLab = DOW[(d.getDay() + 6) % 7] + ' ' + fmtD(d) + ' ' + d.getFullYear(), ls = fmLanes(), G = fmGroups(ls);
+    let h = fmTabs('fm') + '<h2 class="pt">Finance daily entry &middot; ' + esc(dLab) + '</h2>'
+      + '<div class="wknav noprint"><button class="btn" id="fmPrev">&lsaquo; Previous day</button><input type="date" id="fmDay" value="' + dk + '"><button class="btn" id="fmNext">Next day &rsaquo;</button><button class="btn" id="fmToday">Today</button><button class="btn" id="fmWk">Week report</button></div>';
+    if (!C.hasFm) { $('page').innerHTML = h + '<div class="card err">The Finance daily entry table is not set up yet (Supabase/41 finance daily entry.sql).</div>'; bindTabs(); return; }
+    h += '<div class="grid" id="fmTiles"></div>'
+      + '<div class="wrap"><table style="min-width:1100px"><thead><tr><th rowspan="2">Bank account</th><th rowspan="2" class="n" title="What the accountant entered in Daily Collection for this day (for reference)">Accountant\'s collection</th>'
+      + '<th colspan="3" style="text-align:center">Collection (money in)</th><th colspan="3" style="text-align:center">Payment (money out)</th><th rowspan="2" class="n">Net</th></tr>'
+      + '<tr><th class="n">PEC Collection</th><th class="n">Fund Transfers</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers</th><th class="n">Total out</th></tr></thead><tbody>';
+    if (!ls.length) h += '<tr><td colspan="9" class="hint">No bank accounts for your access.</td></tr>';
+    Object.keys(G).sort().forEach((g, gi) => {
+      h += '<tr class="grp"><td>' + esc(g) + '</td><td class="n" id="fmG' + gi + 'a"></td><td class="n" id="fmG' + gi + 'f0"></td><td class="n" id="fmG' + gi + 'f1"></td><td class="n" id="fmG' + gi + 'in"></td><td class="n" id="fmG' + gi + 'f2"></td><td class="n" id="fmG' + gi + 'f3"></td><td class="n" id="fmG' + gi + 'out"></td><td class="n" id="fmG' + gi + 'net"></td></tr>';
+      G[g].forEach(l => {
+        const f = canC(l.operation, 'full'), a = amt(l, dk);
+        const cell = (fi) => { const v = fmv(l, dk, FMF[fi][0]); return '<td class="n">' + (f ? '<input class="cin fmin" type="number" step="0.01" min="0" data-l="' + l.id + '" data-f="' + FMF[fi][0] + '" value="' + (v == null ? '' : v) + '">' : (v == null ? '<span class="hint">-</span>' : money0(v))) + '</td>'; };
+        h += '<tr><td><b>' + esc(l.name) + '</b> <span class="tag t-b">' + esc(l.operation) + '</span>' + (l.acc_no ? '<div class="hint" style="margin:2px 0 0">A/C ' + esc(l.acc_no) + '</div>' : '') + '</td><td class="n">' + (a == null ? '<span class="hint">not entered</span>' : money0(a)) + '</td>'
+          + cell(0) + cell(1) + '<td class="n"><b id="fmIn' + l.id + '"></b></td>' + cell(2) + cell(3) + '<td class="n"><b id="fmOut' + l.id + '"></b></td><td class="n" id="fmNet' + l.id + '"></td></tr>';
+      });
+    });
+    h += '<tr class="tot"><td>Total</td><td class="n" id="fmTa"></td><td class="n" id="fmTf0"></td><td class="n" id="fmTf1"></td><td class="n" id="fmTin"></td><td class="n" id="fmTf2"></td><td class="n" id="fmTf3"></td><td class="n" id="fmTout"></td><td class="n" id="fmTnet"></td></tr></tbody></table></div>'
+      + '<div class="hint">Pick the date (today by default), type the amount and press Tab: it saves at once. Blank = not entered. Collection: PEC Collection and Fund Transfers received into the account. Payment: Genuine Suppliers and Fund Transfers paid out of the account. Net = total in minus total out. "Accountant\'s collection" is shown for reference only and is not added in.</div><div class="err" id="fmMsg"></div>';
+    $('page').innerHTML = h;
+    fmCalc(ls, G, dk);
+    const goDay = k => { C.fd = k; fmEntry(); };
+    $('fmDay').onchange = e => { if (e.target.value) goDay(e.target.value); };
+    $('fmPrev').onclick = () => goDay(ymd(addD(d, -1))); $('fmNext').onclick = () => goDay(ymd(addD(d, 1))); $('fmToday').onclick = () => goDay(today);
+    $('fmWk').onclick = () => fmWeek();
+    bindTabs();
+    document.querySelectorAll('#page .fmin').forEach(i => i.onchange = async () => {
+      const v = i.value === '' ? null : Number(i.value), k = i.dataset.l + '|' + dk;
+      if (v != null && (isNaN(v) || v < 0)) { i.classList.add('bad'); return; }
+      const body = {lane_id: Number(i.dataset.l), day: dk}; body[i.dataset.f] = v;
+      try {
+        await api('/rest/v1/cc_fm_daily?on_conflict=lane_id,day', {method: 'POST', body, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}});
+        C.fm[k] = Object.assign(C.fm[k] || {lane_id: Number(i.dataset.l), day: dk}, body);
+        i.classList.remove('bad'); i.classList.add('ok'); setTimeout(() => i.classList.remove('ok'), 1200); $('fmMsg').textContent = ''; fmCalc(ls, G, dk);
+      } catch (e) { i.classList.add('bad'); $('fmMsg').textContent = e.message; }
+    });
+  }
+  function fmCalc(ls, G, dk) {
+    const sumF = (rs, f) => sumA(rs.map(l => fmv(l, dk, f) || 0)), netSpan = v => '<span class="' + (v >= 0 ? 'up' : 'down') + '">' + money0(v) + '</span>';
+    const put = (pre, rs) => {
+      const v = FMF.map(x => sumF(rs, x[0])), tin = v[0] + v[1], tout = v[2] + v[3];
+      $(pre + 'a').textContent = money0(sumA(rs.map(l => amt(l, dk) || 0)));
+      v.forEach((x, i) => $(pre + 'f' + i).textContent = money0(x));
+      $(pre + 'in').textContent = money0(tin); $(pre + 'out').textContent = money0(tout); $(pre + 'net').innerHTML = netSpan(tin - tout);
+      return {v, tin, tout};
+    };
+    ls.forEach(l => { const tin = fmIn(l, dk), tout = fmOut(l, dk), has = FMF.some(x => fmv(l, dk, x[0]) != null);
+      $('fmIn' + l.id).textContent = has ? money0(tin) : ''; $('fmOut' + l.id).textContent = has ? money0(tout) : ''; $('fmNet' + l.id).innerHTML = has ? netSpan(tin - tout) : ''; });
+    Object.keys(G).sort().forEach((g, gi) => put('fmG' + gi, G[g]));
+    const T = put('fmT', ls), ent = ls.filter(l => FMF.some(x => fmv(l, dk, x[0]) != null)).length;
+    $('fmTiles').innerHTML = '<div class="tile"><b>' + money0(T.v[0]) + '</b><span>PEC Collection</span></div><div class="tile"><b>' + money0(T.v[1]) + '</b><span>Fund Transfers in</span></div>'
+      + '<div class="tile"><b>' + money0(T.v[2]) + '</b><span>Genuine Suppliers</span></div><div class="tile"><b>' + money0(T.v[3]) + '</b><span>Fund Transfers out</span></div>'
+      + '<div class="tile ' + (T.tin - T.tout >= 0 ? 'g' : 'r') + '"><b>' + money0(T.tin - T.tout) + '</b><span>Net for the day</span></div><div class="tile ' + (ent ? 'g' : 'a') + '"><b>' + ent + ' of ' + ls.length + '</b><span>Accounts entered</span></div>';
+  }
+  function fmWeek() {
+    const base = pd(C.fd || ymd(new Date())), ws = monday(base), we = addD(ws, 6), days = [...Array(7)].map((_, i) => ymd(addD(ws, i)));
+    const ls = fmLanes(), G = fmGroups(ls), wsum = (l, f) => sumA(days.map(k => fmv(l, k, f) || 0));
+    const rowOf = l => { const v = FMF.map(x => wsum(l, x[0])), tin = v[0] + v[1], tout = v[2] + v[3]; return [l.department || '', l.operation, l.name, l.acc_no || '', v[0], v[1], tin, v[2], v[3], tout, tin - tout]; };
+    const td = v => '<td class="n">' + money0(v) + '</td>', tdn = v => '<td class="n"><span class="' + (v >= 0 ? 'up' : 'down') + '">' + money0(v) + '</span></td>';
+    const all = []; let body = '';
+    Object.keys(G).sort().forEach(g => {
+      const rs = G[g].map(rowOf); all.push(...rs); const s = i => sumA(rs.map(r => r[i]));
+      body += '<tr class="grp"><td colspan="2">' + esc(g) + '</td>' + [4, 5, 6, 7, 8, 9].map(i => td(s(i))).join('') + tdn(s(10)) + '</tr>'
+        + rs.map(r => '<tr><td>' + esc(r[2]) + ' <span class="tag t-b">' + esc(r[1]) + '</span></td><td>' + esc(r[3]) + '</td>' + [4, 5, 6, 7, 8, 9].map(i => td(r[i])).join('') + tdn(r[10]) + '</tr>').join('');
+    });
+    const S = i => sumA(all.map(r => r[i]));
+    const dayRows = days.map((k, i) => { const v = FMF.map(x => sumA(ls.map(l => fmv(l, k, x[0]) || 0))), tin = v[0] + v[1], tout = v[2] + v[3]; return [DOW[i] + ' ' + fmtD(pd(k)), v[0], v[1], tin, v[2], v[3], tout, tin - tout]; });
+    const lab = wkLabel(ws) + ' &middot; ' + fmtD(ws) + ' to ' + fmtD(we) + ' ' + we.getFullYear();
+    $('page').innerHTML = fmTabs('wk') + '<div class="noprint row2"><button class="btn" id="fwPrev">&lsaquo; Previous week</button><input type="date" id="fwDay" value="' + ymd(base) + '" title="Any date in the week"><button class="btn" id="fwNext">Next week &rsaquo;</button><button class="btn" id="fwNow">This week</button><button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="fwCsv">Download Excel (CSV)</button></div>'
+      + '<h2 class="pt">Finance week report &middot; ' + lab + '</h2><div class="hint">Finance daily entry by bank account &middot; ' + (op ? 'Operation ' + esc(op) : 'all operations') + ' &middot; Monday to Sunday &middot; Iceman IMS</div>'
+      + (C.hasFm ? '' : '<div class="card err">The Finance daily entry table is not set up yet (Supabase/41 finance daily entry.sql).</div>')
+      + '<div class="grid"><div class="tile"><b>' + money0(S(4)) + '</b><span>PEC Collection</span></div><div class="tile"><b>' + money0(S(5)) + '</b><span>Fund Transfers in</span></div><div class="tile"><b>' + money0(S(7)) + '</b><span>Genuine Suppliers</span></div><div class="tile"><b>' + money0(S(8)) + '</b><span>Fund Transfers out</span></div><div class="tile ' + (S(10) >= 0 ? 'g' : 'r') + '"><b>' + money0(S(10)) + '</b><span>Net for the week</span></div></div>'
+      + '<div class="wrap"><table><thead><tr><th>Day</th><th class="n">PEC Collection</th><th class="n">Fund Transfers in</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers out</th><th class="n">Total out</th><th class="n">Net</th></tr></thead><tbody>'
+      + dayRows.map(r => '<tr><td>' + r[0] + '</td>' + [1, 2, 3, 4, 5, 6].map(i => td(r[i])).join('') + tdn(r[7]) + '</tr>').join('')
+      + '<tr class="tot"><td>Week</td>' + [4, 5, 6, 7, 8, 9].map(i => td(S(i))).join('') + tdn(S(10)) + '</tr></tbody></table></div>'
+      + '<h3 style="margin-top:14px">By bank account</h3><div class="wrap"><table><thead><tr><th>Bank account</th><th>Acc No</th><th class="n">PEC Collection</th><th class="n">Fund Transfers in</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers out</th><th class="n">Total out</th><th class="n">Net</th></tr></thead><tbody>' + body
+      + '<tr class="tot"><td colspan="2">Total</td>' + [4, 5, 6, 7, 8, 9].map(i => td(S(i))).join('') + tdn(S(10)) + '</tr></tbody></table></div>';
+    const goWk = dt => { C.fd = ymd(dt); fmWeek(); };
+    $('fwPrev').onclick = () => goWk(addD(ws, -7)); $('fwNext').onclick = () => goWk(addD(ws, 7)); $('fwNow').onclick = () => goWk(new Date());
+    $('fwDay').onchange = e => { if (e.target.value) goWk(pd(e.target.value)); };
+    $('fwCsv').onclick = () => csvDl('Finance week ' + wkLabel(ws) + ' ' + ymd(ws), ['Department', 'Operation', 'Bank account', 'Acc No', 'PEC Collection', 'Fund Transfers in', 'Total in', 'Genuine Suppliers', 'Fund Transfers out', 'Total out', 'Net'], all);
+    bindTabs();
   }
   function calcRows(ls, days) {
     const ws = days[0];
@@ -169,8 +272,8 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       $('ccT' + l.id).textContent = money0(tot);
       $('ccX' + l.id).innerHTML = t ? '<span class="' + (tot - t >= 0 ? 'up' : 'down') + '">' + money0(tot - t) + '</span>' : '';
       $('ccP' + l.id).textContent = t ? pct(tot, t) + '%' : '';
-      const p = (C.pmap || {})[l.id + '|' + ymd(ws)], n = $('ccN' + l.id);
-      if (n) n.innerHTML = p != null ? '<span class="' + (tot - p >= 0 ? 'up' : 'down') + '">' + money0(tot - p) + '</span>' : '';
+      const p = wkPay([l], ws), n = $('ccN' + l.id);
+      if (n) n.innerHTML = '<span class="' + (tot - p >= 0 ? 'up' : 'down') + '">' + money0(tot - p) + '</span>';
     });
     days.forEach((d, i) => $('ccD' + i).textContent = money0(sumA(ls.map(l => amt(l, ymd(d)) || 0))));
     const T = wkSum(ls, ws), G = wkTgt(ls, ws), P = wkPay(ls, ws);
@@ -179,16 +282,6 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       $('ccTPay').textContent = money0(P); $('ccTN').innerHTML = '<span class="' + (T - P >= 0 ? 'up' : 'down') + '">' + money0(T - P) + '</span>';
       $('ccPayT').textContent = money0(P); $('ccNetT').textContent = money0(T - P); $('ccNetTile').className = 'tile ' + (T - P >= 0 ? 'g' : 'r');
     }
-  }
-  // v5.6 (2026-11-16): the week's payments out of each bank account (Full access, same rule as the target). Blank = not set.
-  async function savePay(i, ws, ls, days) {
-    const v = i.value === '' ? null : Number(i.value), k = i.dataset.l + '|' + ymd(ws);
-    if (v != null && (isNaN(v) || v < 0)) { i.classList.add('bad'); return; }
-    try {
-      await api('/rest/v1/cc_targets?on_conflict=lane_id,week_start', {method: 'POST', body: {lane_id: Number(i.dataset.l), week_start: ymd(ws), payments: v}, headers: {Prefer: 'resolution=merge-duplicates,return=minimal'}});
-      if (v == null) delete C.pmap[k]; else C.pmap[k] = v;
-      i.classList.remove('bad'); i.classList.add('ok'); setTimeout(() => i.classList.remove('ok'), 1200); $('ccMsg').textContent = ''; calcRows(ls, days);
-    } catch (e) { i.classList.add('bad'); $('ccMsg').textContent = e.message; }
   }
   async function saveCell(i, ls, days) {
     const v = i.value === '' ? null : Number(i.value), k = i.dataset.l + '|' + i.dataset.d;
@@ -267,16 +360,16 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const wtd = l => { let s = 0; for (let i = 0; i < nDays; i++) s += amt(l, ymd(addD(ws, i))) || 0; return s; };
     const groups = {};
     ls.forEach(l => { const g = l.department || '(no department)'; (groups[g] = groups[g] || []).push(l); });
-    const dayT = sumA(ls.map(l => amt(l, dk) || 0)), wT = sumA(ls.map(wtd)), tgT = wkTgt(ls, ws), ent = ls.filter(l => amt(l, dk) != null).length, hp = !!C.hasPay, pT = wkPay(ls, ws);
+    const dayT = sumA(ls.map(l => amt(l, dk) || 0)), wT = sumA(ls.map(wtd)), tgT = wkTgt(ls, ws), ent = ls.filter(l => amt(l, dk) != null).length, hp = !!C.hasFm, pT = wkPay(ls, ws, nDays);
     // v5.6.1: the week's payments out of each account and Net = week to date minus those payments (only after Supabase/40)
     const net = (w, p) => p == null ? '' : '<span class="' + (w - p >= 0 ? 'up' : 'down') + '">' + money0(w - p) + '</span>';
     const dLab = DOW[(d.getDay() + 6) % 7] + ' ' + fmtD(d) + ' ' + d.getFullYear();
     let body = '';
     Object.keys(groups).sort().forEach(g => {
-      const rs = groups[g], gd = sumA(rs.map(l => amt(l, dk) || 0)), gw = sumA(rs.map(wtd)), gt = wkTgt(rs, ws), gp = wkPay(rs, ws);
+      const rs = groups[g], gd = sumA(rs.map(l => amt(l, dk) || 0)), gw = sumA(rs.map(wtd)), gt = wkTgt(rs, ws), gp = wkPay(rs, ws, nDays);
       body += '<tr class="grp"><td colspan="2">' + esc(g) + '</td><td class="n">' + money0(gd) + '</td><td class="n">' + money0(gw) + '</td><td class="n">' + money0(gt) + '</td><td class="n">' + (gt ? pct(gw, gt) + '%' : '') + '</td>' + (hp ? '<td class="n">' + money0(gp) + '</td><td class="n">' + net(gw, gp) + '</td>' : '') + '<td></td></tr>'
         + rs.map(l => {
-          const v = amt(l, dk), w = wtd(l), t = C.tmap[l.id + '|' + ymd(ws)] || 0, r = C.dmap[l.id + '|' + dk] || {}, p = (C.pmap || {})[l.id + '|' + ymd(ws)];
+          const v = amt(l, dk), w = wtd(l), t = C.tmap[l.id + '|' + ymd(ws)] || 0, r = C.dmap[l.id + '|' + dk] || {}, p = wkPay([l], ws, nDays);
           return '<tr><td><b>' + esc(l.name) + '</b> <span class="tag t-b">' + esc(l.operation) + '</span>' + (l.acc_no ? '<div class="hint" style="margin:0">A/C ' + esc(l.acc_no) + '</div>' : '') + '</td><td>' + esc(l.officer || '') + '</td>'
             + '<td class="n">' + (v == null ? '<span class="down">not entered</span>' : money0(v)) + '</td><td class="n">' + money0(w) + '</td><td class="n">' + (t ? money0(t) : '<span class="hint">not set</span>') + '</td><td class="n">' + (t ? pct(w, t) + '%' : '') + '</td>' + (hp ? '<td class="n">' + (p == null ? '<span class="hint">-</span>' : money0(p)) + '</td><td class="n">' + net(w, p) + '</td>' : '') + '<td style="font-size:11px">' + esc(r.customers || '') + '</td></tr>';
         }).join('');
@@ -287,7 +380,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
       + '<div class="tile ' + (tgT && wT >= tgT * nDays / 6 ? 'g' : 'a') + '"><b>' + (tgT ? pct(wT, tgT) + '%' : '-') + '</b><span>Achievement (week)</span></div>'
       + (hp ? '<div class="tile"><b>' + money0(pT) + '</b><span>Payments this week (out)</span></div><div class="tile ' + (wT - pT >= 0 ? 'g' : 'r') + '"><b>' + money0(wT - pT) + '</b><span>Net (week to date - payments)</span></div>' : '')
       + '<div class="tile ' + (ent < ls.length ? 'r' : 'g') + '"><b>' + ent + ' of ' + ls.length + '</b><span>Accounts entered for ' + fmtD(d) + '</span></div></div>'
-      + '<div class="wrap"><table><thead><tr><th>Operation / account</th><th>Accountant</th><th class="n">' + esc(dLab) + '</th><th class="n">Week to date</th><th class="n">Week target</th><th class="n">%</th>' + (hp ? '<th class="n">Payments (week)</th><th class="n">Net</th>' : '') + '<th>Customers (day)</th></tr></thead><tbody>' + body
+      + '<div class="wrap"><table><thead><tr><th>Operation / account</th><th>Accountant</th><th class="n">' + esc(dLab) + '</th><th class="n">Week to date</th><th class="n">Week target</th><th class="n">%</th>' + (hp ? '<th class="n">Payments (week to date)</th><th class="n">Net</th>' : '') + '<th>Customers (day)</th></tr></thead><tbody>' + body
       + '<tr class="tot"><td colspan="2">Total</td><td class="n">' + money0(dayT) + '</td><td class="n">' + money0(wT) + '</td><td class="n">' + money0(tgT) + '</td><td class="n">' + (tgT ? pct(wT, tgT) + '%' : '') + '</td>' + (hp ? '<td class="n">' + money0(pT) + '</td><td class="n">' + net(wT, pT) + '</td>' : '') + '<td></td></tr></tbody></table></div>'
       + '<div class="hint noprint">Pick a date, then Print / Save as PDF: the printout gets the Iceman header, created date, user and page numbers.</div>';
     $('ccBk').onclick = () => go();
@@ -387,7 +480,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     let body = '';
     Object.keys(groups).sort().forEach(g => { const rs = groups[g].map(row); all.push(...rs); const t = sumA(rs.map(r => r[4])), c = sumA(rs.map(r => r[5])); body += '<tr class="grp"><td colspan="4">' + esc(g) + '</td><td class="n">' + money0(t) + '</td><td class="n">' + money0(c) + '</td><td class="n">' + (t ? pct(c, t) + '%' : '') + '</td><td class="n">' + (t ? money0(c - t) : '') + '</td><td colspan="2"></td></tr>' + rs.map(tr).join(''); });
     const T = sumA(all.map(r => r[4])), Cc = sumA(all.map(r => r[5])), P = sumA(all.map(r => r[8]));
-    $('page').innerHTML = '<div class="noprint row2">' + sel('ccRm', '', [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['custom', 'Custom date / range']], R.mode)
+    $('page').innerHTML = fmTabs('rep') + '<div class="noprint row2">' + sel('ccRm', '', [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['custom', 'Custom date / range']], R.mode)
       + (R.mode === 'daily' ? '<input type="date" id="ccRd" value="' + R.d + '" max="' + ymd(today) + '">'
         : R.mode === 'monthly' ? '<input type="month" id="ccRmo" value="' + R.mo + '" max="' + ymd(today).slice(0, 7) + '">'
         : R.mode === 'custom' ? '<input type="date" id="ccRf" value="' + ymd(a) + '" max="' + ymd(today) + '"><span class="hint">to</span><input type="date" id="ccRt" value="' + ymd(b) + '" max="' + ymd(today) + '">'
@@ -404,6 +497,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     if ($('ccRf')) $('ccRf').onchange = e => { if (e.target.value) { R.from = e.target.value; if (R.to < R.from) R.to = R.from; cReport(); } };
     if ($('ccRt')) $('ccRt').onchange = e => { if (e.target.value) { R.to = e.target.value; cReport(); } };
     $('ccCsv').onclick = () => csvDl('Collection ' + file, ['Operation', 'Account', 'Acc No', 'Accountant', 'Target', 'Collected', 'Percent', 'Excess/(Short)', prevLab, 'Change'], all);
+    bindTabs();
   }
   function cCard(m) {
     setTimeout(async () => { try { await cLoad(); const ls = C.lanes.filter(l => l.active), ws = monday(new Date()), c = wkSum(ls, ws), t = wkTgt(ls, ws), el = document.getElementById('card-collection');
@@ -519,6 +613,7 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
   }
 
   window.MODULE_PAGES = {
-    collection: {items: () => run(cLoad, cEntry), dash: () => run(cLoad, cDash), report: () => run(cLoad, cReport), card: cCard}
+    // v5.7: Full access (Finance Manager / Financial Controller, Admin) opens on the Finance daily entry, today's date; others on the accountants' entry
+    collection: {items: () => run(cLoad, () => (fmFull() ? fmEntry : cEntry)()), dash: () => run(cLoad, cDash), report: () => run(cLoad, () => (fmFull() ? fmWeek : cReport)()), card: cCard}
   };
 })();
