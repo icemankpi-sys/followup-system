@@ -10,7 +10,22 @@
 .st-note{width:150px;padding:4px 6px}
 table.st th.grpH{text-align:center;border-bottom:1px solid rgba(255,255,255,.35)}
 table.st td.sep,table.st th.sep{border-left:2px solid var(--line2)}
-.st-miss{background:var(--danger-soft);color:var(--danger);font-weight:700;text-align:center}`;
+.st-miss{background:var(--danger-soft);color:var(--danger);font-weight:700;text-align:center}
+/* v5.8.1 report document (Daily report / Week report): plain values, borders, signature block; black and white on paper */
+table.st-doc{width:100%;border-collapse:collapse;font-size:12.5px}
+table.st-doc th,table.st-doc td{border:1px solid var(--line2);padding:5px 6px}
+table.st-doc td.ne{color:var(--danger);font-style:italic}
+.st-sum{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13px;margin:6px 0 10px}.st-sum b{font-size:14px}
+.st-sign{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:34px;font-size:12.5px}
+.st-sign div{border-top:1px dotted #555;padding-top:4px}.st-sign small{display:block;color:var(--muted);margin-top:10px}
+@media print{
+  table.st-doc{font-size:10.5px}
+  table.st-doc th,table.st-doc td{border:1px solid #000!important;color:#000!important;background:#fff!important;padding:3px 4px}
+  table.st-doc th{font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.st-doc tr.tot td{font-weight:700;border-top:2px solid #000!important}
+  table.st-doc td.ne{color:#000!important}
+  .st-sum{color:#000}.st-sign small{color:#000}
+}`;
   document.head.appendChild(css);
 
   const pad = n => String(n).padStart(2, '0');
@@ -56,7 +71,7 @@ table.st td.sep,table.st th.sep{border-left:2px solid var(--line2)}
     const d = pd(k), ls = ptsF(), future = k > today;
     let h = '<h2 class="pt">Daily ICE Stock &middot; ' + esc(fmtL(d)) + '</h2>'
       + '<div class="wknav noprint"><button class="btn" id="stPrev">&lsaquo; Previous day</button><input type="date" id="stDay" value="' + k + '" max="' + today + '"><button class="btn" id="stNext">Next day &rsaquo;</button><button class="btn" id="stToday">Today</button>'
-      + (anyFull() ? '<button class="btn" id="stPts">Manage stock points</button>' : '') + '<button class="btn p" id="rPrint">Print / Save as PDF</button></div>'
+      + (anyFull() ? '<button class="btn" id="stPts">Manage stock points</button>' : '') + '<button class="btn p" id="stDoc" title="The day\'s figures as a report document with signatures, for Print / Save as PDF">Daily report (PDF)</button></div>'
       + '<div class="grid" id="stTiles"></div>'
       + '<div class="wrap"><table class="st" style="min-width:1000px"><thead><tr><th rowspan="2">Operation</th><th rowspan="2">In charge</th><th colspan="3" class="grpH sep">Main Stores</th><th colspan="3" class="grpH sep">Outside</th><th rowspan="2" class="n sep">Total</th><th rowspan="2">Note</th><th rowspan="2">Entered by</th></tr>'
       + '<tr><th class="n sep">Impulse</th><th class="n">Bulk</th><th class="n">Total</th><th class="n sep">Impulse</th><th class="n">Bulk</th><th class="n">Total</th></tr></thead><tbody>';
@@ -78,7 +93,35 @@ table.st td.sep,table.st th.sep{border-left:2px solid var(--line2)}
     $('stNext').onclick = () => { const n = ymd(addD(d, 1)); if (n <= today) goDay(n); };
     $('stToday').onclick = () => goDay(today);
     if ($('stPts')) $('stPts').onclick = pointsPanel;
+    $('stDoc').onclick = () => dayDoc();
     document.querySelectorAll('#page [data-p][data-f]').forEach(i => i.onchange = () => save(i, ls, k));
+  }
+
+  // ---------- Daily report document (v5.8.1) ----------
+  // The day's stock as a plain report: no input boxes, one line per operation ("Not entered" where blank), totals, summary and signatures.
+  const signBlock = () => '<div class="st-sign"><div>Prepared by<small>Name / Signature / Date</small></div><div>Checked by (Stores)<small>Name / Signature / Date</small></div><div>Approved by (Operation Head)<small>Name / Signature / Date</small></div></div>';
+  function dayDoc() {
+    const today = ymd(new Date()), k = S.day || today, d = pd(k), ls = ptsF();
+    const cell = v => '<td class="n">' + (v == null ? '-' : q(v)) + '</td>';
+    const t = F4.map(x => sumA(ls.map(p => val(p, k, x[0]) || 0))), M = t[0] + t[1], O = t[2] + t[3], ent = ls.filter(p => has(p, k));
+    const rows = ls.map((p, i) => { const r = S.d[p.id + '|' + k] || {}, hv = has(p, k);
+      return '<tr><td>' + (i + 1) + '</td><td><b>' + esc(p.name) + '</b> (' + esc(p.operation) + ')</td><td>' + esc(p.person || '') + '</td>'
+        + (hv ? cell(val(p, k, 'main_impulse')) + cell(val(p, k, 'main_bulk')) + '<td class="n"><b>' + q(mainT(p, k)) + '</b></td>' + cell(val(p, k, 'out_impulse')) + cell(val(p, k, 'out_bulk')) + '<td class="n"><b>' + q(outT(p, k)) + '</b></td><td class="n"><b>' + q(mainT(p, k) + outT(p, k)) + '</b></td>'
+          : '<td colspan="7" class="ne">Not entered</td>')
+        + '<td>' + esc(r.note || '') + '</td><td>' + esc(hv ? (r.by_name || '') : '') + '</td></tr>'; }).join('');
+    $('page').innerHTML = '<div class="noprint row2"><button class="btn" id="sdBack">&lsaquo; Back to daily entry</button><button class="btn" id="sdPrev">&lsaquo; Previous day</button><input type="date" id="sdDay" value="' + k + '" max="' + today + '"><button class="btn" id="sdNext">Next day &rsaquo;</button><button class="btn p" id="rPrint">Print / Save as PDF</button></div>'
+      + '<h2 class="pt">Daily ICE Stock Report &middot; ' + esc(fmtL(d)) + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All operations') + ' &middot; Iceman IMS</div>'
+      + '<div class="st-sum"><span>Date: <b>' + esc(fmtL(d)) + '</b></span><span>Operations entered: <b>' + ent.length + ' of ' + ls.length + '</b></span><span>Main Stores: <b>' + q(M) + '</b> (Impulse ' + q(t[0]) + ', Bulk ' + q(t[1]) + ')</span><span>Outside: <b>' + q(O) + '</b> (Impulse ' + q(t[2]) + ', Bulk ' + q(t[3]) + ')</span><span>Total stock: <b>' + q(M + O) + '</b></span></div>'
+      + '<div class="wrap" style="box-shadow:none"><table class="st-doc"><thead><tr><th rowspan="2">No</th><th rowspan="2">Operation</th><th rowspan="2">In charge</th><th colspan="3" style="text-align:center">Main Stores</th><th colspan="3" style="text-align:center">Outside</th><th rowspan="2" class="n">Total stock</th><th rowspan="2">Note</th><th rowspan="2">Entered by</th></tr>'
+      + '<tr><th class="n">Impulse</th><th class="n">Bulk</th><th class="n">Total</th><th class="n">Impulse</th><th class="n">Bulk</th><th class="n">Total</th></tr></thead><tbody>' + (rows || '<tr><td colspan="12">No stock points.</td></tr>')
+      + '<tr class="tot"><td colspan="3">Total</td>' + [t[0], t[1], M, t[2], t[3], O, M + O].map(v => '<td class="n">' + q(v) + '</td>').join('') + '<td colspan="2"></td></tr></tbody></table></div>'
+      + (ls.length - ent.length ? '<div class="hint" style="margin-top:6px">Not entered: ' + ls.filter(p => !has(p, k)).map(p => esc(p.name) + (p.person ? ' (' + esc(p.person) + ')' : '')).join(', ') + '</div>' : '')
+      + signBlock();
+    const goDay = x => { S.day = x; dayDoc(); };
+    $('sdBack').onclick = () => entry();
+    $('sdDay').onchange = e => { if (e.target.value) goDay(e.target.value > today ? today : e.target.value); };
+    $('sdPrev').onclick = () => goDay(ymd(addD(d, -1)));
+    $('sdNext').onclick = () => { const n = ymd(addD(d, 1)); if (n <= today) goDay(n); };
   }
   function calc(ls, k) {
     ls.forEach(p => { const hv = has(p, k); $('stM' + p.id).textContent = hv ? q(mainT(p, k)) : ''; $('stO' + p.id).textContent = hv ? q(outT(p, k)) : ''; $('stT' + p.id).textContent = hv ? q(mainT(p, k) + outT(p, k)) : ''; });
@@ -151,12 +194,12 @@ table.st td.sep,table.st th.sep{border-left:2px solid var(--line2)}
     const lab = fmtD(ws) + ' to ' + fmtD(we) + ' ' + we.getFullYear();
     $('page').innerHTML = '<div class="noprint row2"><button class="btn" id="srPrev">&lsaquo; Previous week</button><input type="date" id="srDay" value="' + ymd(base) + '" title="Any date in the week"><button class="btn" id="srNext">Next week &rsaquo;</button><button class="btn" id="srNow">This week</button><button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="srCsv">Download Excel (CSV)</button></div>'
       + '<h2 class="pt">Daily ICE Stock &middot; week report &middot; ' + esc(lab) + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + ' &middot; Monday to Sunday &middot; Iceman IMS</div>'
-      + '<h3>Total stock by day</h3><div class="wrap"><table><thead><tr><th>Operation</th><th>In charge</th>' + days.map((k, i) => '<th class="n">' + DOW[i] + ' ' + pd(k).getDate() + '</th>').join('') + '</tr></thead><tbody>'
+      + '<h3>Total stock by day</h3><div class="wrap" style="box-shadow:none"><table class="st-doc"><thead><tr><th>Operation</th><th>In charge</th>' + days.map((k, i) => '<th class="n">' + DOW[i] + ' ' + pd(k).getDate() + '</th>').join('') + '</tr></thead><tbody>'
       + ls.map(p => '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.person || '') + '</td>' + days.map(k => '<td class="n">' + cellT(p, k) + '</td>').join('') + '</tr>').join('')
       + '<tr class="tot"><td colspan="2">Total</td>' + days.map(k => '<td class="n">' + q(sumA(ls.map(p => mainT(p, k) + outT(p, k)))) + '</td>').join('') + '</tr></tbody></table></div>'
-      + '<h3 style="margin-top:14px">Details</h3><div class="wrap"><table class="st"><thead><tr><th rowspan="2">Day</th><th rowspan="2">Operation</th><th colspan="3" class="grpH sep">Main Stores</th><th colspan="3" class="grpH sep">Outside</th><th rowspan="2" class="n sep">Total</th><th rowspan="2">Note</th></tr><tr><th class="n sep">Impulse</th><th class="n">Bulk</th><th class="n">Total</th><th class="n sep">Impulse</th><th class="n">Bulk</th><th class="n">Total</th></tr></thead><tbody>'
+      + '<h3 style="margin-top:14px">Details</h3><div class="wrap" style="box-shadow:none"><table class="st-doc"><thead><tr><th rowspan="2">Day</th><th rowspan="2">Operation</th><th colspan="3" class="grpH sep">Main Stores</th><th colspan="3" class="grpH sep">Outside</th><th rowspan="2" class="n sep">Total</th><th rowspan="2">Note</th></tr><tr><th class="n sep">Impulse</th><th class="n">Bulk</th><th class="n">Total</th><th class="n sep">Impulse</th><th class="n">Bulk</th><th class="n">Total</th></tr></thead><tbody>'
       + (detail.length ? detail.slice().sort((a, b) => a[3] < b[3] ? -1 : a[3] > b[3] ? 1 : 0).map(r => '<tr><td>' + esc(fmtL(pd(r[3]))) + '</td><td>' + esc(r[0]) + '</td><td class="n sep">' + q(r[4]) + '</td><td class="n">' + q(r[5]) + '</td><td class="n">' + q(r[6]) + '</td><td class="n sep">' + q(r[7]) + '</td><td class="n">' + q(r[8]) + '</td><td class="n">' + q(r[9]) + '</td><td class="n sep"><b>' + q(r[10]) + '</b></td><td>' + esc(r[11]) + '</td></tr>').join('') : '<tr><td colspan="10" class="hint">Nothing entered in this week.</td></tr>')
-      + '</tbody></table></div>';
+      + '</tbody></table></div>' + signBlock();
     const goWk = dt => { S.rday = ymd(dt); report(); };
     $('srPrev').onclick = () => goWk(addD(ws, -7)); $('srNext').onclick = () => goWk(addD(ws, 7)); $('srNow').onclick = () => goWk(today);
     $('srDay').onchange = e => { if (e.target.value) goWk(pd(e.target.value)); };
