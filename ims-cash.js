@@ -446,6 +446,24 @@ table.adoc-sum th{text-align:center;font-size:11.5px}table.adoc-sum td{text-alig
       return {u, p, slope: slope(fp.slice(-8)), ach: t ? 100 * c / t : null, c, t, last3: fp.slice(-3)};
     });
   }
+  // v5.9.2: Admin / Full access dashboard also shows this week's Finance daily entry (money in and out), so the Board sees both sides
+  function finWeek(ls) {
+    if (!fmFull() || !C.hasFm) return '';
+    const ws = monday(new Date()), tk = ymd(new Date()), days = [...Array(7)].map((_, i) => ymd(addD(ws, i))).filter(k => k <= tk);
+    const s = f => sumA(ls.map(l => sumA(days.map(k => fmv(l, k, f) || 0)))), v = FMF.map(x => s(x[0])), tin = v[0] + v[1], tout = v[2] + v[3];
+    const ent = ls.filter(l => days.some(k => FMF.some(x => fmv(l, k, x[0]) != null))).length;
+    return '<h3 style="margin:14px 0 6px">Finance this week (' + wkLabel(ws) + ', Finance daily entry)</h3><div class="grid">'
+      + '<div class="tile"><b>' + money0(v[0]) + '</b><span>Pure Collection</span></div><div class="tile"><b>' + money0(v[1]) + '</b><span>Fund Transfers in</span></div>'
+      + '<div class="tile"><b>' + money0(v[2]) + '</b><span>Genuine Suppliers</span></div><div class="tile"><b>' + money0(v[3]) + '</b><span>Fund Transfers out</span></div>'
+      + '<div class="tile ' + (tin - tout >= 0 ? 'g' : 'r') + '"><b>' + am(tin - tout) + '</b><span>Net (in minus out)</span></div>'
+      + '<div class="tile ' + (ent ? 'g' : 'a') + '"><b>' + ent + ' of ' + ls.length + '</b><span>Accounts with a Finance entry this week</span></div></div>';
+  }
+  // open a report from the dashboard: switch the top tab to Reports, then the chosen report
+  function dGo(k) {
+    const t = document.querySelector('#tabs [data-page="report"]');
+    if (t) t.click();
+    setTimeout(() => ({rep: cReport, wk: fmWeek, fm: fmEntry})[k](), 120);
+  }
   function lastWorkDay(d) { let x = addD(d, -1); while (x.getDay() === 0) x = addD(x, -1); return x; }
   function cDash() {
     const my = opsFor('collection'), main = !op && my.length > 1, word = main ? 'operation' : 'line';
@@ -469,11 +487,14 @@ table.adoc-sum th{text-align:center;font-size:11.5px}table.adoc-sum td{text-alig
     const opName = op ? ((ops.find(o => o.code === op) || {}).name || op) : '';
     let h = (my.length > 1 ? '<div class="subtabs noprint"><button data-dop="" class="' + (main ? 'on' : '') + '">Main dashboard</button>' + my.map(o => '<button data-dop="' + o.code + '" class="' + (op === o.code ? 'on' : '') + '" title="' + esc(o.name) + '">' + o.code + '</button>').join('') + '</div>' : '')
       + '<h2 class="pt">' + (main ? (isBoard() ? 'Admin &amp; Director Board dashboard &middot; Account' : 'Main dashboard &middot; all my operations') : 'Operation dashboard &middot; ' + esc(opName || 'my operation')) + '</h2><div class="hint">Account &rsaquo; Daily Collection &middot; figures come from what each operation enters &middot; period figures use full weeks only</div>'
-      + '<div class="filters">' + sel('ccN', '', pOpts, C.n) + '<button class="btn noprint" id="ccUpd" title="One page per day: every account\'s collection, PDF print">Account Update (PDF)</button></div>' + (main ? '' : cFilters(true))
+      + '<div class="filters">' + sel('ccN', '', pOpts, C.n) + '<button class="btn noprint" id="ccUpd" title="One page per day: every account\'s collection, PDF print">Account Update (PDF)</button>'
+      // v5.9.2: the reports one click away from the dashboard
+      + '<button class="btn noprint" data-dgo="rep">Collection report</button>' + (fmFull() ? '<button class="btn noprint" data-dgo="wk">Finance week report</button><button class="btn noprint" data-dgo="fm">Finance daily entry</button>' : '') + '</div>' + (main ? '' : cFilters(true))
       + '<div class="grid"><div class="tile"><b>' + money0(pCol) + '</b><span>Collected (' + full.length + ' full weeks)</span></div><div class="tile"><b>' + money0(pTgt) + '</b><span>Target (same weeks)</span></div>'
-      + '<div class="tile ' + (pCol >= pTgt ? 'g' : 'r') + '"><b>' + (pTgt ? Math.round(100 * pCol / pTgt) + '%' : '-') + '</b><span>Achievement</span></div><div class="tile ' + (pCol - pTgt >= 0 ? 'g' : 'r') + '"><b>' + money0(pCol - pTgt) + '</b><span>Excess / (Short)</span></div>'
+      + '<div class="tile ' + (pCol >= pTgt ? 'g' : 'r') + '"><b>' + (pTgt ? Math.round(100 * pCol / pTgt) + '%' : '-') + '</b><span>Achievement</span></div><div class="tile ' + (pCol - pTgt >= 0 ? 'g' : 'r') + '"><b>' + am(pCol - pTgt) + '</b><span>Excess / (Short)</span></div>'
       + '<div class="tile ' + (curCol >= pace ? 'g' : 'a') + '"><b>' + money0(curCol) + '</b><span>This week so far (pace ' + money0(pace) + ' of ' + money0(curTgt) + ')</span></div>'
       + '<div class="tile ' + (missing.length ? 'r' : 'g') + '"><b>' + (ls.length - missing.length) + ' of ' + ls.length + '</b><span>Accounts entered for ' + DOW[(yd.getDay() + 6) % 7] + ' ' + fmtD(yd) + '</span></div></div>'
+      + finWeek(ls)
       + '<div class="card" style="margin-bottom:12px"><h3>What the figures say</h3>'
       + (standing.length ? '<div class="ins r"><b>Below 80% for 3 weeks in a row (' + word + 's):</b> ' + standing.map(x => esc(x.u.name)).join(', ') + '</div>' : '<div class="ins g">No ' + word + ' has been below 80% for 3 weeks in a row.</div>')
       + (falling.length ? '<div class="ins a"><b>Falling trend, last 8 weeks:</b> ' + falling.map(x => esc(x.u.name)).join(', ') + '</div>' : '')
@@ -505,6 +526,7 @@ table.adoc-sum th{text-align:center;font-size:11.5px}table.adoc-sum td{text-alig
     $('page').innerHTML = h;
     $('ccN').onchange = () => { C.n = Number($('ccN').value); cDash(); }; bindCF(cDash);
     $('ccUpd').onclick = () => cUpdate();
+    document.querySelectorAll('#page [data-dgo]').forEach(b => b.onclick = () => dGo(b.dataset.dgo));
     document.querySelectorAll('#page [data-ddep]').forEach(b => b.onclick = () => { C.dept = b.dataset.ddep; cDash(); });
     document.querySelectorAll('#page [data-dop]').forEach(b => b.onclick = () => { op = b.dataset.dop; C.lane = ''; C.mgr = ''; go(); });
   }

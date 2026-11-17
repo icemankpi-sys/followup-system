@@ -225,7 +225,7 @@ body.present .tls{font-size:13.5px}body.present .tld{font-size:13px}body.present
   <div id="panel"></div>
 </div>
 
-<script src="ims-cash.js?v=16"></script>
+<script src="ims-cash.js?v=17"></script>
 <script src="ims-calendar.js?v=9"></script>
 <script src="ims-stock.js?v=2"></script>
 <script src="ims-rep.js?v=9"></script>
@@ -445,7 +445,7 @@ function go(p, m) {
   if (page === 'perm' && me.role !== 'admin') page = 'home';
   $('panel').classList.remove('open'); if (page === 'record') $('panel').innerHTML = '';
   document.querySelector('aside').classList.toggle('col', sbCol); $('sbToggle').innerHTML = sbCol ? '&rsaquo;' : '&lsaquo;'; $('sbToggle').title = sbCol ? 'Expand menu' : 'Collapse menu';
-  $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + ((mod === 'team' && ['items', 'dash', 'report'].includes(page) && {items: 'Team', dash: 'Rep Day', report: 'Coverage'}[x[0]]) || (mod === 'calendar' && ['items', 'dash', 'report'].includes(page) && {items: 'Month', dash: 'Week', report: 'Day'}[x[0]]) || (mod === 'stock' && ['items', 'dash', 'report'].includes(page) && {items: 'Daily entry', dash: 'Last 14 days', report: 'Week report'}[x[0]]) || x[1]) +(x[0] === 'home' && window.MY_MENTIONS && MY_MENTIONS.length ? ' <span class="nbadge" title="My to-do">' + MY_MENTIONS.length + '</span>' : '') + '</button>').join('');
+  $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + ((mod === 'team' && ['items', 'dash', 'report'].includes(page) && {items: 'Team', dash: 'Rep Day', report: 'Coverage'}[x[0]]) || (mod === 'calendar' && ['items', 'dash', 'report'].includes(page) && {items: 'Month', dash: 'Week', report: 'Day'}[x[0]]) || (mod === 'stock' && ['items', 'dash', 'report'].includes(page) && {items: 'Daily entry', dash: 'Last 14 days', report: 'Week report'}[x[0]]) || (mod === 'collection' && ['items', 'dash', 'report'].includes(page) && {items: 'Daily entry', dash: 'Dashboard', report: 'Reports'}[x[0]]) || x[1]) +(x[0] === 'home' && window.MY_MENTIONS && MY_MENTIONS.length ? ' <span class="nbadge" title="My to-do">' + MY_MENTIONS.length + '</span>' : '') + '</button>').join('');
   paintMods(true);
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
   const my = mod === 'rep' ? opsFor('rep') : REP_SUB.includes(mod) ? repTeamOps() : opsFor(mod);
