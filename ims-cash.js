@@ -13,8 +13,55 @@
 .subtabs{display:flex;gap:6px;margin:8px 0}.subtabs button{border:1px solid var(--line2);background:var(--surface);border-radius:20px;padding:5px 14px;cursor:pointer}.subtabs button.on{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
 .ins{margin:4px 0;padding:6px 10px;border-radius:8px;background:var(--surface2);font-size:13px}.ins.r{border-left:4px solid var(--danger)}.ins.g{border-left:4px solid var(--ok)}.ins.a{border-left:4px solid var(--accent)}
 .up{color:var(--ok);font-weight:700}.down{color:var(--danger);font-weight:700}
-tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--primary-soft);color:var(--primary);font-weight:700}`;
+tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--primary-soft);color:var(--primary);font-weight:700}
+/* v5.9 (2026-11-17): Account reports as professional documents: document number, period, scope, summary table, numbered sections, notes, signatures */
+.adoc{background:#fff;color:#14181f;border:1px solid #c9cfdb;border-radius:6px;padding:22px 26px 18px;margin:8px 0 14px;max-width:1180px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.adoc-h{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap;border-bottom:3px double #1d1f63;padding-bottom:10px;margin-bottom:6px}
+.adoc-co{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:#2e3192;font-weight:700}
+.adoc h2.pt{margin:3px 0 2px;color:#1d1f63}.adoc .hint{color:#4b5563}
+table.adoc-meta{width:auto;border-collapse:collapse;font-size:12px;margin:0}table.adoc-meta td{border:0;padding:2px 0 2px 12px;background:none}
+table.adoc-meta td:first-child{color:#5b6475;text-align:right}table.adoc-meta td:last-child{font-weight:700;color:#14181f}
+h3.adoc-s{font-size:12.5px;text-transform:uppercase;letter-spacing:.6px;color:#1d1f63;margin:16px 0 5px;padding-bottom:3px;border-bottom:1px solid #c9cfdb}
+table.adoc-t{width:100%;border-collapse:collapse;font-size:12.5px;margin:2px 0 6px;color:#14181f}
+table.adoc-t th{background:#eceff7;color:#1d1f63;border:1px solid #9aa3b5;padding:5px 7px;text-align:left;font-weight:700;white-space:normal;position:static}
+table.adoc-t td{border:1px solid #c9cfdb;padding:4px 7px;background:#fff;color:#14181f}
+table.adoc-t .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.adoc-t tr.grp td{background:#f3f5fa;color:#1d1f63;font-weight:700}
+table.adoc-t tr.tot td{font-weight:700;background:#f7f8fb;border-top:2px solid #1d1f63}
+table.adoc-t td.sm{font-size:11px;color:#374151}
+table.adoc-sum th{text-align:center;font-size:11.5px}table.adoc-sum td{text-align:center;font-size:15px;font-weight:700;padding:7px 6px}
+.adoc-n{font-size:11.5px;color:#374151;margin-top:12px}.adoc-n ol{margin:3px 0 0 18px;padding:0}.adoc-n li{margin:1px 0}
+.adoc-sign{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:38px;font-size:12px;color:#14181f}
+.adoc-sign div{border-top:1px dotted #444;padding-top:4px;font-weight:700}.adoc-sign small{display:block;font-weight:400;color:#5b6475;margin-top:12px}
+.adoc-f{font-size:10.5px;color:#6b7280;border-top:1px solid #dde1ea;margin-top:16px;padding-top:6px}
+@media print{
+  .adoc{border:0!important;border-radius:0;padding:0!important;margin:0!important;max-width:none;box-shadow:none!important}
+  table.adoc-t{font-size:9.5pt}table.adoc-t th,table.adoc-t td{padding:3px 5px!important}
+  table.adoc-t th{background:#e9e9e9!important;color:#000!important;border:1px solid #555!important}
+  table.adoc-t td{border:1px solid #777!important;color:#000!important}
+  table.adoc-t tr.grp td{background:#f2f2f2!important;color:#000!important}table.adoc-t tr.tot td{background:#fff!important;border-top:2px solid #000!important}
+  h3.adoc-s{color:#000;border-bottom-color:#777;break-after:avoid}.adoc-co,.adoc-n,.adoc-sign,.adoc-sign small,.adoc-f,table.adoc-meta td{color:#000!important}
+  .adoc-h{border-bottom-color:#000}.adoc-sign{break-inside:avoid}
+}`;
   document.head.appendChild(css);
+
+  // ---------- v5.9 document helpers (Account reports) ----------
+  // Amounts in Rs; a negative amount is shown in brackets, accounting style. Every report gets a document number from its type and period.
+  const am = v => v == null || v === '' ? '' : Number(v) < 0 ? '(' + money0(-Number(v)) + ')' : money0(Number(v));
+  const tdA = v => '<td class="n">' + am(v) + '</td>';
+  function docOpen(o) {
+    const meta = [['Document No', o.ref], ['Period', o.period], ['Scope', o.scope], ['Basis', o.basis]].filter(x => x[1]);
+    return '<div class="adoc"><div class="adoc-h"><div><div class="adoc-co">Iceman Cold Chain Services · Iceman Distributors · ' + esc(o.dept || 'Accounts') + '</div><h2 class="pt">' + o.title + '</h2><div class="hint">' + o.sub + '</div></div>'
+      + '<table class="adoc-meta">' + meta.map(x => '<tr><td>' + x[0] + '</td><td>' + x[1] + '</td></tr>').join('') + '</table></div>';
+  }
+  const docSum = items => '<table class="adoc-t adoc-sum"><tr>' + items.map(x => '<th>' + x[0] + '</th>').join('') + '</tr><tr>' + items.map(x => '<td>' + x[1] + '</td>').join('') + '</tr></table>';
+  const docSec = (n, t) => '<h3 class="adoc-s">' + n + '. ' + t + '</h3>';
+  const docNotes = a => '<div class="adoc-n"><b>Notes</b><ol>' + a.map(x => '<li>' + x + '</li>').join('') + '</ol></div>';
+  const docSign = roles => '<div class="adoc-sign">' + roles.map(r => '<div>' + r + '<small>Name / Signature / Date</small></div>').join('') + '</div>';
+  const docEnd = () => '<div class="adoc-f">System-generated document from Iceman IMS. Figures are as entered by the accounts teams up to the time of printing. Amounts in Sri Lankan Rupees; amounts in brackets are negative.</div></div>';
+  const SIGN_ACC = ['Prepared by (Accountant)', 'Checked by (Finance Manager)', 'Approved by (Director)'];
+  const SIGN_FIN = ['Prepared by (Finance)', 'Checked by (Finance Manager)', 'Approved by (Director)'];
+  const scopeTxt = () => op ? 'Operation ' + esc(op) : 'All operations';
 
   // ---------- dates ----------
   const pad = n => String(n).padStart(2, '0');
@@ -240,25 +287,29 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const base = pd(C.fd || ymd(new Date())), ws = monday(base), we = addD(ws, 6), days = [...Array(7)].map((_, i) => ymd(addD(ws, i)));
     const ls = fmLanes(), G = fmGroups(ls), wsum = (l, f) => sumA(days.map(k => fmv(l, k, f) || 0));
     const rowOf = l => { const v = FMF.map(x => wsum(l, x[0])), tin = v[0] + v[1], tout = v[2] + v[3]; return [l.department || '', l.operation, l.name, l.acc_no || '', v[0], v[1], tin, v[2], v[3], tout, tin - tout]; };
-    const td = v => '<td class="n">' + money0(v) + '</td>', tdn = v => '<td class="n"><span class="' + (v >= 0 ? 'up' : 'down') + '">' + money0(v) + '</span></td>';
+    const td = tdA, tdn = tdA;
     const all = []; let body = '';
     Object.keys(G).sort().forEach(g => {
       const rs = G[g].map(rowOf); all.push(...rs); const s = i => sumA(rs.map(r => r[i]));
-      body += '<tr class="grp"><td colspan="2">' + esc(g) + '</td>' + [4, 5, 6, 7, 8, 9].map(i => td(s(i))).join('') + tdn(s(10)) + '</tr>'
-        + rs.map(r => '<tr><td>' + esc(r[2]) + ' <span class="tag t-b">' + esc(r[1]) + '</span></td><td>' + esc(r[3]) + '</td>' + [4, 5, 6, 7, 8, 9].map(i => td(r[i])).join('') + tdn(r[10]) + '</tr>').join('');
+      body += '<tr class="grp"><td colspan="3">' + esc(g) + '</td>' + [4, 5, 6, 7, 8, 9].map(i => td(s(i))).join('') + tdn(s(10)) + '</tr>'
+        + rs.map(r => '<tr><td>' + esc(r[2]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[3]) + '</td>' + [4, 5, 6, 7, 8, 9].map(i => td(r[i])).join('') + tdn(r[10]) + '</tr>').join('');
     });
     const S = i => sumA(all.map(r => r[i]));
     const dayRows = days.map((k, i) => { const v = FMF.map(x => sumA(ls.map(l => fmv(l, k, x[0]) || 0))), tin = v[0] + v[1], tout = v[2] + v[3]; return [DOW[i] + ' ' + fmtD(pd(k)), v[0], v[1], tin, v[2], v[3], tout, tin - tout]; });
     const lab = wkLabel(ws) + ' &middot; ' + fmtD(ws) + ' to ' + fmtD(we) + ' ' + we.getFullYear();
+    const ent = ls.filter(l => days.some(k => FMF.some(x => fmv(l, k, x[0]) != null))).length;
     $('page').innerHTML = fmTabs('wk') + '<div class="noprint row2"><button class="btn" id="fwPrev">&lsaquo; Previous week</button><input type="date" id="fwDay" value="' + ymd(base) + '" title="Any date in the week"><button class="btn" id="fwNext">Next week &rsaquo;</button><button class="btn" id="fwNow">This week</button><button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="fwCsv">Download Excel (CSV)</button></div>'
-      + '<h2 class="pt">Finance week report &middot; ' + lab + '</h2><div class="hint">Finance daily entry by bank account &middot; ' + (op ? 'Operation ' + esc(op) : 'all operations') + ' &middot; Monday to Sunday &middot; Iceman IMS</div>'
       + (C.hasFm ? '' : '<div class="card err">The Finance daily entry table is not set up yet (Supabase/41 finance daily entry.sql).</div>')
-      + '<div class="grid"><div class="tile"><b>' + money0(S(4)) + '</b><span>Pure Collection</span></div><div class="tile"><b>' + money0(S(5)) + '</b><span>Fund Transfers in</span></div><div class="tile"><b>' + money0(S(7)) + '</b><span>Genuine Suppliers</span></div><div class="tile"><b>' + money0(S(8)) + '</b><span>Fund Transfers out</span></div><div class="tile ' + (S(10) >= 0 ? 'g' : 'r') + '"><b>' + money0(S(10)) + '</b><span>Net for the week</span></div></div>'
-      + '<div class="wrap"><table><thead><tr><th>Day</th><th class="n">Pure Collection</th><th class="n">Fund Transfers in</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers out</th><th class="n">Total out</th><th class="n">Net</th></tr></thead><tbody>'
+      + docOpen({title: 'Finance Week Report &middot; ' + lab, sub: 'Money in and out of every bank account, Monday to Sunday &middot; ' + scopeTxt() + ' &middot; Iceman IMS', dept: 'Finance',
+          ref: 'IMS/ACC/FWR/' + we.getFullYear() + '-' + wkLabel(ws), period: fmtD(ws) + ' to ' + fmtD(we) + ' ' + we.getFullYear(), scope: scopeTxt(), basis: 'Finance daily entry, ' + ent + ' of ' + ls.length + ' accounts entered'})
+      + docSec(1, 'Summary for the week') + docSum([['Pure Collection', am(S(4))], ['Fund Transfers in', am(S(5))], ['Total in', am(S(6))], ['Genuine Suppliers', am(S(7))], ['Fund Transfers out', am(S(8))], ['Total out', am(S(9))], ['Net for the week', am(S(10))]])
+      + docSec(2, 'Daily movement') + '<table class="adoc-t"><thead><tr><th>Day</th><th class="n">Pure Collection</th><th class="n">Fund Transfers in</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers out</th><th class="n">Total out</th><th class="n">Net</th></tr></thead><tbody>'
       + dayRows.map(r => '<tr><td>' + r[0] + '</td>' + [1, 2, 3, 4, 5, 6].map(i => td(r[i])).join('') + tdn(r[7]) + '</tr>').join('')
-      + '<tr class="tot"><td>Week</td>' + [4, 5, 6, 7, 8, 9].map(i => td(S(i))).join('') + tdn(S(10)) + '</tr></tbody></table></div>'
-      + '<h3 style="margin-top:14px">By bank account</h3><div class="wrap"><table><thead><tr><th>Bank account</th><th>Acc No</th><th class="n">Pure Collection</th><th class="n">Fund Transfers in</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers out</th><th class="n">Total out</th><th class="n">Net</th></tr></thead><tbody>' + body
-      + '<tr class="tot"><td colspan="2">Total</td>' + [4, 5, 6, 7, 8, 9].map(i => td(S(i))).join('') + tdn(S(10)) + '</tr></tbody></table></div>';
+      + '<tr class="tot"><td>Week total</td>' + [4, 5, 6, 7, 8, 9].map(i => td(S(i))).join('') + tdn(S(10)) + '</tr></tbody></table>'
+      + docSec(3, 'By bank account') + '<table class="adoc-t"><thead><tr><th>Bank account</th><th>Operation</th><th>Acc No</th><th class="n">Pure Collection</th><th class="n">Fund Transfers in</th><th class="n">Total in</th><th class="n">Genuine Suppliers</th><th class="n">Fund Transfers out</th><th class="n">Total out</th><th class="n">Net</th></tr></thead><tbody>' + body
+      + '<tr class="tot"><td colspan="3">Total</td>' + [4, 5, 6, 7, 8, 9].map(i => td(S(i))).join('') + tdn(S(10)) + '</tr></tbody></table>'
+      + docNotes(['Total in = Pure Collection + Fund Transfers received into the account.', 'Total out = payments to Genuine Suppliers + Fund Transfers paid out of the account.', 'Net = Total in minus Total out.', 'A day with no figure means the Finance daily entry was not made for that day.'])
+      + docSign(SIGN_FIN) + docEnd();
     const goWk = dt => { C.fd = ymd(dt); fmWeek(); };
     $('fwPrev').onclick = () => goWk(addD(ws, -7)); $('fwNext').onclick = () => goWk(addD(ws, 7)); $('fwNow').onclick = () => goWk(new Date());
     $('fwDay').onchange = e => { if (e.target.value) goWk(pd(e.target.value)); };
@@ -362,26 +413,26 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     ls.forEach(l => { const g = l.department || '(no department)'; (groups[g] = groups[g] || []).push(l); });
     const dayT = sumA(ls.map(l => amt(l, dk) || 0)), wT = sumA(ls.map(wtd)), tgT = wkTgt(ls, ws), ent = ls.filter(l => amt(l, dk) != null).length, hp = !!C.hasFm, pT = wkPay(ls, ws, nDays);
     // v5.6.1: the week's payments out of each account and Net = week to date minus those payments (only after Supabase/40)
-    const net = (w, p) => p == null ? '' : '<span class="' + (w - p >= 0 ? 'up' : 'down') + '">' + money0(w - p) + '</span>';
+    const net = (w, p) => p == null ? '' : am(w - p);
     const dLab = DOW[(d.getDay() + 6) % 7] + ' ' + fmtD(d) + ' ' + d.getFullYear();
     let body = '';
     Object.keys(groups).sort().forEach(g => {
       const rs = groups[g], gd = sumA(rs.map(l => amt(l, dk) || 0)), gw = sumA(rs.map(wtd)), gt = wkTgt(rs, ws), gp = wkPay(rs, ws, nDays);
-      body += '<tr class="grp"><td colspan="2">' + esc(g) + '</td><td class="n">' + money0(gd) + '</td><td class="n">' + money0(gw) + '</td><td class="n">' + money0(gt) + '</td><td class="n">' + (gt ? pct(gw, gt) + '%' : '') + '</td>' + (hp ? '<td class="n">' + money0(gp) + '</td><td class="n">' + net(gw, gp) + '</td>' : '') + '<td></td></tr>'
+      body += '<tr class="grp"><td colspan="4">' + esc(g) + '</td><td class="n">' + am(gd) + '</td><td class="n">' + am(gw) + '</td><td class="n">' + am(gt) + '</td><td class="n">' + (gt ? pct(gw, gt) + '%' : '') + '</td>' + (hp ? '<td class="n">' + am(gp) + '</td><td class="n">' + net(gw, gp) + '</td>' : '') + '<td></td></tr>'
         + rs.map(l => {
           const v = amt(l, dk), w = wtd(l), t = C.tmap[l.id + '|' + ymd(ws)] || 0, r = C.dmap[l.id + '|' + dk] || {}, p = wkPay([l], ws, nDays);
-          return '<tr><td><b>' + esc(l.name) + '</b> <span class="tag t-b">' + esc(l.operation) + '</span>' + (l.acc_no ? '<div class="hint" style="margin:0">A/C ' + esc(l.acc_no) + '</div>' : '') + '</td><td>' + esc(l.officer || '') + '</td>'
-            + '<td class="n">' + (v == null ? '<span class="down">not entered</span>' : money0(v)) + '</td><td class="n">' + money0(w) + '</td><td class="n">' + (t ? money0(t) : '<span class="hint">not set</span>') + '</td><td class="n">' + (t ? pct(w, t) + '%' : '') + '</td>' + (hp ? '<td class="n">' + (p == null ? '<span class="hint">-</span>' : money0(p)) + '</td><td class="n">' + net(w, p) + '</td>' : '') + '<td style="font-size:11px">' + esc(r.customers || '') + '</td></tr>';
+          return '<tr><td>' + esc(l.name) + '</td><td>' + esc(l.operation) + '</td><td>' + esc(l.acc_no || '') + '</td><td>' + esc(l.officer || '') + '</td>'
+            + '<td class="n">' + (v == null ? 'Not entered' : am(v)) + '</td><td class="n">' + am(w) + '</td><td class="n">' + (t ? am(t) : 'Not set') + '</td><td class="n">' + (t ? pct(w, t) + '%' : '') + '</td>' + (hp ? '<td class="n">' + (p == null ? '' : am(p)) + '</td><td class="n">' + net(w, p) + '</td>' : '') + '<td class="sm">' + esc(r.customers || '') + '</td></tr>';
         }).join('');
     });
     $('page').innerHTML = '<div class="noprint row2"><button class="btn" id="ccBk">&lsaquo; Back</button><input type="date" id="ccUday" value="' + dk + '" max="' + today + '"><button class="btn p" id="rPrint">Print / Save as PDF</button></div>'
-      + '<h2 class="pt">Account Update &middot; ' + esc(dLab) + '</h2><div class="hint">Daily Collection by bank account &middot; ' + (op ? 'Operation ' + esc(op) : 'all operations') + ' &middot; week ' + wkLabel(ws) + ', ' + nDays + ' day(s) to ' + fmtD(d) + ' &middot; Iceman IMS</div>'
-      + '<div class="grid"><div class="tile"><b>' + money0(dayT) + '</b><span>Collected on ' + fmtD(d) + '</span></div><div class="tile"><b>' + money0(wT) + '</b><span>Week to date</span></div><div class="tile"><b>' + money0(tgT) + '</b><span>Week target</span></div>'
-      + '<div class="tile ' + (tgT && wT >= tgT * nDays / 6 ? 'g' : 'a') + '"><b>' + (tgT ? pct(wT, tgT) + '%' : '-') + '</b><span>Achievement (week)</span></div>'
-      + (hp ? '<div class="tile"><b>' + money0(pT) + '</b><span>Payments this week (out)</span></div><div class="tile ' + (wT - pT >= 0 ? 'g' : 'r') + '"><b>' + money0(wT - pT) + '</b><span>Net (week to date - payments)</span></div>' : '')
-      + '<div class="tile ' + (ent < ls.length ? 'r' : 'g') + '"><b>' + ent + ' of ' + ls.length + '</b><span>Accounts entered for ' + fmtD(d) + '</span></div></div>'
-      + '<div class="wrap"><table><thead><tr><th>Operation / account</th><th>Accountant</th><th class="n">' + esc(dLab) + '</th><th class="n">Week to date</th><th class="n">Week target</th><th class="n">%</th>' + (hp ? '<th class="n">Payments (week to date)</th><th class="n">Net</th>' : '') + '<th>Customers (day)</th></tr></thead><tbody>' + body
-      + '<tr class="tot"><td colspan="2">Total</td><td class="n">' + money0(dayT) + '</td><td class="n">' + money0(wT) + '</td><td class="n">' + money0(tgT) + '</td><td class="n">' + (tgT ? pct(wT, tgT) + '%' : '') + '</td>' + (hp ? '<td class="n">' + money0(pT) + '</td><td class="n">' + net(wT, pT) + '</td>' : '') + '<td></td></tr></tbody></table></div>'
+      + docOpen({title: 'Account Update &middot; ' + esc(dLab), sub: 'Daily Collection by bank account &middot; ' + scopeTxt() + ' &middot; week ' + wkLabel(ws) + ', ' + nDays + ' day(s) to ' + fmtD(d) + ' &middot; Iceman IMS',
+          ref: 'IMS/ACC/UPD/' + dk, period: esc(dLab) + ' (week to date from ' + fmtD(ws) + ')', scope: scopeTxt(), basis: 'Daily Collection, ' + ent + ' of ' + ls.length + ' accounts entered for ' + fmtD(d)})
+      + docSec(1, 'Summary') + docSum([['Collected on ' + fmtD(d), am(dayT)], ['Week to date', am(wT)], ['Week target', am(tgT)], ['Achievement (week)', tgT ? pct(wT, tgT) + '%' : '-']].concat(hp ? [['Payments (week to date)', am(pT)], ['Net', am(wT - pT)]] : []).concat([['Accounts entered', ent + ' of ' + ls.length]]))
+      + docSec(2, 'By bank account') + '<table class="adoc-t"><thead><tr><th>Bank account</th><th>Operation</th><th>Acc No</th><th>Accountant</th><th class="n">' + esc(dLab) + '</th><th class="n">Week to date</th><th class="n">Week target</th><th class="n">%</th>' + (hp ? '<th class="n">Payments (week to date)</th><th class="n">Net</th>' : '') + '<th>Customers (day)</th></tr></thead><tbody>' + body
+      + '<tr class="tot"><td colspan="4">Total</td><td class="n">' + am(dayT) + '</td><td class="n">' + am(wT) + '</td><td class="n">' + am(tgT) + '</td><td class="n">' + (tgT ? pct(wT, tgT) + '%' : '') + '</td>' + (hp ? '<td class="n">' + am(pT) + '</td><td class="n">' + net(wT, pT) + '</td>' : '') + '<td></td></tr></tbody></table>'
+      + docNotes(['Week to date = Monday to ' + fmtD(d) + '.', '% = week to date against the full week target.'].concat(hp ? ['Payments = Genuine Suppliers + Fund Transfers paid out (Finance daily entry). Net = week to date minus payments.'] : []).concat(['"Not entered" = the accountant has not entered the day\'s collection.']))
+      + docSign(SIGN_ACC) + docEnd()
       + '<div class="hint noprint">Pick a date, then Print / Save as PDF: the printout gets the Iceman header, created date, user and page numbers.</div>';
     $('ccBk').onclick = () => go();
     $('ccUday').onchange = e => { C.ud = e.target.value; cUpdate(); };
@@ -475,21 +526,27 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const groups = {};
     ls.forEach(l => { const g = l.department || l.manager || '(no department)'; (groups[g] = groups[g] || []).push(l); });
     const row = l => { const t = rTgt(l), c = rSum(l, D), pc = rSum(l, PD); return [l.operation, l.name, l.acc_no || '', l.officer || '', t, c, t ? pct(c, t) : null, t ? c - t : null, pc, c - pc]; };
-    const tr = r => '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td><td>' + esc(r[3]) + '</td><td class="n">' + money0(r[4]) + '</td><td class="n">' + money0(r[5]) + '</td><td class="n">' + (r[6] == null ? '' : r[6] + '%') + '</td><td class="n">' + (r[7] == null ? '' : '<span class="' + (r[7] >= 0 ? 'up' : 'down') + '">' + money0(r[7]) + '</span>') + '</td><td class="n">' + money0(r[8]) + '</td><td class="n">' + (r[9] >= 0 ? '+' : '') + money0(r[9]) + '</td></tr>';
+    const tr = r => '<tr><td>' + esc(r[1]) + '</td><td>' + esc(r[0]) + '</td><td>' + esc(r[2]) + '</td><td>' + esc(r[3]) + '</td>' + tdA(r[4]) + tdA(r[5]) + '<td class="n">' + (r[6] == null ? '' : r[6] + '%') + '</td>' + tdA(r[7]) + tdA(r[8]) + tdA(r[9]) + '</tr>';
     const all = [];
     let body = '';
-    Object.keys(groups).sort().forEach(g => { const rs = groups[g].map(row); all.push(...rs); const t = sumA(rs.map(r => r[4])), c = sumA(rs.map(r => r[5])); body += '<tr class="grp"><td colspan="4">' + esc(g) + '</td><td class="n">' + money0(t) + '</td><td class="n">' + money0(c) + '</td><td class="n">' + (t ? pct(c, t) + '%' : '') + '</td><td class="n">' + (t ? money0(c - t) : '') + '</td><td colspan="2"></td></tr>' + rs.map(tr).join(''); });
+    Object.keys(groups).sort().forEach(g => { const rs = groups[g].map(row); all.push(...rs); const t = sumA(rs.map(r => r[4])), c = sumA(rs.map(r => r[5])), p = sumA(rs.map(r => r[8])); body += '<tr class="grp"><td colspan="4">' + esc(g) + '</td>' + tdA(t) + tdA(c) + '<td class="n">' + (t ? pct(c, t) + '%' : '') + '</td>' + (t ? tdA(c - t) : '<td></td>') + tdA(p) + tdA(c - p) + '</tr>' + rs.map(tr).join(''); });
     const T = sumA(all.map(r => r[4])), Cc = sumA(all.map(r => r[5])), P = sumA(all.map(r => r[8]));
+    const mCode = {daily: 'D', weekly: 'W', monthly: 'M', custom: 'C'}[R.mode], refKey = R.mode === 'weekly' ? a.getFullYear() + '-' + wkLabel(a) : R.mode === 'monthly' ? R.mo : ymd(a) === ymd(b) ? ymd(a) : ymd(a) + '_' + ymd(b);
+    const perTxt = ymd(a) === ymd(b) ? DOW[(a.getDay() + 6) % 7] + ' ' + fmtD(a) + ' ' + a.getFullYear() : fmtD(a) + ' ' + a.getFullYear() + ' to ' + fmtD(b) + ' ' + b.getFullYear();
+    const prevTxt = ymd(pa) === ymd(pb) ? fmtD(pa) + ' ' + pa.getFullYear() : fmtD(pa) + ' to ' + fmtD(pb) + ' ' + pb.getFullYear();
     $('page').innerHTML = fmTabs('rep') + '<div class="noprint row2">' + sel('ccRm', '', [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['custom', 'Custom date / range']], R.mode)
       + (R.mode === 'daily' ? '<input type="date" id="ccRd" value="' + R.d + '" max="' + ymd(today) + '">'
         : R.mode === 'monthly' ? '<input type="month" id="ccRmo" value="' + R.mo + '" max="' + ymd(today).slice(0, 7) + '">'
         : R.mode === 'custom' ? '<input type="date" id="ccRf" value="' + ymd(a) + '" max="' + ymd(today) + '"><span class="hint">to</span><input type="date" id="ccRt" value="' + ymd(b) + '" max="' + ymd(today) + '">'
         : sel('ccRw', '', W.slice().reverse().map(w => [ymd(w), wkLabel(w) + ' (' + fmtD(w) + ' to ' + fmtD(addD(w, 6)) + ')']), ymd(a)))
       + '<button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="ccCsv">Download Excel (CSV)</button></div>'
-      + '<h2 class="pt">' + title + ' &middot; ' + label + '</h2><div class="hint">' + (op ? 'Operation ' + esc(op) : 'All my operations') + (R.mode === 'weekly' ? '' : ' &middot; weekly targets counted 1/6 per working day (Mon to Sat)') + ' &middot; data kept 12 months back &middot; Iceman IMS</div>'
-      + '<div class="grid"><div class="tile"><b>' + money0(T) + '</b><span>Target</span></div><div class="tile"><b>' + money0(Cc) + '</b><span>Collected</span></div><div class="tile ' + (Cc >= T ? 'g' : 'r') + '"><b>' + (T ? pct(Cc, T) + '%' : '-') + '</b><span>Achievement</span></div><div class="tile"><b>' + (Cc - P >= 0 ? '+' : '') + money0(Cc - P) + '</b><span>Change vs ' + prevLab.toLowerCase() + '</span></div></div>'
-      + '<div class="wrap"><table><thead><tr><th>Operation</th><th>Account</th><th>Acc No</th><th>Accountant</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th class="n">Excess/(Short)</th><th class="n">' + prevLab + '</th><th class="n">Change</th></tr></thead><tbody>' + body
-      + '<tr class="tot"><td colspan="4">Total</td><td class="n">' + money0(T) + '</td><td class="n">' + money0(Cc) + '</td><td class="n">' + (T ? pct(Cc, T) + '%' : '') + '</td><td class="n">' + (T ? money0(Cc - T) : '') + '</td><td class="n">' + money0(P) + '</td><td class="n">' + money0(Cc - P) + '</td></tr></tbody></table></div>';
+      + docOpen({title: title.charAt(0).toUpperCase() + title.slice(1).replace(/ (\w)/g, (m, c) => ' ' + c.toUpperCase()) + ' &middot; ' + label, sub: (op ? 'Operation ' + esc(op) : 'All my operations') + (R.mode === 'weekly' ? '' : ' &middot; weekly targets counted 1/6 per working day (Mon to Sat)') + ' &middot; Iceman IMS',
+          ref: 'IMS/ACC/COL-' + mCode + '/' + refKey, period: perTxt, scope: op ? 'Operation ' + esc(op) : 'All my operations', basis: 'Daily Collection against weekly targets'})
+      + docSec(1, 'Summary') + docSum([['Target', am(T)], ['Collected', am(Cc)], ['Achievement', T ? pct(Cc, T) + '%' : '-'], ['Excess / (Short)', T ? am(Cc - T) : '-'], [prevLab, am(P)], ['Change vs ' + prevLab.toLowerCase(), am(Cc - P)]])
+      + docSec(2, 'By bank account') + '<table class="adoc-t"><thead><tr><th>Bank account</th><th>Operation</th><th>Acc No</th><th>Accountant</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th class="n">Excess / (Short)</th><th class="n">' + prevLab + '</th><th class="n">Change</th></tr></thead><tbody>' + body
+      + '<tr class="tot"><td colspan="4">Total</td>' + tdA(T) + tdA(Cc) + '<td class="n">' + (T ? pct(Cc, T) + '%' : '') + '</td>' + (T ? tdA(Cc - T) : '<td></td>') + tdA(P) + tdA(Cc - P) + '</tr></tbody></table>'
+      + docNotes(['Excess / (Short) = collected minus target; a shortfall is shown in brackets.', prevLab + ' = ' + prevTxt + '. Change = this period minus ' + prevLab.toLowerCase() + '.'].concat(R.mode === 'weekly' ? [] : ['Targets are weekly: each working day (Monday to Saturday) counts one sixth of its week\'s target, Sundays none.']))
+      + docSign(SIGN_ACC) + docEnd();
     $('ccRm').onchange = e => { R.mode = e.target.value; cReport(); };
     if ($('ccRw')) $('ccRw').onchange = e => { R.wk = e.target.value; cReport(); };
     if ($('ccRd')) $('ccRd').onchange = e => { if (e.target.value) { R.d = e.target.value; cReport(); } };
@@ -599,10 +656,14 @@ tr.tot td{font-weight:700;background:var(--surface2)}tr.grp td{background:var(--
     const rs = opsFor('cashflow').filter(o => !op || o.code === op).map(o => { const w = F.week[o.code + '|' + k] || {}, ls = C.lanes.filter(l => l.operation === o.code && l.active), tg = hasC ? wkTgt(ls, ws) : 0, col = hasC ? wkSum(ls, ws) : 0, out = sumA(F.out.filter(x => x.operation === o.code && x.day >= k && x.day <= e).map(x => x.amount)); return [o.code, w.fm_requirement || 0, tg, col, w.fm_requirement ? pct(col, w.fm_requirement) : null, tg ? pct(col, tg) : null, out, col - out, w.od_balance == null ? '' : w.od_balance]; });
     const tot = i => sumA(rs.map(r => Number(r[i]) || 0));
     $('page').innerHTML = '<div class="noprint row2">' + sel('cfRw', '', W.slice().reverse().map(w => [ymd(w), wkLabel(w) + ' (' + fmtD(w) + ' to ' + fmtD(addD(w, 6)) + ')']), k) + '<button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="cfCsv">Download Excel (CSV)</button></div>'
-      + '<h2 class="pt">Weekly cash report &middot; ' + wkLabel(ws) + '</h2><div class="hint">' + fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' &middot; Iceman IMS</div>'
-      + '<div class="wrap"><table><thead><tr><th>Operation</th><th class="n">FM requirement</th><th class="n">Target</th><th class="n">Collected</th><th class="n">% of requirement</th><th class="n">% of target</th><th class="n">Payments</th><th class="n">Net</th><th class="n">Bank OD</th></tr></thead><tbody>'
-      + rs.map(r => '<tr><td>' + esc(r[0]) + '</td><td class="n">' + money0(r[1]) + '</td><td class="n">' + money0(r[2]) + '</td><td class="n">' + money0(r[3]) + '</td><td class="n">' + (r[4] == null ? '' : r[4] + '%') + '</td><td class="n">' + (r[5] == null ? '' : r[5] + '%') + '</td><td class="n">' + money0(r[6]) + '</td><td class="n"><span class="' + (r[7] >= 0 ? 'up' : 'down') + '">' + money0(r[7]) + '</span></td><td class="n">' + (r[8] === '' ? '' : money0(r[8])) + '</td></tr>').join('')
-      + '<tr class="tot"><td>Total</td><td class="n">' + money0(tot(1)) + '</td><td class="n">' + money0(tot(2)) + '</td><td class="n">' + money0(tot(3)) + '</td><td class="n">' + (tot(1) ? pct(tot(3), tot(1)) + '%' : '') + '</td><td class="n">' + (tot(2) ? pct(tot(3), tot(2)) + '%' : '') + '</td><td class="n">' + money0(tot(6)) + '</td><td class="n">' + money0(tot(7)) + '</td><td class="n">' + money0(tot(8)) + '</td></tr></tbody></table></div>';
+      + docOpen({title: 'Weekly Cash Report &middot; ' + wkLabel(ws), sub: fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' ' + addD(ws, 6).getFullYear() + ' &middot; ' + scopeTxt() + ' &middot; Iceman IMS', dept: 'Finance',
+          ref: 'IMS/ACC/WCR/' + addD(ws, 6).getFullYear() + '-' + wkLabel(ws), period: fmtD(ws) + ' to ' + fmtD(addD(ws, 6)) + ' ' + addD(ws, 6).getFullYear(), scope: scopeTxt(), basis: 'Cash Flow week plan, payments and Daily Collection'})
+      + docSec(1, 'Summary') + docSum([['FM requirement', am(tot(1))], ['Collection target', am(tot(2))], ['Collected', am(tot(3))], ['% of requirement', tot(1) ? pct(tot(3), tot(1)) + '%' : '-'], ['Payments', am(tot(6))], ['Net', am(tot(7))], ['Bank OD', am(tot(8))]])
+      + docSec(2, 'By operation') + '<table class="adoc-t"><thead><tr><th>Operation</th><th class="n">FM requirement</th><th class="n">Target</th><th class="n">Collected</th><th class="n">% of requirement</th><th class="n">% of target</th><th class="n">Payments</th><th class="n">Net</th><th class="n">Bank OD</th></tr></thead><tbody>'
+      + rs.map(r => '<tr><td>' + esc(r[0]) + '</td>' + tdA(r[1]) + tdA(r[2]) + tdA(r[3]) + '<td class="n">' + (r[4] == null ? '' : r[4] + '%') + '</td><td class="n">' + (r[5] == null ? '' : r[5] + '%') + '</td>' + tdA(r[6]) + tdA(r[7]) + '<td class="n">' + (r[8] === '' ? '' : am(r[8])) + '</td></tr>').join('')
+      + '<tr class="tot"><td>Total</td>' + tdA(tot(1)) + tdA(tot(2)) + tdA(tot(3)) + '<td class="n">' + (tot(1) ? pct(tot(3), tot(1)) + '%' : '') + '</td><td class="n">' + (tot(2) ? pct(tot(3), tot(2)) + '%' : '') + '</td>' + tdA(tot(6)) + tdA(tot(7)) + tdA(tot(8)) + '</tr></tbody></table>'
+      + docNotes(['FM requirement = the cash Finance needs from the operation this week.', 'Net = collected minus payments.', 'Bank OD = overdraft balance entered for the week.'])
+      + docSign(SIGN_FIN) + docEnd();
     $('cfRw').onchange = () => { F.rwk = pd($('cfRw').value); fReport(); };
     $('cfCsv').onclick = () => csvDl('Cash ' + wkLabel(ws) + ' ' + k, ['Operation', 'FM requirement', 'Target', 'Collected', '% of requirement', '% of target', 'Payments', 'Net', 'Bank OD'], rs);
   }
