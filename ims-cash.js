@@ -220,7 +220,7 @@ table.adoc-sum th{text-align:center;font-size:11.5px}table.adoc-sum td{text-alig
   // money in = Pure Collection + Fund Transfers; money out = Genuine Suppliers + Fund Transfers. The week report shows the week of the chosen date.
   function fmTabs(on) {
     if (!fmFull()) return '';
-    const t = [['fm', 'Finance daily entry'], ['acc', 'Accountants\' collection'], ['wk', 'Finance week report'], ['rep', 'Collection report']];
+    const t = [['acc', 'Accountants\' collection'], ['rep', 'Collection report (accountants)'], ['fm', 'Finance daily entry'], ['wk', 'Finance week report']];
     return '<div class="subtabs noprint">' + t.map(x => '<button data-fmt="' + x[0] + '" class="' + (on === x[0] ? 'on' : '') + '">' + x[1] + '</button>').join('') + '</div>';
   }
   function bindTabs() { document.querySelectorAll('#page [data-fmt]').forEach(b => b.onclick = () => ({fm: fmEntry, acc: cEntry, wk: fmWeek, rep: cReport})[b.dataset.fmt]()); }
@@ -300,6 +300,7 @@ table.adoc-sum th{text-align:center;font-size:11.5px}table.adoc-sum td{text-alig
     const ent = ls.filter(l => days.some(k => FMF.some(x => fmv(l, k, x[0]) != null))).length;
     $('page').innerHTML = fmTabs('wk') + '<div class="noprint row2"><button class="btn" id="fwPrev">&lsaquo; Previous week</button><input type="date" id="fwDay" value="' + ymd(base) + '" title="Any date in the week"><button class="btn" id="fwNext">Next week &rsaquo;</button><button class="btn" id="fwNow">This week</button><button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="fwCsv">Download Excel (CSV)</button></div>'
       + (C.hasFm ? '' : '<div class="card err">The Finance daily entry table is not set up yet (Supabase/41 finance daily entry.sql).</div>')
+      + (C.hasFm && !ent ? '<div class="card noprint" style="border-left:4px solid var(--accent)">This report shows the <b>Finance daily entry</b> (Pure Collection, Fund Transfers, Genuine Suppliers), not the accountants\' collection. No Finance daily entry has been made for this week yet. The accountants\' collection for the week is in <button class="btn q" data-fmt="rep">Collection report (accountants)</button>.</div>' : '')
       + docOpen({title: 'Finance Week Report &middot; ' + lab, sub: 'Money in and out of every bank account, Monday to Sunday &middot; ' + scopeTxt() + ' &middot; Iceman IMS', dept: 'Finance',
           ref: 'IMS/ACC/FWR/' + we.getFullYear() + '-' + wkLabel(ws), period: fmtD(ws) + ' to ' + fmtD(we) + ' ' + we.getFullYear(), scope: scopeTxt(), basis: 'Finance daily entry, ' + ent + ' of ' + ls.length + ' accounts entered'})
       + docSec(1, 'Summary for the week') + docSum([['Pure Collection', am(S(4))], ['Fund Transfers in', am(S(5))], ['Total in', am(S(6))], ['Genuine Suppliers', am(S(7))], ['Fund Transfers out', am(S(8))], ['Total out', am(S(9))], ['Net for the week', am(S(10))]])
@@ -513,7 +514,8 @@ table.adoc-sum th{text-align:center;font-size:11.5px}table.adoc-sum td{text-alig
     // rule as the dashboard's pace. "Prev" column = the previous day / week / calendar month / equal-length period.
     const ls = lanesF(), W = weeksBack(26), today = new Date(); today.setHours(0, 0, 0, 0);
     const R = C.rp || (C.rp = {mode: 'weekly', wk: '', d: ymd(today), mo: ymd(today).slice(0, 7), from: ymd(monday(today)), to: ymd(today)});
-    if (!R.wk) R.wk = ymd(W.length > 1 ? W[W.length - 2] : W[0]);
+    // v5.9.1: the weekly report opens on the same week as the accountants' entry page (this week), not last week
+    if (!R.wk) R.wk = ymd(monday(today));
     let a, b, pa, pb, title, label, prevLab, file;
     if (R.mode === 'daily') { a = pd(R.d); b = a; pa = pb = addD(a, -1); title = 'Daily collection report'; label = DOW[(a.getDay() + 6) % 7] + ' ' + fmtD(a) + ' ' + a.getFullYear(); prevLab = 'Prev day'; file = 'Daily ' + R.d; }
     else if (R.mode === 'monthly') { const q = R.mo.split('-').map(Number); a = new Date(q[0], q[1] - 1, 1); b = new Date(q[0], q[1], 0); pa = new Date(q[0], q[1] - 2, 1); pb = new Date(q[0], q[1] - 1, 0); title = 'Monthly collection report'; label = a.toLocaleDateString('en-GB', {month: 'long', year: 'numeric'}); prevLab = 'Last month'; file = 'Monthly ' + R.mo; }
@@ -534,6 +536,29 @@ table.adoc-sum th{text-align:center;font-size:11.5px}table.adoc-sum td{text-alig
     const mCode = {daily: 'D', weekly: 'W', monthly: 'M', custom: 'C'}[R.mode], refKey = R.mode === 'weekly' ? a.getFullYear() + '-' + wkLabel(a) : R.mode === 'monthly' ? R.mo : ymd(a) === ymd(b) ? ymd(a) : ymd(a) + '_' + ymd(b);
     const perTxt = ymd(a) === ymd(b) ? DOW[(a.getDay() + 6) % 7] + ' ' + fmtD(a) + ' ' + a.getFullYear() : fmtD(a) + ' ' + a.getFullYear() + ' to ' + fmtD(b) + ' ' + b.getFullYear();
     const prevTxt = ymd(pa) === ymd(pb) ? fmtD(pa) + ' ' + pa.getFullYear() : fmtD(pa) + ' to ' + fmtD(pb) + ' ' + pb.getFullYear();
+    // v5.9.1: the report shows the accountants' entries the way they are entered: one column per day (weekly / daily),
+    // or one row per day (monthly / custom), and the customers each account collected from (the entry page's notes).
+    const dCell = (l, k) => { const v = amt(l, k); return '<td class="n">' + (v == null ? (k > ymd(today) ? '' : '-') : am(v)) + '</td>'; };
+    const gName = l => l.department || l.manager || '(no department)';
+    const ordered = Object.keys(groups).sort().flatMap(g => groups[g]);
+    let detail = '', custRows = [];
+    if (D.length <= 7) {
+      const dl = D.map(k => { const d0 = pd(k); return DOW[(d0.getDay() + 6) % 7] + ' ' + d0.getDate(); });
+      let last = null;
+      detail = docSec(2, 'Daily collection by bank account (as entered by the accountants)') + '<table class="adoc-t"><thead><tr><th>Bank account</th><th>Operation</th><th>Accountant</th>' + dl.map(x => '<th class="n">' + x + '</th>').join('') + '<th class="n">Total</th></tr></thead><tbody>'
+        + ordered.map(l => { const g = gName(l), gs = groups[g]; let h = '';
+            if (g !== last) { last = g; h += '<tr class="grp"><td colspan="3">' + esc(g) + '</td>' + D.map(k => tdA(sumA(gs.map(x => amt(x, k) || 0)))).join('') + tdA(sumA(gs.map(x => rSum(x, D)))) + '</tr>'; }
+            return h + '<tr><td>' + esc(l.name) + '</td><td>' + esc(l.operation) + '</td><td>' + esc(l.officer || '') + '</td>' + D.map(k => dCell(l, k)).join('') + tdA(rSum(l, D)) + '</tr>'; }).join('')
+        + '<tr class="tot"><td colspan="3">Total</td>' + D.map(k => tdA(sumA(ls.map(l => amt(l, k) || 0)))).join('') + tdA(Cc) + '</tr></tbody></table>';
+    } else {
+      detail = docSec(2, 'Collection by day (all accounts, as entered by the accountants)') + '<table class="adoc-t"><thead><tr><th>Date</th><th class="n">Accounts entered</th><th class="n">Collected</th></tr></thead><tbody>'
+        + D.map(k => { const d0 = pd(k), vs = ls.map(l => amt(l, k)).filter(v => v != null); return '<tr><td>' + DOW[(d0.getDay() + 6) % 7] + ' ' + fmtD(d0) + ' ' + d0.getFullYear() + '</td><td class="n">' + vs.length + ' of ' + ls.length + '</td><td class="n">' + (vs.length ? am(sumA(vs)) : '-') + '</td></tr>'; }).join('')
+        + '<tr class="tot"><td>Total</td><td></td>' + tdA(Cc) + '</tr></tbody></table>';
+    }
+    D.forEach(k => ordered.forEach(l => { const r = C.dmap[l.id + '|' + k]; if (r && (r.customers || r.note)) custRows.push([k, l, r]); }));
+    const custSec = n => custRows.length ? docSec(n, 'Customers collected from') + '<table class="adoc-t"><thead><tr><th>Date</th><th>Bank account</th><th>Operation</th><th class="n">Amount</th><th>Customers / note</th><th>Entered by</th></tr></thead><tbody>'
+      + custRows.map(x => { const d0 = pd(x[0]); return '<tr><td>' + DOW[(d0.getDay() + 6) % 7] + ' ' + fmtD(d0) + '</td><td>' + esc(x[1].name) + '</td><td>' + esc(x[1].operation) + '</td><td class="n">' + (x[2].amount == null ? '' : am(x[2].amount)) + '</td><td class="sm">' + esc([x[2].customers, x[2].note].filter(Boolean).join(' · ')) + '</td><td class="sm">' + esc(x[2].by_name || '') + '</td></tr>'; }).join('') + '</tbody></table>' : '';
+    const entN = ls.filter(l => D.some(k => amt(l, k) != null)).length;
     $('page').innerHTML = fmTabs('rep') + '<div class="noprint row2">' + sel('ccRm', '', [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['custom', 'Custom date / range']], R.mode)
       + (R.mode === 'daily' ? '<input type="date" id="ccRd" value="' + R.d + '" max="' + ymd(today) + '">'
         : R.mode === 'monthly' ? '<input type="month" id="ccRmo" value="' + R.mo + '" max="' + ymd(today).slice(0, 7) + '">'
@@ -541,11 +566,13 @@ table.adoc-sum th{text-align:center;font-size:11.5px}table.adoc-sum td{text-alig
         : sel('ccRw', '', W.slice().reverse().map(w => [ymd(w), wkLabel(w) + ' (' + fmtD(w) + ' to ' + fmtD(addD(w, 6)) + ')']), ymd(a)))
       + '<button class="btn p" id="rPrint">Print / Save as PDF</button><button class="btn" id="ccCsv">Download Excel (CSV)</button></div>'
       + docOpen({title: title.charAt(0).toUpperCase() + title.slice(1).replace(/ (\w)/g, (m, c) => ' ' + c.toUpperCase()) + ' &middot; ' + label, sub: (op ? 'Operation ' + esc(op) : 'All my operations') + (R.mode === 'weekly' ? '' : ' &middot; weekly targets counted 1/6 per working day (Mon to Sat)') + ' &middot; Iceman IMS',
-          ref: 'IMS/ACC/COL-' + mCode + '/' + refKey, period: perTxt, scope: op ? 'Operation ' + esc(op) : 'All my operations', basis: 'Daily Collection against weekly targets'})
+          ref: 'IMS/ACC/COL-' + mCode + '/' + refKey, period: perTxt, scope: op ? 'Operation ' + esc(op) : 'All my operations', basis: 'Accountants\' Daily Collection entries, ' + entN + ' of ' + ls.length + ' accounts entered'})
       + docSec(1, 'Summary') + docSum([['Target', am(T)], ['Collected', am(Cc)], ['Achievement', T ? pct(Cc, T) + '%' : '-'], ['Excess / (Short)', T ? am(Cc - T) : '-'], [prevLab, am(P)], ['Change vs ' + prevLab.toLowerCase(), am(Cc - P)]])
-      + docSec(2, 'By bank account') + '<table class="adoc-t"><thead><tr><th>Bank account</th><th>Operation</th><th>Acc No</th><th>Accountant</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th class="n">Excess / (Short)</th><th class="n">' + prevLab + '</th><th class="n">Change</th></tr></thead><tbody>' + body
+      + detail
+      + docSec(3, 'Target and comparison by bank account') + '<table class="adoc-t"><thead><tr><th>Bank account</th><th>Operation</th><th>Acc No</th><th>Accountant</th><th class="n">Target</th><th class="n">Collected</th><th class="n">%</th><th class="n">Excess / (Short)</th><th class="n">' + prevLab + '</th><th class="n">Change</th></tr></thead><tbody>' + body
       + '<tr class="tot"><td colspan="4">Total</td>' + tdA(T) + tdA(Cc) + '<td class="n">' + (T ? pct(Cc, T) + '%' : '') + '</td>' + (T ? tdA(Cc - T) : '<td></td>') + tdA(P) + tdA(Cc - P) + '</tr></tbody></table>'
-      + docNotes(['Excess / (Short) = collected minus target; a shortfall is shown in brackets.', prevLab + ' = ' + prevTxt + '. Change = this period minus ' + prevLab.toLowerCase() + '.'].concat(R.mode === 'weekly' ? [] : ['Targets are weekly: each working day (Monday to Saturday) counts one sixth of its week\'s target, Sundays none.']))
+      + custSec(4)
+      + docNotes(['Figures are the amounts the accountants entered in Account › Daily Collection; "-" = not entered for that day.', 'Excess / (Short) = collected minus target; a shortfall is shown in brackets.', prevLab + ' = ' + prevTxt + '. Change = this period minus ' + prevLab.toLowerCase() + '.'].concat(R.mode === 'weekly' ? [] : ['Targets are weekly: each working day (Monday to Saturday) counts one sixth of its week\'s target, Sundays none.']))
       + docSign(SIGN_ACC) + docEnd();
     $('ccRm').onchange = e => { R.mode = e.target.value; cReport(); };
     if ($('ccRw')) $('ccRw').onchange = e => { R.wk = e.target.value; cReport(); };
@@ -675,6 +702,6 @@ table.adoc-sum th{text-align:center;font-size:11.5px}table.adoc-sum td{text-alig
 
   window.MODULE_PAGES = {
     // v5.7: Full access (Finance Manager / Financial Controller, Admin) opens on the Finance daily entry, today's date; others on the accountants' entry
-    collection: {items: () => run(cLoad, () => (fmFull() ? fmEntry : cEntry)()), dash: () => run(cLoad, cDash), report: () => run(cLoad, () => (fmFull() ? fmWeek : cReport)()), card: cCard}
+    collection: {items: () => run(cLoad, cEntry), dash: () => run(cLoad, cDash), report: () => run(cLoad, cReport), card: cCard}
   };
 })();
