@@ -1,3 +1,4 @@
+// v6.3 (2026-11-21): Dashboard (all operations and each operation) shows the customers with no Main reason separately: by operation + list, oldest money first.
 // v6.1 (2026-11-21): Operation dashboard (Dashboard chip / Dashboard tab with one operation), ages shown Over 120 -> 31-60 then Over 90 / 60 / 30, lists sorted oldest money first, tables scroll inside the page.
 // Iceman IMS v6.0 - Outstanding from the daily C40 update, one follow-up record per customer (2026-11-21, Oshan).
 // Replaces the 16 OneDrive "Over 30 Follow-up books": same list, same figures, same remarks, in IMS.
@@ -310,6 +311,26 @@
       + l.map(x => '<tr class="row" data-open="' + x.r.id + '"><td class="n"><span class="tag t-' + (x.p === 1 ? 'r' : x.p === 2 ? 'w' : 'b') + '">' + x.p + '</span></td><td>' + esc(x.iss) + '</td><td>' + esc(x.r.operation) + '</td><td>' + esc(x.off) + '</td><td>' + esc(x.r.outlet) + '</td><td class="n">' + m0(o60(x.r)) + '</td><td class="n">' + m0(o30(x.r)) + '</td><td class="n">' + (x.r.aging_days == null ? '' : x.r.aging_days) + '</td><td>' + esc(x.r.reason) + '</td><td>' + (x.r.promised_date ? esc(dmy(x.r.promised_date)) + (x.r.promised_amount != null ? ' · ' + m0(x.r.promised_amount) : '') : '') + '</td><td>' + (x.r.fu_updated_at ? esc(dmy(x.r.fu_updated_at.slice(0, 10))) : 'never') + '</td><td>' + esc(x.r.remarks) + '</td></tr>').join('')
       + '</tbody></table></div>' + (max && list.length > max ? '<div class="hint">' + (list.length - max) + ' more in the Report tab.</div>' : '');
   }
+  // ---------- Customers with no Main reason (v6.3) ----------
+  let NR_ALL = false;
+  function noReasonCard(codes) {
+    const a = custRows().filter(r => codes.includes(r.operation) && isActive(r)), z = a.filter(r => !r.reason);
+    const S2 = (l, f) => l.reduce((s, r) => s + f(r), 0), b120 = r => n(D(r).b120), o90 = r => n(D(r).o90);
+    const list = z.slice().sort((x, y) => b120(y) - b120(x) || o90(y) - o90(x) || o60(y) - o60(x) || o30(y) - o30(x)), max = NR_ALL ? list.length : 100;
+    const byOp = codes.map(c => { const all = a.filter(r => r.operation === c), q = z.filter(r => r.operation === c); return {c, n: q.length, all: all.length, b120: S2(q, b120), o90: S2(q, o90), o60: S2(q, o60), o30: S2(q, o30), off: (targetOf(c) || {}).officer || ''}; }).filter(x => x.all).sort((x, y) => y.o60 - x.o60 || y.o30 - x.o30);
+    const tot = k => byOp.reduce((s, x) => s + x[k], 0);
+    return '<div class="card" style="margin-top:10px"><div class="row2" style="justify-content:space-between;align-items:center"><h3>Customers with no Main reason (' + z.length + ' of ' + a.length + ' · Over 60 Rs ' + m0(S2(z, o60)) + ' · Over 30 Rs ' + m0(S2(z, o30)) + ')</h3>'
+      + '<button class="btn noprint" data-osact="nrlist">Open in the Customers list</button></div>'
+      + '<div class="hint">These customers are in the Over 30 list but nobody has written why they have not paid. Officers write the Main reason, explanation, next action and promise in IMS. Oldest money first.</div>'
+      + (codes.length > 1 ? '<div class="wrap" style="margin-top:6px"><table style="min-width:900px"><thead><tr><th>Operation</th><th>Officer</th><th class="n">No reason</th><th class="n">In list</th><th class="n">% with no reason</th><th class="n">Over 120</th><th class="n">Over 90</th><th class="n">Over 60</th><th class="n">Over 30</th></tr></thead><tbody>'
+        + byOp.map(x => '<tr class="row" data-osop="' + x.c + '"><td>' + esc(x.c + ' - ' + opName(x.c)) + '</td><td>' + esc(x.off) + '</td><td class="n"><b>' + x.n + '</b></td><td class="n">' + x.all + '</td><td class="n">' + (x.n / x.all >= 0.5 ? '<span class="bad">' + pc(x.n / x.all) + '</span>' : pc(x.n / x.all)) + '</td><td class="n">' + m0(x.b120) + '</td><td class="n">' + m0(x.o90) + '</td><td class="n">' + m0(x.o60) + '</td><td class="n">' + m0(x.o30) + '</td></tr>').join('')
+        + '</tbody><tfoot><tr class="tot"><td colspan="2"><b>Total</b></td><td class="n"><b>' + tot('n') + '</b></td><td class="n">' + tot('all') + '</td><td class="n">' + pc(tot('all') ? tot('n') / tot('all') : null) + '</td><td class="n">' + m0(tot('b120')) + '</td><td class="n">' + m0(tot('o90')) + '</td><td class="n">' + m0(tot('o60')) + '</td><td class="n">' + m0(tot('o30')) + '</td></tr></tfoot></table></div>' : '')
+      + '<div class="wrap" style="margin-top:8px"><table style="min-width:1150px"><thead><tr><th class="n">#</th>' + (codes.length > 1 ? '<th>Op</th><th>Officer</th>' : '') + '<th>No</th><th>Customer</th><th>Sales rep</th><th class="n">Days</th><th class="n">Over 120</th><th class="n">Over 90</th><th class="n">Over 60</th><th class="n">Over 30</th><th class="n">Paid (cash)</th><th>In list since</th><th>Last update</th><th></th></tr></thead><tbody>'
+      + (list.length ? list.slice(0, max).map((r, i) => '<tr class="row' + ageCls(r) + '" data-open="' + r.id + '"><td class="n">' + (i + 1) + '</td>' + (codes.length > 1 ? '<td>' + esc(r.operation) + '</td><td>' + esc((targetOf(r.operation) || {}).officer || '') + '</td>' : '') + '<td class="rno">' + esc(r.rec_code || '') + '</td><td><b>' + esc(r.outlet) + '</b></td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + m0(b120(r)) + '</td><td class="n">' + m0(o90(r)) + '</td><td class="n"><b>' + m0(o60(r)) + '</b></td><td class="n">' + m0(o30(r)) + '</td><td class="n">' + (n(D(r).cash) ? m0(D(r).cash) : '') + '</td><td>' + esc(dmy(D(r).new_on || '')) + '</td><td>' + (r.fu_updated_at ? esc(dmy(r.fu_updated_at.slice(0, 10))) : '<span class="hint">never</span>') + '</td><td><button class="btn q" data-quick="' + r.id + '" title="Write the reason">&#9998;</button></td></tr>').join('') : '<tr><td colspan="15" class="hint">Every customer has a Main reason.</td></tr>')
+      + '</tbody></table></div>'
+      + (list.length > 100 ? '<div class="row2 noprint" style="margin-top:6px"><button class="btn" data-osact="nrall">' + (NR_ALL ? 'Show the first 100 only' : 'Show all ' + list.length) + '</button></div>' : '') + '</div>';
+  }
+
   // ---------- Operation dashboard (books: Dashboard sheet of each operation's book) ----------
   function opDash(c, inFollowUp) {
     const a = custRows().filter(r => r.operation === c && isActive(r)), z60 = a.filter(r => o60(r) >= 1), S2 = (l, f) => l.reduce((s, r) => s + f(r), 0);
@@ -343,6 +364,7 @@
       + (wk ? '<div class="card" style="margin-top:10px"><h3>This week (' + esc(wk) + ') · A / B / C</h3>' + weekTable([c], wk) + '</div>' : '')
       + '<div class="grid2" style="margin-top:10px"><div class="card"><h3>Ageing · first update, last update, today</h3>' + ageT + '</div><div class="card"><h3>Trend</h3>' + trend(days) + '</div></div>'
       + '<div class="grid2" style="margin-top:10px"><div class="card"><h3>Customers by main reason</h3>' + gT(byR, 'Main reason', false) + '</div><div class="card"><h3>By sales rep</h3>' + gT(byRep, 'Sales rep', true) + '</div></div>'
+      + noReasonCard([c])
       + '<div class="card" style="margin-top:10px"><h3>Top 15 customers by Over 60</h3>' + topT + '</div>'
       + '<div class="card" style="margin-top:10px"><h3>Action list</h3>' + actTable(actionList([c]), 40) + '</div>';
   }
@@ -363,6 +385,7 @@
       + byOp.map(x => '<tr class="row" data-osop="' + x.c + '"><td>' + esc(x.c + ' - ' + opName(x.c)) + '</td><td class="n">' + x.n + '</td><td class="n">' + m0(x.o30) + '</td><td class="n">' + m0(x.o60) + '</td><td class="n">' + x.nr + '</td><td class="n">' + x.pm + '</td><td class="n">' + pc(x.cov) + '</td></tr>').join('') + '</tbody></table></div>'
       + '<div class="card"><h3>By officer</h3><table><thead><tr><th>Officer</th><th>Operations</th><th class="n">Customers</th><th class="n">Over 60</th><th class="n">No remark</th><th class="n">Promise missed</th></tr></thead><tbody>'
       + Object.values(offs).sort((a, b) => b.o60 - a.o60).map(x => '<tr><td>' + esc(x.o) + '</td><td>' + esc(x.ops.join(', ')) + '</td><td class="n">' + x.n + '</td><td class="n">' + m0(x.o60) + '</td><td class="n">' + x.nr + '</td><td class="n">' + x.pm + '</td></tr>').join('') + '</tbody></table></div></div>'
+      + noReasonCard(codes)
       + '<div class="card" style="margin-top:10px"><h3>Trend</h3>' + trend(sumDays(codes)) + '</div>'
       + '<div class="card" style="margin-top:10px"><h3>Action list (' + acts.length + ')</h3><div class="hint">P1 = promise missed / returned cheque (all) · P2 = Over 60 with no remark (top 15 per operation) · P3 = no update 7+ days and invoices turning 61+ in 7 days (top 10 each per operation)</div>' + actTable(acts, 60) + '</div>';
   }
@@ -478,6 +501,8 @@
     else if (t.dataset.osact === 'print') window.print();
     else if (t.dataset.osact === 'csv') csv();
     else if (t.dataset.osact === 'decision') window.osDecisionView();
+    else if (t.dataset.osact === 'nrall') { NR_ALL = !NR_ALL; go(); }
+    else if (t.dataset.osact === 'nrlist') { Object.assign(OF, {band: '', rep: '', flag: 'nr', reason: '', text: '', status: 'active'}); tab = 'cust'; go('items', 'receivable'); }
   }, true);
   document.addEventListener('change', e => { const t = e.target; if (t.dataset && t.dataset.osf && t.tagName === 'SELECT') { OF[t.dataset.osf] = t.value; go(); } else if (t.dataset && t.dataset.oif && t.tagName === 'SELECT') { IF[t.dataset.oif] = t.value; go(); } });
   let tmr = null;
