@@ -1,3 +1,4 @@
+// v6.1 (2026-11-21): Operation dashboard (Dashboard chip / Dashboard tab with one operation), ages shown Over 120 -> 31-60 then Over 90 / 60 / 30, lists sorted oldest money first, tables scroll inside the page.
 // Iceman IMS v6.0 - Outstanding from the daily C40 update, one follow-up record per customer (2026-11-21, Oshan).
 // Replaces the 16 OneDrive "Over 30 Follow-up books": same list, same figures, same remarks, in IMS.
 //   Follow-up tab = Customers | Invoices | Credits | Collections | Settled | Progress | Weekly target | Old lists
@@ -93,7 +94,7 @@
 
   // ---------- page shell ----------
   let tab = 'cust';
-  const TABS = [['cust', 'Customers'], ['inv', 'Invoices'], ['cred', 'Credits'], ['coll', 'Collections'], ['sett', 'Settled'], ['prog', 'Progress'], ['week', 'Weekly target']];
+  const TABS = [['dash', 'Dashboard'], ['cust', 'Customers'], ['inv', 'Invoices'], ['cred', 'Credits'], ['coll', 'Collections'], ['sett', 'Settled'], ['prog', 'Progress'], ['week', 'Weekly target']];
   function head(title) {
     const a = asAt(op), ld = lastDay(op);
     return '<div class="row2" style="justify-content:space-between;align-items:flex-end"><h2 class="pt">' + esc(title) + ' <span class="hint">' + (op ? esc(op + ' - ' + opName(op)) : 'All my operations') + '</span></h2>'
@@ -128,7 +129,7 @@
   const ofilt = skip => myCust().filter(r => Object.keys(OT).every(k => k === skip || OT[k](r)));
   function custPage() {
     const act = actCust(), sumF = (a, f) => a.reduce((s, r) => s + f(r), 0), c60 = act.filter(r => o60(r) >= 1);
-    const tl = [tile('', act.length, 'Customers over 30 days'), tile('', m0(sumF(act, o30)), 'Over 30 total'), tile('r', m0(sumF(act, o60)), 'Over 60 total'), tile('r', m0(sumF(act, r => n(D(r).o90))), 'Over 90 total'),
+    const tl = [tile('r', m0(sumF(act, r => n(D(r).b120))), 'Over 120 total'), tile('r', m0(sumF(act, r => n(D(r).o90))), 'Over 90 total'), tile('a', m0(sumF(act, o60)), 'Over 60 total'), tile('', m0(sumF(act, o30)), 'Over 30 total'), tile('', act.length, 'Customers over 30 days'),
       tile('g', m0(sumF(act, r => n(D(r).cash))), 'Cash since the last update'), tile('', m0(sumF(act, r => n(D(r).setoff))), 'Set off (not cash)'),
       tile('a', c60.filter(r => !r.reason).length, 'Over 60 with no remark'), tile('r', act.filter(promiseMissed).length, 'Promise missed'), tile('a', c60.filter(r => r.reason && !fresh(r)).length, 'Over 60, no update 7+ days'),
       tile('', pc(c60.length ? c60.filter(r => r.reason && fresh(r)).length / c60.length : 1), 'C: Over 60 with a fresh remark')].join('');
@@ -136,7 +137,7 @@
     ['rep', 'reason'].forEach(k => { if (OF[k] && !uniq(k === 'rep' ? r => r.owner_name : r => r.reason || '(no reason yet)').includes(OF[k])) OF[k] = ''; });
     const cnt = (k, t) => ofilt(k).filter(t).length;
     const sel = (id, k, lab, list) => '<select data-osf="' + k + '"' + (OF[k] && !(k === 'status' && OF[k] === 'active') ? ' class="on"' : '') + '>' + list.map(x => '<option value="' + esc(x[0]) + '"' + (OF[k] === x[0] ? ' selected' : '') + '>' + esc(x[1]) + ' (' + cnt(k, x[2]) + ')</option>').join('') + '</select>';
-    const f = ofilt('').sort((a, b) => (isActive(b) - isActive(a)) || (o60(b) - o60(a)) || (n(D(b).b31) - n(D(a).b31)));
+    const f = ofilt('').sort((a, b) => (isActive(b) - isActive(a)) || (n(D(b).b120) - n(D(a).b120)) || (n(D(b).o90) - n(D(a).o90)) || (o60(b) - o60(a)) || (o30(b) - o30(a)));   // oldest money first: Over 120, 90, 60, 30
     $('page').innerHTML = head('Outstanding · Over 30 follow-up') + chips() + '<div class="grid">' + tl + '</div>'
       + '<div class="filters noprint">' + sel('', 'status', '', [['active', 'Active customers', isActive], ['settled', 'Cleared (settled)', r => r.status === 'settled'], ['all', 'All', () => true]])
       + sel('', 'band', '', [['', 'All ages (oldest invoice)', () => true]].concat(BANDS.map(b => [b[0], 'Oldest ' + b[1] + ' days', r => inB(r, b[0])])))
@@ -145,15 +146,15 @@
       + sel('', 'flag', '', [['', 'All flags', () => true]].concat(FLAGS.map(x => [x[0], x[1], x[2]])))
       + '<input data-osf="text" placeholder="Search customer / rep / no / remark" value="' + esc(OF.text) + '" style="flex:1;min-width:170px">'
       + (OF.band || OF.rep || OF.flag || OF.reason || OF.text || OF.status !== 'active' ? '<button class="btn" data-osact="clear">Clear filters</button>' : '') + '</div>'
-      + '<div class="hint">' + f.length + ' customers · Over 30 ' + m2(f.reduce((s, r) => s + o30(r), 0)) + ' · Over 60 ' + m2(f.reduce((s, r) => s + o60(r), 0)) + ' &nbsp; ' + ageKey() + '</div>'
-      + '<div class="wrap"><table style="min-width:1500px"><thead><tr><th class="n">#</th><th>No</th><th>Customer</th><th>Sales rep</th><th class="n">Days</th><th class="n">31-60</th><th class="n">61-90</th><th class="n">91-120</th><th class="n">Over 120</th><th class="n">Over 30</th><th class="n">Over 60</th><th class="n">Credits</th><th class="n">Paid (cash)</th><th>Flags</th><th>Main reason</th><th>Next action</th><th>Promise</th><th>Last update</th><th></th></tr></thead><tbody>'
+      + '<div class="hint">' + f.length + ' customers · Over 120 ' + m2(f.reduce((s, r) => s + n(D(r).b120), 0)) + ' · Over 90 ' + m2(f.reduce((s, r) => s + n(D(r).o90), 0)) + ' · Over 60 ' + m2(f.reduce((s, r) => s + o60(r), 0)) + ' · Over 30 ' + m2(f.reduce((s, r) => s + o30(r), 0)) + ' &nbsp; ' + ageKey() + '</div>'
+      + '<div class="wrap"><table style="min-width:1500px"><thead><tr><th class="n">#</th><th>No</th><th>Customer</th><th>Sales rep</th><th class="n">Days</th><th class="n">Over 120</th><th class="n">91-120</th><th class="n">61-90</th><th class="n">31-60</th><th class="n">Over 90</th><th class="n">Over 60</th><th class="n">Over 30</th><th class="n">Credits</th><th class="n">Paid (cash)</th><th>Flags</th><th>Main reason</th><th>Next action</th><th>Promise</th><th>Last update</th><th></th></tr></thead><tbody>'
       + f.map((r, i) => { const d = D(r); return '<tr class="row' + ageCls(r) + '" data-open="' + r.id + '"><td class="n sno">' + (i + 1) + '</td><td class="rno">' + esc(r.rec_code || '') + '</td><td><b>' + esc(r.outlet) + '</b>' + (!op ? ' <span class="tag t-b">' + esc(r.operation) + '</span>' : '') + '</td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td>'
-        + '<td class="n">' + m0(d.b31) + '</td><td class="n">' + m0(d.b61) + '</td><td class="n">' + m0(d.b91) + '</td><td class="n">' + m0(d.b120) + '</td><td class="n"><b>' + m0(r.amount) + '</b></td><td class="n"><b>' + m0(d.o60) + '</b></td><td class="n">' + (n(d.cred) ? m0(d.cred) : '') + '</td><td class="n">' + (n(d.cash) ? m0(d.cash) : '') + '</td>'
+        + '<td class="n">' + m0(d.b120) + '</td><td class="n">' + m0(d.b91) + '</td><td class="n">' + m0(d.b61) + '</td><td class="n">' + m0(d.b31) + '</td><td class="n"><b>' + m0(d.o90) + '</b></td><td class="n"><b>' + m0(d.o60) + '</b></td><td class="n"><b>' + m0(r.amount) + '</b></td><td class="n">' + (n(d.cred) ? m0(d.cred) : '') + '</td><td class="n">' + (n(d.cash) ? m0(d.cash) : '') + '</td>'
         + '<td>' + flagHtml(r) + (isActive(r) ? '' : '<span class="tag t-g">Cleared ' + esc(dmy(d.cleared_on || r.settled_on)) + '</span>') + '</td><td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + (r.next_date ? '<br><span class="hint">' + esc(dmy(r.next_date)) + '</span>' : '') + '</td>'
         + '<td>' + (r.promised_date ? esc(dmy(r.promised_date)) + (r.promised_amount != null ? '<br>' + m0(r.promised_amount) : '') : '') + '</td><td>' + (r.fu_updated_at ? esc(dmy(r.fu_updated_at.slice(0, 10))) + '<br><span class="hint">' + esc(r.fu_updated_by || '') + '</span>' : '<span class="hint">never</span>') + '</td>'
         + '<td><button class="btn q" data-quick="' + r.id + '" title="Update follow-up">&#9998;</button></td></tr>'; }).join('')
-      + '</tbody><tfoot>' + (f.length ? '<tr class="tot"><td colspan="5"><b>Total of ' + f.length + ' customers</b></td>' + ['b31', 'b61', 'b91', 'b120'].map(k => '<td class="n">' + m0(f.reduce((s, r) => s + n(D(r)[k]), 0)) + '</td>').join('')
-        + '<td class="n"><b>' + m0(f.reduce((s, r) => s + o30(r), 0)) + '</b></td><td class="n"><b>' + m0(f.reduce((s, r) => s + o60(r), 0)) + '</b></td><td class="n">' + m0(f.reduce((s, r) => s + n(D(r).cred), 0)) + '</td><td class="n">' + m0(f.reduce((s, r) => s + n(D(r).cash), 0)) + '</td><td colspan="6"></td></tr>' : '<tr><td colspan="19" class="hint">No customers match the filters.</td></tr>') + '</tfoot></table></div>'
+      + '</tbody><tfoot>' + (f.length ? '<tr class="tot"><td colspan="5"><b>Total of ' + f.length + ' customers</b></td>' + ['b120', 'b91', 'b61', 'b31'].map(k => '<td class="n">' + m0(f.reduce((s, r) => s + n(D(r)[k]), 0)) + '</td>').join('')
+        + '<td class="n"><b>' + m0(f.reduce((s, r) => s + n(D(r).o90), 0)) + '</b></td><td class="n"><b>' + m0(f.reduce((s, r) => s + o60(r), 0)) + '</b></td><td class="n"><b>' + m0(f.reduce((s, r) => s + o30(r), 0)) + '</b></td><td class="n">' + m0(f.reduce((s, r) => s + n(D(r).cred), 0)) + '</td><td class="n">' + m0(f.reduce((s, r) => s + n(D(r).cash), 0)) + '</td><td colspan="6"></td></tr>' : '<tr><td colspan="20" class="hint">No customers match the filters.</td></tr>') + '</tfoot></table></div>'
       + '<div class="hint" style="margin-top:6px">A customer is listed when any invoice is older than 30 days (from the invoice date) or has a returned cheque. Days = oldest Over 30 invoice. Only the follow-up fields are typed in IMS; the figures come from C40 every morning.</div>';
   }
 
@@ -240,8 +241,8 @@
   function progPage() {
     const codes = op ? [op] : myOps().map(o => o.code), t = sumDays(codes);
     $('page').innerHTML = head('Outstanding · Progress by update') + chips() + '<div class="card">' + trend(t) + '</div>'
-      + '<div class="wrap" style="margin-top:10px"><table style="min-width:1100px"><thead><tr><th>Date</th><th class="n">Customers</th><th class="n">31-60</th><th class="n">61-90</th><th class="n">91-120</th><th class="n">Over 120</th><th class="n">Over 30</th><th class="n">Over 60</th><th class="n">Over 90</th><th class="n">Cash</th><th class="n">Cash on Over 60</th><th class="n">Set off</th><th class="n">New</th><th class="n">Cleared</th><th class="n">Credits</th></tr></thead><tbody>'
-      + t.slice().reverse().map(x => '<tr><td>' + esc(dmy(x.as_at)) + (!op && x.ops < codes.length ? ' <span class="hint">(' + x.ops + ' ops)</span>' : '') + '</td><td class="n">' + x.customers + '</td><td class="n">' + m0(x.b31) + '</td><td class="n">' + m0(x.b61) + '</td><td class="n">' + m0(x.b91) + '</td><td class="n">' + m0(x.b120) + '</td><td class="n"><b>' + m0(x.o30) + '</b></td><td class="n"><b>' + m0(x.o60) + '</b></td><td class="n">' + m0(x.o90) + '</td><td class="n">' + m0(x.cash) + '</td><td class="n">' + m0(x.cash60) + '</td><td class="n">' + m0(x.setoff) + '</td><td class="n">' + x.new_cust + '</td><td class="n">' + x.cleared + '</td><td class="n">' + m0(x.credits) + '</td></tr>').join('')
+      + '<div class="wrap" style="margin-top:10px"><table style="min-width:1100px"><thead><tr><th>Date</th><th class="n">Customers</th><th class="n">Over 120</th><th class="n">91-120</th><th class="n">61-90</th><th class="n">31-60</th><th class="n">Over 90</th><th class="n">Over 60</th><th class="n">Over 30</th><th class="n">Cash</th><th class="n">Cash on Over 60</th><th class="n">Set off</th><th class="n">New</th><th class="n">Cleared</th><th class="n">Credits</th></tr></thead><tbody>'
+      + t.slice().reverse().map(x => '<tr><td>' + esc(dmy(x.as_at)) + (!op && x.ops < codes.length ? ' <span class="hint">(' + x.ops + ' ops)</span>' : '') + '</td><td class="n">' + x.customers + '</td><td class="n">' + m0(x.b120) + '</td><td class="n">' + m0(x.b91) + '</td><td class="n">' + m0(x.b61) + '</td><td class="n">' + m0(x.b31) + '</td><td class="n"><b>' + m0(x.o90) + '</b></td><td class="n"><b>' + m0(x.o60) + '</b></td><td class="n"><b>' + m0(x.o30) + '</b></td><td class="n">' + m0(x.cash) + '</td><td class="n">' + m0(x.cash60) + '</td><td class="n">' + m0(x.setoff) + '</td><td class="n">' + x.new_cust + '</td><td class="n">' + x.cleared + '</td><td class="n">' + m0(x.credits) + '</td></tr>').join('')
       + '</tbody></table></div>';
   }
 
@@ -285,7 +286,7 @@
   }
 
   async function items() {
-    const fn = {cust: custPage, inv: invPage, cred: credPage, coll: collPage, sett: settPage, prog: progPage, week: weekPage, old: oldPage}[tab] || custPage;
+    const fn = {dash: () => op ? opDash(op, true) : ($('page').innerHTML = needOp('Dashboard')), cust: custPage, inv: invPage, cred: credPage, coll: collPage, sett: settPage, prog: progPage, week: weekPage, old: oldPage}[tab] || custPage;
     await fn();
   }
 
@@ -309,7 +310,44 @@
       + l.map(x => '<tr class="row" data-open="' + x.r.id + '"><td class="n"><span class="tag t-' + (x.p === 1 ? 'r' : x.p === 2 ? 'w' : 'b') + '">' + x.p + '</span></td><td>' + esc(x.iss) + '</td><td>' + esc(x.r.operation) + '</td><td>' + esc(x.off) + '</td><td>' + esc(x.r.outlet) + '</td><td class="n">' + m0(o60(x.r)) + '</td><td class="n">' + m0(o30(x.r)) + '</td><td class="n">' + (x.r.aging_days == null ? '' : x.r.aging_days) + '</td><td>' + esc(x.r.reason) + '</td><td>' + (x.r.promised_date ? esc(dmy(x.r.promised_date)) + (x.r.promised_amount != null ? ' · ' + m0(x.r.promised_amount) : '') : '') + '</td><td>' + (x.r.fu_updated_at ? esc(dmy(x.r.fu_updated_at.slice(0, 10))) : 'never') + '</td><td>' + esc(x.r.remarks) + '</td></tr>').join('')
       + '</tbody></table></div>' + (max && list.length > max ? '<div class="hint">' + (list.length - max) + ' more in the Report tab.</div>' : '');
   }
+  // ---------- Operation dashboard (books: Dashboard sheet of each operation's book) ----------
+  function opDash(c, inFollowUp) {
+    const a = custRows().filter(r => r.operation === c && isActive(r)), z60 = a.filter(r => o60(r) >= 1), S2 = (l, f) => l.reduce((s, r) => s + f(r), 0);
+    const days = S.days.filter(x => x.operation === c).sort((x, y) => x.as_at.localeCompare(y.as_at)), L = days[days.length - 1], P = days[days.length - 2], F = days[0];
+    const t0 = today(), mon = (() => { const d = new Date((L ? L.as_at : t0) + 'T00:00:00'), k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return d.toISOString().slice(0, 10); })();
+    const cashWk = days.filter(x => x.as_at >= mon).reduce((s, x) => s + n(x.cash), 0), ret = a.filter(r => n(D(r).ret) > 0.005), p7 = a.filter(r => r.promised_date && r.promised_date >= t0 && r.promised_date <= addD(t0, 6));
+    const wk = curWeek(), cred = S2(a, r => n(D(r).cred));
+    const tl1 = tile('r', m0(S2(a, r => n(D(r).b120))), 'Over 120') + tile('r', m0(S2(a, r => n(D(r).o90))), 'Over 90') + tile('a', m0(S2(a, o60)), 'Over 60') + tile('', m0(S2(a, o30)), 'Over 30')
+      + tile('', a.length, 'Customers in the list') + tile('g', m0(L ? n(L.cash) : 0), 'Cash since the last update');
+    const tl2 = tile('g', m0(cashWk), 'Cash this week (from ' + dmy(mon).slice(0, 5) + ')') + tile('', pc(a.length ? a.filter(r => r.reason).length / a.length : 1), 'Customers with a remark')
+      + tile('r', a.filter(promiseMissed).length, 'Promises missed') + tile('', p7.length + ' · ' + m0(S2(p7, r => n(r.promised_amount))), 'Promises due in 7 days')
+      + tile('r', ret.length + ' · ' + m0(S2(ret, r => n(D(r).ret))), 'Returned cheques') + tile('a', m0(cred), 'Credits to set off');
+    // ageing: first update vs last update vs today
+    const AG = [['Over 120', 'b120'], ['91-120', 'b91'], ['61-90', 'b61'], ['31-60', 'b31'], ['Over 90', 'o90'], ['Over 60', 'o60'], ['Over 30', 'o30'], ['Customers', 'customers']];
+    const dv = (x, y) => { if (x == null || y == null) return ''; const d = n(x) - n(y); return '<span style="color:var(--' + (d > 0.5 ? 'danger' : d < -0.5 ? 'ok' : 'muted') + ')">' + (d > 0 ? '+' : '') + (Math.abs(d) < 1000 && d % 1 === 0 ? d : m0(d)) + '</span>'; };
+    const fmt = (k, v) => v == null ? '' : k === 'customers' ? n(v) : m0(v);
+    const ageT = !L ? '<div class="hint">No C40 update yet.</div>' : '<table><thead><tr><th>Age</th><th class="n">First update<br>' + dmy(F.as_at) + '</th><th class="n">Last update<br>' + (P ? dmy(P.as_at) : '-') + '</th><th class="n">Today<br>' + dmy(L.as_at) + '</th><th class="n">Change vs last</th><th class="n">Change vs first</th></tr></thead><tbody>'
+      + AG.map(g => '<tr' + (g[1] === 'o30' ? ' class="tot"' : '') + '><td>' + g[0] + '</td><td class="n">' + fmt(g[1], F[g[1]]) + '</td><td class="n">' + (P ? fmt(g[1], P[g[1]]) : '') + '</td><td class="n"><b>' + fmt(g[1], L[g[1]]) + '</b></td><td class="n">' + (P ? dv(L[g[1]], P[g[1]]) : '') + '</td><td class="n">' + dv(L[g[1]], F[g[1]]) + '</td></tr>').join('') + '</tbody></table>';
+    // by main reason, by sales rep
+    const grp = (keyF) => { const m = {}; a.forEach(r => { const k = keyF(r); const t = m[k] = m[k] || {k, n: 0, o120: 0, o60: 0, o30: 0, nr: 0}; t.n++; t.o120 += n(D(r).b120); t.o60 += o60(r); t.o30 += o30(r); if (!r.reason) t.nr++; }); return Object.values(m).sort((x, y) => y.o60 - x.o60 || y.o30 - x.o30); };
+    const byR = grp(r => r.reason || '(no reason yet)'), byRep = grp(r => r.owner_name || '(no rep)');
+    const gT = (lst, h, nr) => '<table><thead><tr><th>' + h + '</th><th class="n">Customers</th><th class="n">Over 120</th><th class="n">Over 60</th><th class="n">Over 30</th>' + (nr ? '<th class="n">No remark</th>' : '') + '</tr></thead><tbody>'
+      + lst.map(x => '<tr><td>' + esc(x.k) + '</td><td class="n">' + x.n + '</td><td class="n">' + m0(x.o120) + '</td><td class="n">' + m0(x.o60) + '</td><td class="n">' + m0(x.o30) + '</td>' + (nr ? '<td class="n">' + (x.nr || '') + '</td>' : '') + '</tr>').join('') + '</tbody></table>';
+    const top = z60.slice().sort((x, y) => o60(y) - o60(x)).slice(0, 15);
+    const topT = '<div class="wrap"><table style="min-width:1000px"><thead><tr><th class="n">#</th><th>Customer</th><th>Sales rep</th><th class="n">Days</th><th class="n">Over 120</th><th class="n">Over 90</th><th class="n">Over 60</th><th class="n">Over 30</th><th>Main reason</th><th>Next action</th><th>Promise</th><th>Last update</th></tr></thead><tbody>'
+      + top.map((r, i) => '<tr class="row' + ageCls(r) + '" data-open="' + r.id + '"><td class="n">' + (i + 1) + '</td><td><b>' + esc(r.outlet) + '</b></td><td>' + esc(r.owner_name) + '</td><td class="n">' + (r.aging_days == null ? '' : r.aging_days) + '</td><td class="n">' + m0(D(r).b120) + '</td><td class="n">' + m0(D(r).o90) + '</td><td class="n"><b>' + m0(o60(r)) + '</b></td><td class="n">' + m0(o30(r)) + '</td><td>' + esc(r.reason) + '</td><td>' + esc(r.next_step) + '</td><td>' + (r.promised_date ? esc(dmy(r.promised_date)) + (r.promised_amount != null ? ' · ' + m0(r.promised_amount) : '') : '') + '</td><td>' + (r.fu_updated_at ? esc(dmy(r.fu_updated_at.slice(0, 10))) : '<span class="hint">never</span>') + '</td></tr>').join('') + '</tbody></table></div>';
+    const off = (targetOf(c) || {}).officer;
+    $('page').innerHTML = head('Outstanding · Operation dashboard') + (inFollowUp ? chips() : '')
+      + '<div class="hint" style="margin-bottom:6px">' + esc(c + ' - ' + opName(c)) + (off ? ' · Officer: <b>' + esc(off) + '</b>' : '') + ' · ages from the invoice date · cash = what cleared invoices between two C40 exports</div>'
+      + '<div class="grid">' + tl1 + '</div><div class="grid" style="margin-top:8px">' + tl2 + '</div>'
+      + (wk ? '<div class="card" style="margin-top:10px"><h3>This week (' + esc(wk) + ') · A / B / C</h3>' + weekTable([c], wk) + '</div>' : '')
+      + '<div class="grid2" style="margin-top:10px"><div class="card"><h3>Ageing · first update, last update, today</h3>' + ageT + '</div><div class="card"><h3>Trend</h3>' + trend(days) + '</div></div>'
+      + '<div class="grid2" style="margin-top:10px"><div class="card"><h3>Customers by main reason</h3>' + gT(byR, 'Main reason', false) + '</div><div class="card"><h3>By sales rep</h3>' + gT(byRep, 'Sales rep', true) + '</div></div>'
+      + '<div class="card" style="margin-top:10px"><h3>Top 15 customers by Over 60</h3>' + topT + '</div>'
+      + '<div class="card" style="margin-top:10px"><h3>Action list</h3>' + actTable(actionList([c]), 40) + '</div>';
+  }
   function master() {
+    if (op) return opDash(op, false);
     const codes = op ? [op] : myOps().map(o => o.code), act = custRows().filter(r => codes.includes(r.operation) && isActive(r)), c60 = act.filter(r => o60(r) >= 1);
     const S2 = (a, f) => a.reduce((s, r) => s + f(r), 0), wk = curWeek(), acts = actionList(codes);
     const byOp = codes.map(c => { const a = act.filter(r => r.operation === c), z = a.filter(r => o60(r) >= 1), ld = lastDay(c); return {c, n: a.length, o30: S2(a, o30), o60: S2(a, o60), o90: S2(a, r => n(D(r).o90)), cash: ld && ld.as_at === asAt() ? n(ld.cash) : 0, setoff: ld && ld.as_at === asAt() ? n(ld.setoff) : 0, nr: z.filter(r => !r.reason).length, pm: a.filter(promiseMissed).length, cov: z.length ? z.filter(r => r.reason && fresh(r)).length / z.length : 1, as: ld && ld.as_at}; });
@@ -317,7 +355,7 @@
     const stale = byOp.filter(x => x.as && x.as !== asAt());
     $('page').innerHTML = head('Outstanding · Master dashboard') + (isBoard() && window.osDecisionView ? '<div class="row2 noprint" style="margin-bottom:6px"><button class="btn" data-osact="decision">Decision view (trend, coming risk)</button></div>' : '')
       + (stale.length ? '<div class="card err">Not updated with the latest C40 export: ' + stale.map(x => esc(x.c) + ' (' + dmy(x.as) + ')').join(', ') + '</div>' : '')
-      + '<div class="grid">' + tile('', act.length, 'Customers over 30') + tile('', m0(S2(act, o30)), 'Over 30') + tile('r', m0(S2(act, o60)), 'Over 60') + tile('r', m0(S2(act, r => n(D(r).o90))), 'Over 90')
+      + '<div class="grid">' + tile('r', m0(S2(act, r => n(D(r).b120))), 'Over 120') + tile('r', m0(S2(act, r => n(D(r).o90))), 'Over 90') + tile('a', m0(S2(act, o60)), 'Over 60') + tile('', m0(S2(act, o30)), 'Over 30') + tile('', act.length, 'Customers over 30')
       + tile('g', m0(byOp.reduce((s, x) => s + x.cash, 0)), 'Cash at the last update') + tile('', m0(byOp.reduce((s, x) => s + x.setoff, 0)), 'Set off at the last update')
       + tile('r', act.filter(promiseMissed).length, 'Promise missed') + tile('a', c60.filter(r => !r.reason).length, 'Over 60, no remark') + tile('a', c60.filter(r => r.reason && !fresh(r)).length, 'No update 7+ days') + tile('r', act.filter(r => n(D(r).ret) > 0.005).length, 'Returned cheques') + '</div>'
       + (wk ? '<div class="card" style="margin-top:10px"><h3>This week (' + esc(wk) + ') · targets by operation</h3>' + weekTable(codes, wk) + '</div>' : '')
@@ -335,7 +373,7 @@
     const S2 = (a, f) => a.reduce((s, r) => s + f(r), 0), top = act.slice().sort((a, b) => o60(b) - o60(a)).slice(0, 40);
     $('page').innerHTML = '<div class="noprint row2"><button class="btn p" data-osact="print">Print / Save as PDF</button><button class="btn" data-osact="csv">Download Excel (CSV)</button></div>'
       + '<h2 class="pt">Outstanding daily report</h2><div class="hint">' + (op ? esc(op + ' - ' + opName(op)) : 'All my operations') + ' · C40 as at ' + dmy(asAt(op)) + ' · source C40 B2001 + B2011 · Iceman IMS</div>'
-      + '<table style="margin:8px 0"><tbody>' + [['Customers over 30', act.length], ['Over 30 total', m2(S2(act, o30))], ['Over 60 total', m2(S2(act, o60))], ['Over 90 total', m2(S2(act, r => n(D(r).o90)))], ['Cash at the last update', m2(S2(act, r => n(D(r).cash)))], ['Set off at the last update', m2(S2(act, r => n(D(r).setoff)))], ['Promise missed', act.filter(promiseMissed).length], ['Over 60 with no remark', act.filter(r => o60(r) >= 1 && !r.reason).length]].map(x => '<tr><td>' + x[0] + '</td><td class="n"><b>' + x[1] + '</b></td></tr>').join('') + '</tbody></table>'
+      + '<table style="margin:8px 0"><tbody>' + [['Over 120 total', m2(S2(act, r => n(D(r).b120)))], ['Over 90 total', m2(S2(act, r => n(D(r).o90)))], ['Over 60 total', m2(S2(act, o60))], ['Over 30 total', m2(S2(act, o30))], ['Customers over 30', act.length], ['Cash at the last update', m2(S2(act, r => n(D(r).cash)))], ['Set off at the last update', m2(S2(act, r => n(D(r).setoff)))], ['Promise missed', act.filter(promiseMissed).length], ['Over 60 with no remark', act.filter(r => o60(r) >= 1 && !r.reason).length]].map(x => '<tr><td>' + x[0] + '</td><td class="n"><b>' + x[1] + '</b></td></tr>').join('') + '</tbody></table>'
       + (wk ? '<h3>Weekly targets (' + esc(wk) + ')</h3>' + weekTable(codes, wk) : '')
       + '<h3 style="margin-top:12px">Action list</h3>' + actTable(acts)
       + '<h3 style="margin-top:12px">Largest Over 60 customers (40)</h3><div class="wrap"><table><thead><tr><th>Op</th><th>Customer</th><th>Rep</th><th class="n">Days</th><th class="n">Over 60</th><th class="n">Over 30</th><th>Main reason</th><th>Next action</th><th>Promise</th></tr></thead><tbody>'
@@ -344,7 +382,7 @@
   function csv() {
     const codes = op ? [op] : myOps().map(o => o.code), list = custRows().filter(r => codes.includes(r.operation) && isActive(r)), q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
     const cols = [['Record no', r => r.rec_code], ['Operation', r => r.operation], ['Customer', r => r.outlet], ['Company', r => D(r).co], ['Class', r => r.party], ['Sales rep', r => r.owner_name], ['Oldest Over 30 invoice', r => r.base_date], ['Days (oldest)', r => r.aging_days], ['Days past due', r => D(r).pastdue],
-      ['31-60', r => D(r).b31], ['61-90', r => D(r).b61], ['91-120', r => D(r).b91], ['Over 120', r => D(r).b120], ['Over 30 total', r => r.amount], ['Over 60 total', r => D(r).o60], ['1-30 and current', r => D(r).cur], ['Credits not allocated', r => D(r).cred], ['Net balance', r => D(r).net],
+      ['Over 120', r => D(r).b120], ['91-120', r => D(r).b91], ['61-90', r => D(r).b61], ['31-60', r => D(r).b31], ['Over 90 total', r => D(r).o90], ['Over 60 total', r => D(r).o60], ['Over 30 total', r => r.amount], ['1-30 and current', r => D(r).cur], ['Credits not allocated', r => D(r).cred], ['Net balance', r => D(r).net],
       ['Over 30 last update', r => D(r).o30_prev], ['Paid since last update (cash)', r => D(r).cash], ['Set off since last update', r => D(r).setoff], ['Flags', r => flags(r).map(f => f[1]).join(' | ')], ['Main reason', r => r.reason], ['Clear explanation', r => r.remarks], ['Next action', r => r.next_step], ['Who', r => r.next_owner], ['Next date', r => r.next_date],
       ['Promise date', r => r.promised_date], ['Promise amount', r => r.promised_amount], ['Updated by', r => r.fu_updated_by], ['Last update', r => (r.fu_updated_at || '').slice(0, 10)], ['Status', r => STATUS[r.status]]];
     const txt = '﻿' + cols.map(c => q(c[0])).join(',') + '\r\n' + list.map(r => cols.map(c => q(c[1](r))).join(',')).join('\r\n');
@@ -384,7 +422,7 @@
       + '<div class="row2 noprint"><button class="btn" data-back="1">&larr; Back to list</button><button class="btn" data-rec="' + (prev ? prev.id : '') + '"' + (prev ? '' : ' disabled') + '>&lsaquo; Previous</button><button class="btn" data-rec="' + (next ? next.id : '') + '"' + (next ? '' : ' disabled') + '>Next &rsaquo;</button></div></div>'
       + '<div class="grid">' + tile('', m2(r.amount), 'Over 30 total') + tile('r', m2(d.o60), 'Over 60 total') + tile(r.aging_days > 120 ? 'r' : 'a', (r.aging_days == null ? '-' : r.aging_days + ' days'), 'Oldest Over 30 invoice ' + esc(dmy(r.base_date))) + tile('', m2(d.cur), '1-30 and current')
       + tile('a', m2(d.cred), 'Credits not allocated') + tile('', m2(d.net), 'Net balance (C40)') + tile('g', m2(d.cash) + (n(d.setoff) ? ' <small>+ set off ' + m0(d.setoff) + '</small>' : ''), 'Paid since the last update') + tile('', d.o30_prev == null ? '-' : m2(d.o30_prev), 'Over 30 at the last update') + '</div>'
-      + '<div class="card" style="margin-top:8px"><table><thead><tr><th class="n">31-60</th><th class="n">61-90</th><th class="n">91-120</th><th class="n">Over 120</th><th class="n">Over 30</th><th class="n">Over 90</th><th class="n">Days past due</th><th>Flags</th></tr></thead><tbody><tr><td class="n">' + m2(d.b31) + '</td><td class="n">' + m2(d.b61) + '</td><td class="n">' + m2(d.b91) + '</td><td class="n">' + m2(d.b120) + '</td><td class="n"><b>' + m2(r.amount) + '</b></td><td class="n">' + m2(d.o90) + '</td><td class="n">' + (d.pastdue == null ? '' : d.pastdue) + '</td><td>' + flagHtml(r) + '</td></tr></tbody></table></div>'
+      + '<div class="card" style="margin-top:8px"><table><thead><tr><th class="n">Over 120</th><th class="n">91-120</th><th class="n">61-90</th><th class="n">31-60</th><th class="n">Over 90</th><th class="n">Over 60</th><th class="n">Over 30</th><th class="n">Days past due</th><th>Flags</th></tr></thead><tbody><tr><td class="n">' + m2(d.b120) + '</td><td class="n">' + m2(d.b91) + '</td><td class="n">' + m2(d.b61) + '</td><td class="n">' + m2(d.b31) + '</td><td class="n">' + m2(d.o90) + '</td><td class="n">' + m2(d.o60) + '</td><td class="n"><b>' + m2(r.amount) + '</b></td><td class="n">' + (d.pastdue == null ? '' : d.pastdue) + '</td><td>' + flagHtml(r) + '</td></tr></tbody></table></div>'
       + '<div class="rgrid"><div class="card"><div class="tlh"><h3>Timeline</h3><div class="chips noprint" id="tlChips"></div><button class="btn noprint" data-ract="present" title="Big timeline for a meeting screen (Esc to exit)">' + (document.body.classList.contains('present') ? 'Exit present' : '&#x26F6; Present') + '</button><button class="btn p noprint" data-ract="note">+ Add remark</button></div>'
       + '<div class="hint">Every remark and change on this customer, oldest first, with who added it and when.</div><div id="hist" class="tl">Loading...</div><button class="fake noprint" data-ract="note">Write a remark for everyone following this customer...</button>'
       + '<h3 style="margin-top:14px">Invoices over 30 days</h3><div id="osRInv" class="hint">Loading...</div><h3 style="margin-top:14px">Unapplied credits</h3><div id="osRCred" class="hint">Loading...</div><h3 style="margin-top:14px">Collections (last 30 days)</h3><div id="osRColl" class="hint">Loading...</div></div>'
@@ -432,7 +470,7 @@
     if (t.dataset.ostab) { tab = t.dataset.ostab; go('items', 'receivable'); }
     else if (t.dataset.oscp) { CP = t.dataset.oscp; go(); }
     else if (t.dataset.oswk) { WK = t.dataset.oswk; go(); }
-    else if (t.dataset.osop) { op = t.dataset.osop; tab = 'cust'; go('items', 'receivable'); }
+    else if (t.dataset.osop) { op = t.dataset.osop; tab = 'dash'; go('items', 'receivable'); }
     else if (t.dataset.osold) { e.stopPropagation(); const o = (S.old || []).find(x => x.id === t.dataset.osold); if (o && !rows.some(x => x.id === o.id)) rows.push(o); openRecord(t.dataset.osold); }
     else if (t.dataset.osnote) { e.stopPropagation(); noteDrawer(t); }
     else if (t.id === 'osNoteSave') guard(() => noteSave(t));
