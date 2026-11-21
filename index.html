@@ -273,7 +273,7 @@ const MODS = [
 // v5.1: every module sits under a main category (grp). MGRP = the order of the main categories in the left menu;
 // a module with a grp that is not listed here shows after them, one without a grp under "Other". To move a module, change its grp.
 const MGRP = ['Follow-up', 'Sales Team', 'Account', 'Stocks', 'Calendar', 'KPI'];
-const PAGES = [['home','Home'],['items','Follow-up'],['dash','Dashboard'],['report','Report'],['perm','Permission']];
+const PAGES = [['home','Home'],['items','Follow-up'],['dash','Dashboard'],['report','Report'],['perm','Permission'],['ctrl','Control Board']];
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const money = v => Number(v || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -448,18 +448,18 @@ function paintMods(keepOpen) {
 // ---------- navigation ----------
 function go(p, m) {
   if (p) page = p; if (m) mod = m;
-  if (page === 'perm' && me.role !== 'admin') page = 'home';
+  if ((page === 'perm' || page === 'ctrl') && me.role !== 'admin') page = 'home';
   $('panel').classList.remove('open'); if (page === 'record') $('panel').innerHTML = '';
   document.querySelector('aside').classList.toggle('col', sbCol); $('sbToggle').innerHTML = sbCol ? '&rsaquo;' : '&lsaquo;'; $('sbToggle').title = sbCol ? 'Expand menu' : 'Collapse menu';
-  $('tabs').innerHTML = PAGES.filter(x => x[0] !== 'perm' || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + ((mod === 'team' && ['items', 'dash', 'report'].includes(page) && {items: 'Team', dash: 'Rep Day', report: 'Coverage'}[x[0]]) || (mod === 'calendar' && ['items', 'dash', 'report'].includes(page) && {items: 'Month', dash: 'Week', report: 'Day'}[x[0]]) || (mod === 'stock' && ['items', 'dash', 'report'].includes(page) && {items: 'Daily entry', dash: 'Last 14 days', report: 'Week report'}[x[0]]) || (mod === 'collection' && ['items', 'dash', 'report'].includes(page) && {items: 'Daily entry', dash: 'Dashboard', report: 'Reports'}[x[0]]) || x[1]) +(x[0] === 'home' && window.MY_MENTIONS && MY_MENTIONS.length ? ' <span class="nbadge" title="My to-do">' + MY_MENTIONS.length + '</span>' : '') + '</button>').join('');
+  $('tabs').innerHTML = PAGES.filter(x => (x[0] !== 'perm' && x[0] !== 'ctrl') || me.role === 'admin').map(x => '<button data-page="' + x[0] + '" class="' + (x[0] === (page === 'record' || page === 'outlet' ? 'items' : page) ? 'on' : '') + '">' + ((mod === 'team' && ['items', 'dash', 'report'].includes(page) && {items: 'Team', dash: 'Rep Day', report: 'Coverage'}[x[0]]) || (mod === 'calendar' && ['items', 'dash', 'report'].includes(page) && {items: 'Month', dash: 'Week', report: 'Day'}[x[0]]) || (mod === 'stock' && ['items', 'dash', 'report'].includes(page) && {items: 'Daily entry', dash: 'Last 14 days', report: 'Week report'}[x[0]]) || (mod === 'collection' && ['items', 'dash', 'report'].includes(page) && {items: 'Daily entry', dash: 'Dashboard', report: 'Reports'}[x[0]]) || x[1]) +(x[0] === 'home' && window.MY_MENTIONS && MY_MENTIONS.length ? ' <span class="nbadge" title="My to-do">' + MY_MENTIONS.length + '</span>' : '') + '</button>').join('');
   paintMods(true);
   const needOp = ['items', 'dash', 'report'].includes(page) && modOf(mod).ready;
   const my = mod === 'rep' ? opsFor('rep') : REP_SUB.includes(mod) ? repTeamOps() : opsFor(mod);
   if (needOp && my.length === 1) op = my[0].code; else if (!needOp || my.length > 1) { if (!my.some(o => o.code === op)) op = ''; }
   $('bar').innerHTML = needOp && my.length > 1 ? '<select id="opSel"><option value="">All my operations</option>' + my.map(o => '<option value="' + o.code + '"' + (o.code === op ? ' selected' : '') + '>' + esc(o.code + ' - ' + o.name) + '</option>').join('') + '</select>' : '';
-  const PG = ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm, record: renderRecord});
+  const PG = ({home: pgHome, items: pgItems, dash: pgDash, report: pgReport, perm: pgPerm, ctrl: () => window.pgControl(), record: renderRecord});
   const MP = window.MODULE_PAGES && MODULE_PAGES[mod];
-  if (MP && MP[page] && page !== 'home' && page !== 'perm') MP[page](); else PG[page]();
+  if (MP && MP[page] && page !== 'home' && page !== 'perm' && page !== 'ctrl') MP[page](); else PG[page]();
 }
 
 // ---------- Home ----------
