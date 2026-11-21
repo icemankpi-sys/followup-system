@@ -1,3 +1,4 @@
+// v6.4 (2026-11-21): All operations dashboard redesigned (Overview / Details / Trend): Over 30/60/90/120/240 by operation (Over 240 from the invoice lines), age mix, Needs you, weekly A/B/C rings, officer table, trend, cash bars, Over 60 trend per operation.
 // v6.3 (2026-11-21): Dashboard (all operations and each operation) shows the customers with no Main reason separately: by operation + list, oldest money first.
 // v6.1 (2026-11-21): Operation dashboard (Dashboard chip / Dashboard tab with one operation), ages shown Over 120 -> 31-60 then Over 90 / 60 / 30, lists sorted oldest money first, tables scroll inside the page.
 // Iceman IMS v6.0 - Outstanding from the daily C40 update, one follow-up record per customer (2026-11-21, Oshan).
@@ -287,7 +288,7 @@
   }
 
   async function items() {
-    const fn = {dash: () => op ? opDash(op, true) : ($('page').innerHTML = needOp('Dashboard')), cust: custPage, inv: invPage, cred: credPage, coll: collPage, sett: settPage, prog: progPage, week: weekPage, old: oldPage}[tab] || custPage;
+    const fn = {dash: () => op ? opDash(op, true) : allDash(true), cust: custPage, inv: invPage, cred: credPage, coll: collPage, sett: settPage, prog: progPage, week: weekPage, old: oldPage}[tab] || custPage;
     await fn();
   }
 
@@ -368,8 +369,119 @@
       + '<div class="card" style="margin-top:10px"><h3>Top 15 customers by Over 60</h3>' + topT + '</div>'
       + '<div class="card" style="margin-top:10px"><h3>Action list</h3>' + actTable(actionList([c]), 40) + '</div>';
   }
+  // ---------- All operations dashboard (v6.4): Overview / Details / Trend ----------
+  let DT = 'ov';
+  const OSX_CSS = '.osx{--r:18px}.osx .xhead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:2px 0 14px}'
+    + '.osx .xcrumb{font:600 10.5px/1.2 ui-monospace,Consolas,monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}.osx h2{margin:4px 0 2px;font-size:26px;letter-spacing:-.01em}'
+    + '.osx .seg{display:inline-flex;background:var(--line);border-radius:12px;padding:3px;gap:2px}.osx .seg button{border:0;background:transparent;padding:7px 16px;border-radius:9px;font-size:13px;color:var(--muted);cursor:pointer}.osx .seg button.on{background:var(--surface);color:inherit;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.12)}'
+    + '.osx .xcard{background:var(--surface);border-radius:var(--r);box-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);padding:16px 18px;min-width:0}'
+    + '.osx .xlab{font:600 10.5px/1.3 ui-monospace,Consolas,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}'
+    + '.osx .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:12px}.osx .kpi .v{font-size:26px;font-weight:650;letter-spacing:-.02em;margin:6px 0 4px;font-variant-numeric:tabular-nums}.osx .kpi.xhero .v{font-size:34px}'
+    + '.osx .chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:600}.osx .up{background:rgba(220,38,38,.12);color:var(--danger)}.osx .dn{background:rgba(22,163,74,.14);color:var(--ok)}.osx .nt{background:var(--line);color:var(--muted)}'
+    + '.osx .kpi .bar{height:5px;border-radius:3px;background:var(--line);margin-top:8px;overflow:hidden}.osx .kpi .bar i{display:block;height:100%;border-radius:3px}'
+    + '.osx .xgrid{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(260px,1fr);gap:12px}@media(max-width:1100px){.osx .xgrid{grid-template-columns:minmax(0,1fr)}}'
+    + '.osx table.xt{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}.osx table.xt th{background:transparent;color:var(--muted);font:600 10.5px/1.2 ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);z-index:1}'
+    + '.osx table.xt td{padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}.osx table.xt tr.row:hover td{background:var(--primary-soft);cursor:pointer}.osx table.xt td.n,.osx table.xt th.n{text-align:right}.osx table.xt tr.xtot td{font-weight:700;border-top:2px solid var(--line);border-bottom:0}'
+    + '.osx .heat{border-radius:6px}.osx .mix{display:flex;height:10px;border-radius:5px;overflow:hidden;min-width:120px;background:var(--line)}.osx .mix i{display:block;height:100%}'
+    + '.osx .need{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;border:1px solid var(--line);margin-top:8px;cursor:pointer}.osx .need:hover{border-color:var(--primary)}.osx .need b{font-size:20px;font-variant-numeric:tabular-nums}.osx .need .t{font-size:13px}.osx .need .s{font-size:11.5px;color:var(--muted)}'
+    + '.osx .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}.osx .leg{font-size:11.5px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}'
+    + '.osx .sm{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}.osx .sm .xcard{padding:12px 14px}';
+  const AGE = [['b31', '31-60', '#93c5fd'], ['b61', '61-90', '#fbbf24'], ['b91', '91-120', '#fb923c'], ['b121', '121-240', '#ef4444'], ['b241', 'Over 240', '#7f1d1d']];
+  async function ageByOp(codes) {   // invoice lines of the latest C40 export -> per operation 31-60 / 61-90 / 91-120 / 121-240 / Over 240
+    const a = asAt(); const k = a + '|' + codes.join(',');
+    if (S.age && S.age.k === k) return S.age.m;
+    const m = {}; codes.forEach(c => m[c] = {b31: 0, b61: 0, b91: 0, b121: 0, b241: 0, ok: false});
+    try {
+      const L = await fetchAll('/rest/v1/os_lines?select=operation,days,amount&kind=eq.inv&as_at=eq.' + a + '&days=gt.30&amount=gt.0&order=id');
+      (L || []).forEach(x => { const t = m[x.operation]; if (!t) return; const d = n(x.days), v = n(x.amount); t.ok = true; t[d > 240 ? 'b241' : d > 120 ? 'b121' : d > 90 ? 'b91' : d > 60 ? 'b61' : 'b31'] += v; });
+    } catch (e) {}
+    S.age = {k, m}; return m;
+  }
+  function chg(cur, prev, money) { if (prev == null) return '<span class="chip nt">new</span>'; const d = n(cur) - n(prev); if (Math.abs(d) < 0.5) return '<span class="chip nt">no change</span>'; return '<span class="chip ' + (d > 0 ? 'up' : 'dn') + '">' + (d > 0 ? '▲ ' : '▼ ') + (money === false ? Math.abs(d) : m0(Math.abs(d))) + '</span>'; }
+  async function allDash(inFollowUp) {
+    if (!document.getElementById('osxCss')) { const st = document.createElement('style'); st.id = 'osxCss'; st.textContent = OSX_CSS; document.head.appendChild(st); }
+    const codes = myOps().map(o => o.code), act = custRows().filter(r => codes.includes(r.operation) && isActive(r)), S2 = (l, f) => l.reduce((s, r) => s + f(r), 0);
+    const a = asAt(), tr = sumDays(codes), L = tr[tr.length - 1], P = tr[tr.length - 2];
+    const ag = await ageByOp(codes);
+    const rowsO = codes.map(c => { const z = act.filter(r => r.operation === c), g = ag[c], ld = S.days.filter(x => x.operation === c).sort((x, y) => x.as_at.localeCompare(y.as_at)), l1 = ld[ld.length - 1], l0 = ld[ld.length - 2];
+      const o30v = S2(z, o30), o60v = S2(z, o60), o90v = S2(z, r => n(D(r).o90)), o120v = S2(z, r => n(D(r).b120));
+      return {c, off: (targetOf(c) || {}).officer || '', n: z.length, o30: o30v, o60: o60v, o90: o90v, o120: o120v, o240: g && g.ok ? g.b241 : null, g, prev60: l0 ? n(l0.o60) : null, nr: z.filter(r => o60(r) >= 1 && !r.reason).length, pm: z.filter(promiseMissed).length, stale: l1 && l1.as_at !== a}; })
+      .filter(x => x.n).sort((x, y) => y.o60 - x.o60);
+    const T = k => rowsO.reduce((s, x) => s + n(x[k]), 0), tot30 = T('o30'), t240 = rowsO.every(x => x.o240 != null) ? T('o240') : null;
+    const kpi = (lab, v, prev, pct, col, hero) => '<div class="xcard kpi' + (hero ? ' xhero' : '') + '"><div class="xlab">' + lab + '</div><div class="v">' + (v == null ? '-' : m0(v)) + '</div>' + (prev === undefined ? '<span class="chip nt">vs last update n/a</span>' : chg(v, prev)) + (pct != null ? ' <span class="hint">' + pc(pct) + ' of Over 30</span>' : '') + '<div class="bar"><i style="width:' + Math.min(100, Math.round((pct == null ? 1 : pct) * 100)) + '%;background:' + col + '"></i></div></div>';
+    const segs = [['ov', 'Overview'], ['det', 'Details'], ['tr', 'Trend']];
+    let h = '<div class="osx">' + (inFollowUp ? chips() : '')
+      + '<div class="xhead"><div><div class="xcrumb">Outstanding / All operations</div><h2>Outstanding overview</h2><div class="hint">' + codes.length + ' operations · C40 as at <b>' + dmy(a) + '</b>' + (L && P ? ' · compared with ' + dmy(P.as_at) : '') + ' · ages from the invoice date</div></div>'
+      + '<div class="row2 noprint" style="gap:8px;align-items:center">' + (isBoard() && window.osDecisionView ? '<button class="btn" data-osact="decision">Decision view</button>' : '') + '<div class="seg">' + segs.map(s => '<button data-osdt="' + s[0] + '"' + (DT === s[0] ? ' class="on"' : '') + '>' + s[1] + '</button>').join('') + '</div></div></div>';
+    const stale = rowsO.filter(x => x.stale); if (stale.length) h += '<div class="card err" style="margin-bottom:10px">Not updated with the latest C40 export: ' + stale.map(x => esc(x.c)).join(', ') + '</div>';
+    if (DT === 'ov') {
+      h += '<div class="kpis">' + kpi('Over 30 total', tot30, P ? n(P.o30) : null, null, 'var(--primary)', true) + kpi('Over 60', T('o60'), P ? n(P.o60) : null, tot30 ? T('o60') / tot30 : 0, '#fbbf24') + kpi('Over 90', T('o90'), P ? n(P.o90) : null, tot30 ? T('o90') / tot30 : 0, '#fb923c')
+        + kpi('Over 120', T('o120'), P ? n(P.b120) : null, tot30 ? T('o120') / tot30 : 0, '#ef4444') + kpi('Over 240', t240, undefined, tot30 && t240 != null ? t240 / tot30 : 0, '#7f1d1d')
+        + '<div class="xcard kpi"><div class="xlab">Customers · cash</div><div class="v">' + act.length + '</div>' + (L && P ? chg(L.customers, P.customers, false) : '') + '<div class="hint" style="margin-top:6px">Cash at the last update <b style="color:var(--ok)">Rs ' + m0(L ? L.cash : 0) + '</b></div></div></div>';
+      const mx = Math.max(1, ...rowsO.map(x => x.o60 / Math.max(1, x.o30)));
+      const heat = (v, base) => { const p = base > 0 ? v / base : 0; return 'background:rgba(239,68,68,' + (0.04 + p * 0.32).toFixed(3) + ')'; };
+      h += '<div class="xgrid"><div class="xcard"><div class="row2" style="justify-content:space-between;align-items:center;margin-bottom:6px"><div><div class="xlab">Ageing by operation</div><div class="hint">Over 30 / 60 / 90 / 120 / 240 days · click an operation for its own dashboard</div></div><div class="leg">' + AGE.map(x => '<span><i class="dot" style="background:' + x[2] + '"></i>' + x[1] + '</span>').join('') + '</div></div>'
+        + '<div class="wrap" style="box-shadow:none;max-height:none"><table class="xt" style="min-width:880px"><thead><tr><th>Operation</th><th class="n">Cust.</th><th class="n">Over 30</th><th class="n">Over 60</th><th class="n">Over 90</th><th class="n">Over 120</th><th class="n">Over 240</th><th>Age mix</th><th class="n">60+ %</th><th class="n">Over 60 vs last</th></tr></thead><tbody>'
+        + rowsO.map(x => { const g = x.g || {}, tt = AGE.reduce((s, k) => s + n(g[k[0]]), 0) || 1; return '<tr class="row" data-osop="' + x.c + '"><td><b>' + esc(x.c) + '</b> <span class="hint">' + esc(opName(x.c)) + '</span><br><span class="hint">' + esc(x.off) + '</span></td><td class="n">' + x.n + '</td><td class="n"><b>' + m0(x.o30) + '</b></td>'
+          + '<td class="n heat" style="' + heat(x.o60, x.o30) + '">' + m0(x.o60) + '</td><td class="n heat" style="' + heat(x.o90, x.o30) + '">' + m0(x.o90) + '</td><td class="n heat" style="' + heat(x.o120, x.o30) + '">' + m0(x.o120) + '</td><td class="n heat" style="' + (x.o240 == null ? '' : heat(x.o240, x.o30)) + '">' + (x.o240 == null ? '-' : m0(x.o240)) + '</td>'
+          + '<td><div class="mix" title="' + AGE.map(k => k[1] + ' ' + m0(g[k[0]])).join(' · ') + '">' + (x.g && x.g.ok ? AGE.map(k => '<i style="width:' + (n(g[k[0]]) / tt * 100).toFixed(1) + '%;background:' + k[2] + '"></i>').join('') : '') + '</div></td>'
+          + '<td class="n">' + pc(x.o30 ? x.o60 / x.o30 : 0) + '</td><td class="n">' + chg(x.o60, x.prev60) + '</td></tr>'; }).join('')
+        + '</tbody><tfoot><tr class="xtot"><td>Total · ' + rowsO.length + ' operations</td><td class="n">' + T('n') + '</td><td class="n">' + m0(tot30) + '</td><td class="n">' + m0(T('o60')) + '</td><td class="n">' + m0(T('o90')) + '</td><td class="n">' + m0(T('o120')) + '</td><td class="n">' + (t240 == null ? '-' : m0(t240)) + '</td><td></td><td class="n">' + pc(tot30 ? T('o60') / tot30 : 0) + '</td><td class="n">' + (P ? chg(T('o60'), n(P.o60)) : '') + '</td></tr></tfoot></table></div></div>';
+      const c60 = act.filter(r => o60(r) >= 1), ret = act.filter(r => n(D(r).ret) > 0.005), soon = act.filter(r => n(D(r).soon60) > 0.5), cr = act.filter(r => n(D(r).cred) <= -1), p7 = act.filter(r => r.promised_date && r.promised_date >= today() && r.promised_date <= addD(today(), 6));
+      const need = (flag, num, t, s, col) => '<div class="need" data-osneed="' + flag + '"><div><div class="t">' + t + '</div><div class="s">' + s + '</div></div><b style="color:' + col + '">' + num + '</b></div>';
+      h += '<div class="xcard"><div class="row2" style="justify-content:space-between"><div class="xlab">Needs you</div><span class="hint">click to open the list</span></div>'
+        + need('pm', act.filter(promiseMissed).length, 'Promises missed', 'promise date passed, no cash', 'var(--danger)')
+        + need('ret', ret.length, 'Returned cheques', 'Rs ' + m0(S2(ret, r => n(D(r).ret))), 'var(--danger)')
+        + need('nr60', c60.filter(r => !r.reason).length, 'Over 60 with no reason', 'Rs ' + m0(S2(c60.filter(r => !r.reason), o60)) + ' Over 60', 'var(--accent)')
+        + need('stale', c60.filter(r => r.reason && !fresh(r)).length, 'Over 60, no update 7+ days', 'reason written but old', 'var(--accent)')
+        + need('soon', soon.length, 'Moves to 61+ in 7 days', 'Rs ' + m0(S2(soon, r => n(D(r).soon60))) + ' will turn Over 60', '#fb923c')
+        + need('p7', p7.length, 'Promises due in 7 days', 'Rs ' + m0(S2(p7, r => n(r.promised_amount))) + ' promised', 'var(--ok)')
+        + need('cred', cr.length, 'Credits to set off', 'Rs ' + m0(-S2(cr, r => n(D(r).cred))) + ' not allocated', 'var(--primary)')
+        + '</div></div>';
+      const wk = curWeek();
+      if (wk) { const ws = S.weeks.filter(w => w.week === wk && codes.includes(w.operation)), sm = k => ws.reduce((s, w) => s + n(w[k]), 0), cN = codes.reduce((s, c) => s + cLive(c).n, 0), cOk = codes.reduce((s, c) => s + cLive(c).ok, 0);
+        const ring = (lab, p, sub) => { const v = p == null ? 0 : Math.min(1, p), C = 2 * Math.PI * 30; return '<div style="display:flex;align-items:center;gap:12px"><svg width="76" height="76" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="var(--line)" stroke-width="8"/><circle cx="38" cy="38" r="30" fill="none" stroke="' + (v >= 0.999 ? 'var(--ok)' : v >= 0.8 ? '#fbbf24' : 'var(--danger)') + '" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + (C * v).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 38 38)"/><text x="38" y="43" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">' + pc(p) + '</text></svg><div><div class="xlab">' + lab + '</div><div class="hint">' + sub + '</div></div></div>'; };
+        h += '<div class="xcard" style="margin-top:12px"><div class="row2" style="justify-content:space-between"><div><div class="xlab">This week · ' + esc(wk) + '</div><div class="hint">A = Over 60 cash · B = 70% of invoices turning 61+ · C = Over 60 customers with a fresh reason</div></div><button class="btn" data-osdt="det">Weekly table by operation</button></div>'
+          + '<div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:10px">' + ring('A · Over 60 cash', sm('a_target') ? sm('a_coll') / sm('a_target') : null, 'Rs ' + m0(sm('a_coll')) + ' of ' + m0(sm('a_target'))) + ring('B · turning 61+', sm('b_target') ? sm('b_coll') / sm('b_target') : null, 'Rs ' + m0(sm('b_coll')) + ' of ' + m0(sm('b_target'))) + ring('C · fresh reason', cN ? cOk / cN : null, cOk + ' of ' + cN + ' customers') + '</div></div>'; }
+    } else if (DT === 'det') {
+      const wk = curWeek(), acts = actionList(codes);
+      const offs = {}; rowsO.forEach(x => { const o = x.off || '(no officer)'; const t = offs[o] = offs[o] || {o, ops: [], n: 0, o30: 0, o60: 0, o120: 0, nr: 0, pm: 0}; t.ops.push(x.c); ['n', 'o30', 'o60', 'o120', 'nr', 'pm'].forEach(k => t[k] += n(x[k])); });
+      h += (wk ? '<div class="xcard"><div class="xlab" style="margin-bottom:6px">This week (' + esc(wk) + ') · targets by operation</div>' + weekTable(codes, wk) + '</div>' : '')
+        + '<div class="xcard" style="margin-top:12px"><div class="xlab" style="margin-bottom:6px">Age bands by operation (amounts in each band)</div><div class="wrap" style="box-shadow:none"><table class="xt" style="min-width:900px"><thead><tr><th>Operation</th>' + AGE.map(k => '<th class="n">' + k[1] + '</th>').join('') + '<th class="n">Over 30</th></tr></thead><tbody>'
+        + rowsO.map(x => '<tr class="row" data-osop="' + x.c + '"><td><b>' + esc(x.c) + '</b> <span class="hint">' + esc(opName(x.c)) + '</span></td>' + AGE.map(k => '<td class="n">' + (x.g && x.g.ok ? m0(x.g[k[0]]) : '-') + '</td>').join('') + '<td class="n"><b>' + m0(x.o30) + '</b></td></tr>').join('')
+        + '</tbody><tfoot><tr class="xtot"><td>Total</td>' + AGE.map(k => '<td class="n">' + m0(rowsO.reduce((s, x) => s + n(x.g && x.g[k[0]]), 0)) + '</td>').join('') + '<td class="n">' + m0(tot30) + '</td></tr></tfoot></table></div></div>'
+        + '<div class="xcard" style="margin-top:12px"><div class="xlab" style="margin-bottom:6px">By officer</div><div class="wrap" style="box-shadow:none"><table class="xt" style="min-width:800px"><thead><tr><th>Officer</th><th>Operations</th><th class="n">Customers</th><th class="n">Over 30</th><th class="n">Over 60</th><th class="n">Over 120</th><th class="n">Over 60, no reason</th><th class="n">Promise missed</th></tr></thead><tbody>'
+        + Object.values(offs).sort((x, y) => y.o60 - x.o60).map(x => '<tr><td><b>' + esc(x.o) + '</b></td><td>' + esc(x.ops.join(', ')) + '</td><td class="n">' + x.n + '</td><td class="n">' + m0(x.o30) + '</td><td class="n">' + m0(x.o60) + '</td><td class="n">' + m0(x.o120) + '</td><td class="n">' + x.nr + '</td><td class="n">' + x.pm + '</td></tr>').join('') + '</tbody></table></div></div>'
+        + noReasonCard(codes)
+        + '<div class="card" style="margin-top:10px"><h3>Action list (' + acts.length + ')</h3><div class="hint">P1 = promise missed / returned cheque · P2 = Over 60 with no reason (top 15 per operation) · P3 = no update 7+ days and invoices turning 61+ in 7 days</div>' + actTable(acts, 60) + '</div>';
+    } else {
+      const W = 900, H = 260, Pd = 56;
+      const big = t => { if (t.length < 2) return '<div class="hint">The trend shows after two C40 updates.</div>'; const mxv = Math.max(...t.map(x => x.o30)) || 1, X = i => Pd + (W - Pd - 14) * i / (t.length - 1), Y = v => 14 + (H - 46) * (1 - v / mxv);
+        const ln = (k, c, w) => '<polyline fill="none" stroke="' + c + '" stroke-width="' + (w || 2.5) + '" stroke-linejoin="round" points="' + t.map((x, i) => X(i).toFixed(1) + ',' + Y(x[k]).toFixed(1)).join(' ') + '"/>';
+        const area = '<polygon fill="var(--primary)" opacity=".08" points="' + Pd + ',' + Y(0) + ' ' + t.map((x, i) => X(i).toFixed(1) + ',' + Y(x.o30).toFixed(1)).join(' ') + ' ' + X(t.length - 1) + ',' + Y(0) + '"/>';
+        return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%">' + [0, .25, .5, .75, 1].map(f => '<line x1="' + Pd + '" x2="' + (W - 14) + '" y1="' + Y(mxv * f) + '" y2="' + Y(mxv * f) + '" stroke="var(--line)" stroke-dasharray="3 4"/><text x="' + (Pd - 6) + '" y="' + (Y(mxv * f) + 4) + '" text-anchor="end" font-size="11" fill="var(--muted)">' + (mxv * f / 1e6).toFixed(mxv < 2e7 ? 1 : 0) + ' Mn</text>').join('')
+          + area + ln('o30', 'var(--primary)', 3) + ln('o60', '#fbbf24') + ln('o90', '#fb923c') + ln('b120', '#ef4444')
+          + t.map((x, i) => i % Math.ceil(t.length / 10) ? '' : '<text x="' + X(i) + '" y="' + (H - 10) + '" text-anchor="middle" font-size="11" fill="var(--muted)">' + dmy(x.as_at).slice(0, 5) + '</text>').join('') + '</svg>'
+          + '<div class="leg"><span><i class="dot" style="background:var(--primary)"></i>Over 30</span><span><i class="dot" style="background:#fbbf24"></i>Over 60</span><span><i class="dot" style="background:#fb923c"></i>Over 90</span><span><i class="dot" style="background:#ef4444"></i>Over 120</span></div>'; };
+      const bars = t => { const z = t.slice(-24); if (!z.length) return ''; const mxv = Math.max(...z.map(x => x.cash)) || 1, bw = (W - Pd - 14) / z.length;
+        return '<svg viewBox="0 0 ' + W + ' 200" style="width:100%">' + z.map((x, i) => { const hh = 150 * x.cash / mxv, h6 = 150 * x.cash60 / mxv; return '<rect x="' + (Pd + i * bw + 3).toFixed(1) + '" y="' + (165 - hh).toFixed(1) + '" width="' + (bw - 6).toFixed(1) + '" height="' + hh.toFixed(1) + '" rx="4" fill="var(--primary)" opacity=".35"><title>' + dmy(x.as_at) + ' cash Rs ' + m0(x.cash) + '</title></rect><rect x="' + (Pd + i * bw + 3).toFixed(1) + '" y="' + (165 - h6).toFixed(1) + '" width="' + (bw - 6).toFixed(1) + '" height="' + h6.toFixed(1) + '" rx="4" fill="var(--ok)"><title>' + dmy(x.as_at) + ' cash on Over 60 Rs ' + m0(x.cash60) + '</title></rect>' + (i % Math.ceil(z.length / 10) ? '' : '<text x="' + (Pd + i * bw + bw / 2).toFixed(1) + '" y="186" text-anchor="middle" font-size="11" fill="var(--muted)">' + dmy(x.as_at).slice(0, 5) + '</text>'); }).join('')
+          + '<text x="' + (Pd - 6) + '" y="20" text-anchor="end" font-size="11" fill="var(--muted)">' + (mxv / 1e6).toFixed(1) + ' Mn</text></svg><div class="leg"><span><i class="dot" style="background:var(--primary);opacity:.4"></i>Cash collected</span><span><i class="dot" style="background:var(--ok)"></i>of which on Over 60</span></div>'; };
+      const spark = c => { const t = S.days.filter(x => x.operation === c).sort((x, y) => x.as_at.localeCompare(y.as_at)); if (t.length < 2) return '<div class="hint">one update only</div>'; const mxv = Math.max(...t.map(x => n(x.o60))) || 1, mnv = Math.min(...t.map(x => n(x.o60))), X = i => 4 + 212 * i / (t.length - 1), Y = v => 6 + 40 * (1 - (v - mnv) / Math.max(1, mxv - mnv)); const d = n(t[t.length - 1].o60) - n(t[0].o60);
+        return '<svg viewBox="0 0 220 52" style="width:100%;height:52px"><polyline fill="none" stroke="' + (d > 0 ? 'var(--danger)' : 'var(--ok)') + '" stroke-width="2" points="' + t.map((x, i) => X(i).toFixed(1) + ',' + Y(n(x.o60)).toFixed(1)).join(' ') + '"/></svg><div class="hint">' + dmy(t[0].as_at).slice(0, 5) + ' Rs ' + m0(t[0].o60) + ' → ' + m0(t[t.length - 1].o60) + ' ' + chg(t[t.length - 1].o60, t[0].o60) + '</div>'; };
+      h += '<div class="xcard"><div class="xlab" style="margin-bottom:6px">Outstanding by age · every C40 update</div>' + big(tr) + '</div>'
+        + '<div class="xcard" style="margin-top:12px"><div class="xlab" style="margin-bottom:6px">Cash collected per update (all operations)</div>' + bars(tr) + '</div>'
+        + '<div class="xcard" style="margin-top:12px"><div class="xlab" style="margin-bottom:8px">Over 60 trend by operation</div><div class="sm">' + rowsO.map(x => '<div class="xcard row" data-osop="' + x.c + '" style="box-shadow:none;border:1px solid var(--line);cursor:pointer"><div><b>' + esc(x.c) + '</b> <span class="hint">' + esc(opName(x.c)) + '</span></div>' + spark(x.c) + '</div>').join('') + '</div></div>'
+        + '<div class="card" style="margin-top:12px"><h3>Progress by update (all operations)</h3><div class="wrap"><table style="min-width:1000px"><thead><tr><th>Date</th><th class="n">Customers</th><th class="n">Over 120</th><th class="n">Over 90</th><th class="n">Over 60</th><th class="n">Over 30</th><th class="n">Cash</th><th class="n">Cash on Over 60</th><th class="n">Set off</th><th class="n">New</th><th class="n">Cleared</th></tr></thead><tbody>'
+        + tr.slice().reverse().map(x => '<tr><td>' + dmy(x.as_at) + (x.ops < codes.length ? ' <span class="hint">(' + x.ops + ' ops)</span>' : '') + '</td><td class="n">' + x.customers + '</td><td class="n">' + m0(x.b120) + '</td><td class="n">' + m0(x.o90) + '</td><td class="n">' + m0(x.o60) + '</td><td class="n"><b>' + m0(x.o30) + '</b></td><td class="n">' + m0(x.cash) + '</td><td class="n">' + m0(x.cash60) + '</td><td class="n">' + m0(x.setoff) + '</td><td class="n">' + x.new_cust + '</td><td class="n">' + x.cleared + '</td></tr>').join('') + '</tbody></table></div></div>';
+    }
+    $('page').innerHTML = h + '</div>';
+  }
+
   function master() {
     if (op) return opDash(op, false);
+    return allDash(false);
+  }
+  function masterOld() {
     const codes = op ? [op] : myOps().map(o => o.code), act = custRows().filter(r => codes.includes(r.operation) && isActive(r)), c60 = act.filter(r => o60(r) >= 1);
     const S2 = (a, f) => a.reduce((s, r) => s + f(r), 0), wk = curWeek(), acts = actionList(codes);
     const byOp = codes.map(c => { const a = act.filter(r => r.operation === c), z = a.filter(r => o60(r) >= 1), ld = lastDay(c); return {c, n: a.length, o30: S2(a, o30), o60: S2(a, o60), o90: S2(a, r => n(D(r).o90)), cash: ld && ld.as_at === asAt() ? n(ld.cash) : 0, setoff: ld && ld.as_at === asAt() ? n(ld.setoff) : 0, nr: z.filter(r => !r.reason).length, pm: a.filter(promiseMissed).length, cov: z.length ? z.filter(r => r.reason && fresh(r)).length / z.length : 1, as: ld && ld.as_at}; });
@@ -488,8 +600,10 @@
 
   // ---------- events ----------
   document.addEventListener('click', e => {
-    const t = e.target.closest && e.target.closest('[data-ostab],[data-osact],[data-oscp],[data-oswk],[data-osnote],[data-osop],[data-osold],#osNoteSave');
+    const t = e.target.closest && e.target.closest('[data-ostab],[data-osact],[data-oscp],[data-oswk],[data-osnote],[data-osop],[data-osold],[data-osdt],[data-osneed],#osNoteSave');
     if (!t) return;
+    if (t.dataset.osdt) { DT = t.dataset.osdt; go(); window.scrollTo(0, 0); return; }
+    if (t.dataset.osneed) { Object.assign(OF, {band: '', rep: '', flag: t.dataset.osneed, reason: '', text: '', status: 'active'}); op = ''; tab = 'cust'; go('items', 'receivable'); return; }
     if (t.dataset.ostab) { tab = t.dataset.ostab; go('items', 'receivable'); }
     else if (t.dataset.oscp) { CP = t.dataset.oscp; go(); }
     else if (t.dataset.oswk) { WK = t.dataset.oswk; go(); }
