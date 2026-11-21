@@ -1,3 +1,4 @@
+// v6.5 (2026-11-21): Compare & decide tab: pick operations (one, several, all) and a period (day / week / month / since start / two dates); this vs previous for Over 120/90/60/30, customers, cash; decisions from rules; by operation table + bars.
 // v6.4 (2026-11-21): All operations dashboard redesigned (Overview / Details / Trend): Over 30/60/90/120/240 by operation (Over 240 from the invoice lines), age mix, Needs you, weekly A/B/C rings, officer table, trend, cash bars, Over 60 trend per operation.
 // v6.3 (2026-11-21): Dashboard (all operations and each operation) shows the customers with no Main reason separately: by operation + list, oldest money first.
 // v6.1 (2026-11-21): Operation dashboard (Dashboard chip / Dashboard tab with one operation), ages shown Over 120 -> 31-60 then Over 90 / 60 / 30, lists sorted oldest money first, tables scroll inside the page.
@@ -15,6 +16,7 @@
   window.isCustRow = isCust;
   const D = r => (r && r.details) || {};
   const n = v => Number(v || 0);
+  const ymdL = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');   // local date (toISOString shifts a day back in Sri Lanka, +5:30)
   const m0 = v => money0(v), m2 = v => money(v);
   const pc = v => v == null || isNaN(v) ? '' : Math.round(v * 100) + '%';
   const dmy = s => s ? String(s).slice(8, 10) + '-' + String(s).slice(5, 7) + '-' + String(s).slice(0, 4) : '';
@@ -82,7 +84,7 @@
   const grade = (p, fr) => p == null || !(fr > 0) ? -1 : p / fr >= 0.999 ? 0 : p / fr >= 0.8 ? 1 : 2;
   function cLive(c) { const a = custRows().filter(r => r.operation === c && isActive(r) && o60(r) >= 1); return {n: a.length, ok: a.filter(r => r.reason && fresh(r)).length, cov: a.length ? a.filter(r => r.reason && fresh(r)).length / a.length : 1}; }
   function weekOf(c, date) { return S.weeks.find(w => w.operation === c && date >= w.w_from && date <= addD(w.w_to, 1)); }
-  const addD = (s, k) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + k); return d.toISOString().slice(0, 10); };
+  const addD = (s, k) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + k); return ymdL(d); };
   function wkStat(w, live) {
     if (!w || !w.started) return {label: 'Not started', ap: null, bp: null, c: null};
     const ap = w.a_target == null ? null : n(w.a_target) > 0.5 ? n(w.a_coll) / n(w.a_target) : 1;
@@ -199,7 +201,7 @@
   let CP = 'last';
   async function collPage() {
     const a = asAt(op); if (!a) { $('page').innerHTML = head('Collections') + chips() + '<div class="card">No C40 update yet.</div>'; return; }
-    const mon = (() => { const d = new Date(a + 'T00:00:00'), k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return d.toISOString().slice(0, 10); })();
+    const mon = (() => { const d = new Date(a + 'T00:00:00'), k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return ymdL(d); })();
     const from = CP === 'last' ? a : CP === 'week' ? mon : addD(a, -30);
     const codes = op ? [op] : myOps().map(o => o.code);
     const all = (await Promise.all(codes.map(c => collOf(c, from)))).flat().filter(x => CP !== 'last' || x.as_at === asAt(x.operation));
@@ -336,7 +338,7 @@
   function opDash(c, inFollowUp) {
     const a = custRows().filter(r => r.operation === c && isActive(r)), z60 = a.filter(r => o60(r) >= 1), S2 = (l, f) => l.reduce((s, r) => s + f(r), 0);
     const days = S.days.filter(x => x.operation === c).sort((x, y) => x.as_at.localeCompare(y.as_at)), L = days[days.length - 1], P = days[days.length - 2], F = days[0];
-    const t0 = today(), mon = (() => { const d = new Date((L ? L.as_at : t0) + 'T00:00:00'), k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return d.toISOString().slice(0, 10); })();
+    const t0 = today(), mon = (() => { const d = new Date((L ? L.as_at : t0) + 'T00:00:00'), k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return ymdL(d); })();
     const cashWk = days.filter(x => x.as_at >= mon).reduce((s, x) => s + n(x.cash), 0), ret = a.filter(r => n(D(r).ret) > 0.005), p7 = a.filter(r => r.promised_date && r.promised_date >= t0 && r.promised_date <= addD(t0, 6));
     const wk = curWeek(), cred = S2(a, r => n(D(r).cred));
     const tl1 = tile('r', m0(S2(a, r => n(D(r).b120))), 'Over 120') + tile('r', m0(S2(a, r => n(D(r).o90))), 'Over 90') + tile('a', m0(S2(a, o60)), 'Over 60') + tile('', m0(S2(a, o30)), 'Over 30')
@@ -369,6 +371,87 @@
       + '<div class="card" style="margin-top:10px"><h3>Top 15 customers by Over 60</h3>' + topT + '</div>'
       + '<div class="card" style="margin-top:10px"><h3>Action list</h3>' + actTable(actionList([c]), 40) + '</div>';
   }
+  // ---------- Compare & decide (v6.5): pick operations + period, this vs previous, signals, decisions ----------
+  const DEC = {sel: [], per: 'week', a: '', b: '', met: 'o60'};
+  const mondayOf = s => { const d = new Date(s + 'T00:00:00'), k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return ymdL(d); };
+  const monthOf = s => s.slice(0, 8) + '01';
+  const MON = s => new Date(s + 'T00:00:00').toLocaleDateString('en-GB', {month: 'short', year: 'numeric'});
+  function snapAt(codes, date) {   // stock figures at a date: each operation's latest update on or before the date
+    const t = {customers: 0, b31: 0, b61: 0, b91: 0, b120: 0, o30: 0, o60: 0, o90: 0, soon60: 0, credits: 0, n: 0, miss: []};
+    if (!date) return null;
+    codes.forEach(c => { const x = S.days.filter(y => y.operation === c && y.as_at <= date).reduce((m, y) => !m || y.as_at > m.as_at ? y : m, null);
+      if (!x) { t.miss.push(c); return; } t.n++; ['customers', 'b31', 'b61', 'b91', 'b120', 'o30', 'o60', 'o90', 'soon60', 'credits'].forEach(k => t[k] += n(x[k])); });
+    return t.n ? t : null;
+  }
+  function flowIn(codes, from, to) {   // what happened between two dates (both included): cash, cash on Over 60, set off, new, cleared
+    const t = {cash: 0, cash60: 0, setoff: 0, new_cust: 0, cleared: 0, days: new Set()};
+    S.days.filter(x => codes.includes(x.operation) && x.as_at >= from && x.as_at <= to).forEach(x => { ['cash', 'cash60', 'setoff', 'new_cust', 'cleared'].forEach(k => t[k] += n(x[k])); t.days.add(x.as_at); });
+    t.nd = t.days.size; return t;
+  }
+  function periods() {
+    const ds = [...new Set(S.days.map(x => x.as_at))].sort(), B = ds[ds.length - 1];
+    if (!B) return null;
+    let A = null, cur = [B, B], prev = [null, null], lab = ['', ''];
+    if (DEC.per === 'day') { A = ds[ds.length - 2] || null; cur = [B, B]; prev = [A, A]; lab = ['Previous update' + (A ? ' ' + dmy(A) : ''), 'Last update ' + dmy(B)]; }
+    else if (DEC.per === 'week') { const w = mondayOf(B), pw = addD(w, -7); A = ds.filter(d => d < w).pop() || null; cur = [w, B]; prev = [pw, addD(w, -1)]; lab = ['Last week (' + dmy(pw).slice(0, 5) + '-' + dmy(addD(w, -1)).slice(0, 5) + ')', 'This week (' + dmy(w).slice(0, 5) + '-' + dmy(B).slice(0, 5) + ')']; }
+    else if (DEC.per === 'month') { const m = monthOf(B), pm = monthOf(addD(m, -1)); A = ds.filter(d => d < m).pop() || null; cur = [m, B]; prev = [pm, addD(m, -1)]; lab = ['Last month (' + MON(pm) + ')', 'This month (' + MON(m) + ', to ' + dmy(B).slice(0, 5) + ')']; }
+    else if (DEC.per === 'start') { A = ds[0] === B ? null : ds[0]; cur = [ds[0], B]; prev = [null, null]; lab = ['First update' + (A ? ' ' + dmy(A) : ''), 'Last update ' + dmy(B)]; }
+    else { const a = ds.includes(DEC.a) ? DEC.a : (ds[ds.length - 2] || ds[0]), b = ds.includes(DEC.b) ? DEC.b : B; A = a < b ? a : null; cur = [addD(a, 1), b]; prev = [null, null]; lab = ['Date A ' + dmy(a), 'Date B ' + dmy(b)]; return {ds, A, B: b, cur, prev, lab}; }
+    return {ds, A, B, cur, prev, lab};
+  }
+  function decDash(allCodes) {
+    const codes = DEC.sel.filter(c => allCodes.includes(c)).length ? DEC.sel.filter(c => allCodes.includes(c)) : allCodes, all = codes.length === allCodes.length;
+    const P = periods();
+    const opChip = (c, lab, on) => '<button data-osdsel="' + c + '" class="' + (on ? 'on' : '') + '">' + esc(lab) + '</button>';
+    const PER = [['day', 'Today vs previous update'], ['week', 'This week vs last week'], ['month', 'This month vs last month'], ['start', 'Since the first update'], ['custom', 'Pick two dates']];
+    const METS = [['o30', 'Over 30'], ['o60', 'Over 60'], ['o90', 'Over 90'], ['b120', 'Over 120']];
+    let h = '<div class="xcard"><div class="xlab" style="margin-bottom:8px">1 · Operations</div><div class="chips" style="flex-wrap:wrap">' + opChip('all', 'All operations', all) + allCodes.map(c => opChip(c, c + ' - ' + opName(c), !all && codes.includes(c))).join('') + '</div>'
+      + '<div class="xlab" style="margin:12px 0 8px">2 · Period</div><div class="seg" style="flex-wrap:wrap">' + PER.map(p => '<button data-osdper="' + p[0] + '"' + (DEC.per === p[0] ? ' class="on"' : '') + '>' + p[1] + '</button>').join('') + '</div>'
+      + (DEC.per === 'custom' && P ? '<div class="row2" style="gap:8px;margin-top:8px">Date A <select data-osdc="a">' + P.ds.map(d => '<option value="' + d + '"' + (d === (P.A || '') ? ' selected' : '') + '>' + dmy(d) + '</option>').join('') + '</select> Date B <select data-osdc="b">' + P.ds.map(d => '<option value="' + d + '"' + (d === P.B ? ' selected' : '') + '>' + dmy(d) + '</option>').join('') + '</select></div>' : '')
+      + '<div class="hint" style="margin-top:8px">Showing <b>' + (all ? 'all ' + codes.length + ' operations' : esc(codes.join(', '))) + '</b>. Balances = position at the last C40 update of each period; cash = everything collected inside the period.</div></div>';
+    if (!P) return h + '<div class="xcard" style="margin-top:12px">No C40 update yet.</div>';
+    const now = snapAt(codes, P.B), was = P.A ? snapAt(codes, P.A) : null, fNow = flowIn(codes, P.cur[0], P.cur[1]), fWas = P.prev[0] ? flowIn(codes, P.prev[0], P.prev[1]) : null;
+    const first = P.ds[0];
+    const noBase = !was ? '<div class="card" style="margin-top:12px;border-left:4px solid var(--accent)"><b>No figures for "' + esc(P.lab[0]) + '" yet.</b> IMS has C40 updates from ' + dmy(first) + ' only (' + P.ds.length + ' update' + (P.ds.length > 1 ? 's' : '') + '), so this comparison fills in by itself as the daily updates build up' + (DEC.per === 'week' ? ' (first full week-to-week view on Mon ' + dmy(addD(mondayOf(first), 7)) + ')' : DEC.per === 'month' ? ' (first month-to-month view from 01-' + addD(monthOf(first), 32).slice(5, 7) + '-' + addD(monthOf(first), 32).slice(0, 4) + ')' : '') + '. The "This" column below already shows today\'s position.</div>' : '';
+    const pct = (x, y) => y ? (x - y) / Math.abs(y) : null;
+    const cell = (cur, prv, lowGood, money) => { if (prv == null) return '<td class="n hint">-</td><td class="n hint">-</td><td></td>'; const d = cur - prv, p = pct(cur, prv), good = Math.abs(d) < 0.5 ? null : (lowGood ? d < 0 : d > 0);
+      return '<td class="n">' + (money === false ? (d > 0 ? '+' : '') + d : (d > 0 ? '+' : d < 0 ? '-' : '') + m0(Math.abs(d))) + '</td><td class="n">' + (p == null ? '' : (p > 0 ? '+' : '') + (p * 100).toFixed(1) + '%') + '</td><td>' + (good == null ? '<span class="chip nt">same</span>' : good ? '<span class="chip dn">better</span>' : '<span class="chip up">worse</span>') + '</td>'; };
+    const R = [['Over 120', now.b120, was && was.b120, true], ['Over 90', now.o90, was && was.o90, true], ['Over 60', now.o60, was && was.o60, true], ['Over 30', now.o30, was && was.o30, true], ['Customers over 30', now.customers, was && was.customers, true, false],
+      ['Moves to 61+ within 7 days', now.soon60, was && was.soon60, true], ['Cash collected in the period', fNow.cash, fWas && fWas.nd ? fWas.cash : null, false], ['Cash on Over 60 in the period', fNow.cash60, fWas && fWas.nd ? fWas.cash60 : null, false], ['Set off by Accounts (not cash)', fNow.setoff, fWas && fWas.nd ? fWas.setoff : null, false], ['Customers cleared', fNow.cleared, fWas && fWas.nd ? fWas.cleared : null, false, false], ['New customers in the list', fNow.new_cust, fWas && fWas.nd ? fWas.new_cust : null, true, false]];
+    h += noBase + '<div class="xgrid" style="margin-top:12px"><div class="xcard"><div class="xlab" style="margin-bottom:6px">3 · ' + esc(P.lab[0]) + ' vs ' + esc(P.lab[1]) + '</div><div class="wrap" style="box-shadow:none;max-height:none"><table class="xt" style="min-width:760px"><thead><tr><th>Measure</th><th class="n">' + esc(P.lab[0]) + '</th><th class="n">' + esc(P.lab[1]) + '</th><th class="n">Change</th><th class="n">%</th><th></th></tr></thead><tbody>'
+      + R.map(r => '<tr><td>' + r[0] + '</td><td class="n">' + (r[2] == null ? '<span class="hint">no data</span>' : r[4] === false ? r[2] : m0(r[2])) + '</td><td class="n"><b>' + (r[4] === false ? r[1] : m0(r[1])) + '</b></td>' + cell(r[1], r[2], r[3], r[4]) + '</tr>').join('')
+      + '</tbody></table></div><div class="hint" style="margin-top:6px">Balances: lower is better. Cash: higher is better. Cash counts ' + fNow.nd + ' C40 update(s) in "' + esc(P.lab[1]) + '"' + (fWas ? ' and ' + fWas.nd + ' in "' + esc(P.lab[0]) + '"' : '') + '.</div></div>';
+    // per operation comparison + signals
+    const per = codes.map(c => { const s1 = snapAt([c], P.B), s0 = P.A ? snapAt([c], P.A) : null, f1 = flowIn([c], P.cur[0], P.cur[1]), f0 = P.prev[0] ? flowIn([c], P.prev[0], P.prev[1]) : null, z = custRows().filter(r => r.operation === c && isActive(r) && o60(r) >= 1);
+      return {c, s1, s0, f1, f0, nr: z.length ? z.filter(r => !r.reason).length / z.length : 0, nrN: z.filter(r => !r.reason).length, z: z.length, off: (targetOf(c) || {}).officer || ''}; }).filter(x => x.s1);
+    const sig = [];
+    per.forEach(x => { const d120 = x.s0 ? x.s1.b120 - x.s0.b120 : null, d60 = x.s0 ? x.s1.o60 - x.s0.o60 : null, cashDrop = x.f0 && x.f0.nd && x.f0.cash > 0 ? x.f1.cash / x.f0.cash : null;
+      if (d120 != null && d120 > Math.max(100000, 0.05 * x.s0.b120)) sig.push({p: 1, c: x.c, t: 'Over 120 grew by Rs ' + m0(d120), d: 'Escalate the largest Over 120 customers to the Operation Head; letter of demand list for 120+ with no promise.', who: 'Operation Head / Director', score: d120});
+      if (d60 != null && d60 > Math.max(100000, 0.05 * x.s0.o60) && (cashDrop == null || cashDrop < 1)) sig.push({p: 1, c: x.c, t: 'Over 60 grew by Rs ' + m0(d60) + (cashDrop != null ? ' while cash fell to ' + pc(cashDrop) + ' of the previous period' : ''), d: 'Daily call list for Over 60 with the officer; stop supply for 60+ customers with no promise.', who: 'Director (stop supply), Officer', score: d60});
+      if (cashDrop != null && cashDrop < 0.7) sig.push({p: 2, c: x.c, t: 'Cash this period is ' + pc(cashDrop) + ' of the previous period', d: 'Check route / collection plan with the officer; confirm promises due this week.', who: 'Operation Head', score: (x.f0.cash - x.f1.cash)});
+      if (x.z >= 5 && x.nr >= 0.5) sig.push({p: 2, c: x.c, t: pc(x.nr) + ' of Over 60 customers have no reason (' + x.nrN + ')', d: 'Officer writes a reason, next action and promise for each Over 60 customer within 2 days.', who: 'Officer (' + (x.off || 'not set') + ')', score: x.s1.o60 * x.nr});
+      if (x.s1.o60 > 0 && x.s1.soon60 > 0.15 * x.s1.o60) sig.push({p: 3, c: x.c, t: 'Rs ' + m0(x.s1.soon60) + ' turns Over 60 within 7 days', d: 'Collect these invoices this week before they move to 61+ (B target).', who: 'Officer / Sales rep', score: x.s1.soon60 * 0.5});
+      if (d60 != null && x.s0.o60 > 0 && d60 < -0.05 * x.s0.o60) sig.push({p: 4, c: x.c, t: 'Improving: Over 60 down Rs ' + m0(-d60) + ' (' + pc(-d60 / x.s0.o60) + ')', d: 'Keep the plan; recognise the officer.', who: '', score: -d60}); });
+    sig.sort((a, b) => a.p - b.p || b.score - a.score);
+    const PC = {1: ['r', 'Act now'], 2: ['w', 'This week'], 3: ['b', 'Watch'], 4: ['g', 'Good']};
+    h += '<div class="xcard"><div class="row2" style="justify-content:space-between"><div class="xlab">4 · Decisions to take</div><span class="hint">rules on the figures, worst first</span></div>'
+      + (sig.length ? sig.slice(0, 8).map(s => '<div class="need" data-osop="' + s.c + '" style="align-items:flex-start"><div><div class="t"><span class="tag t-' + PC[s.p][0] + '">' + PC[s.p][1] + '</span> <b>' + esc(s.c) + '</b> · ' + esc(s.t) + '</div><div class="s" style="margin-top:4px">' + esc(s.d) + (s.who ? ' <b>Decides:</b> ' + esc(s.who) : '') + '</div></div></div>').join('') + (sig.length > 8 ? '<div class="hint" style="margin-top:6px">' + (sig.length - 8) + ' more in the table below.</div>' : '')
+        : '<div class="hint" style="margin-top:8px">' + (was ? 'No warning signals for this selection.' : 'Signals that compare two periods start when the previous period has an update; the no-reason and turning-61+ checks already work.') + '</div>')
+      + '</div></div>';
+    // per operation table
+    const met = METS.find(m => m[0] === DEC.met) || METS[1];
+    h += '<div class="xcard" style="margin-top:12px"><div class="row2" style="justify-content:space-between;align-items:center"><div class="xlab">5 · By operation · ' + esc(P.lab[0]) + ' vs ' + esc(P.lab[1]) + '</div><div class="seg">' + METS.map(m => '<button data-osdmet="' + m[0] + '"' + (DEC.met === m[0] ? ' class="on"' : '') + '>' + m[1] + '</button>').join('') + '</div></div>'
+      + '<div class="wrap" style="box-shadow:none;max-height:none;margin-top:8px"><table class="xt" style="min-width:1000px"><thead><tr><th>Operation</th><th class="n">' + met[1] + ' before</th><th class="n">' + met[1] + ' now</th><th class="n">Change</th><th class="n">Over 120 now</th><th class="n">Over 120 change</th><th class="n">Cash (period)</th><th class="n">Cash (previous)</th><th class="n">60+ no reason</th><th>Status</th></tr></thead><tbody>'
+      + per.sort((a, b) => (b.s0 ? b.s1[met[0]] - b.s0[met[0]] : b.s1[met[0]]) - (a.s0 ? a.s1[met[0]] - a.s0[met[0]] : a.s1[met[0]])).map(x => { const d = x.s0 ? x.s1[met[0]] - x.s0[met[0]] : null, d120 = x.s0 ? x.s1.b120 - x.s0.b120 : null, worst = sig.filter(s => s.c === x.c).reduce((m, s) => Math.min(m, s.p), 9);
+        return '<tr class="row" data-osop="' + x.c + '"><td><b>' + esc(x.c) + '</b> <span class="hint">' + esc(opName(x.c)) + '</span><br><span class="hint">' + esc(x.off) + '</span></td><td class="n">' + (x.s0 ? m0(x.s0[met[0]]) : '<span class="hint">-</span>') + '</td><td class="n"><b>' + m0(x.s1[met[0]]) + '</b></td><td class="n">' + (d == null ? '' : chg(x.s1[met[0]], x.s0[met[0]])) + '</td><td class="n">' + m0(x.s1.b120) + '</td><td class="n">' + (d120 == null ? '' : chg(x.s1.b120, x.s0.b120)) + '</td><td class="n" style="color:var(--ok)">' + m0(x.f1.cash) + '</td><td class="n">' + (x.f0 && x.f0.nd ? m0(x.f0.cash) : '<span class="hint">-</span>') + '</td><td class="n">' + pc(x.nr) + '</td><td>' + (worst < 9 ? '<span class="tag t-' + PC[worst][0] + '">' + PC[worst][1] + '</span>' : '<span class="hint">-</span>') + '</td></tr>'; }).join('')
+      + '</tbody></table></div>';
+    // grouped bars before vs now for the chosen measure
+    const bw = 900, rowH = 26, hh = per.length * rowH + 30, mx = Math.max(1, ...per.map(x => Math.max(x.s1[met[0]], x.s0 ? x.s0[met[0]] : 0))), L0 = 150, X = v => (bw - L0 - 90) * v / mx;
+    h += '<svg viewBox="0 0 ' + bw + ' ' + hh + '" style="width:100%;margin-top:10px">' + per.map((x, i) => { const y = 10 + i * rowH; return '<text x="' + (L0 - 8) + '" y="' + (y + 15) + '" text-anchor="end" font-size="12" fill="currentColor">' + esc(x.c) + '</text>' + (x.s0 ? '<rect x="' + L0 + '" y="' + (y + 2) + '" width="' + X(x.s0[met[0]]).toFixed(1) + '" height="9" rx="3" fill="var(--muted)" opacity=".35"><title>before Rs ' + m0(x.s0[met[0]]) + '</title></rect>' : '') + '<rect x="' + L0 + '" y="' + (y + 12) + '" width="' + X(x.s1[met[0]]).toFixed(1) + '" height="9" rx="3" fill="' + (x.s0 && x.s1[met[0]] > x.s0[met[0]] ? 'var(--danger)' : 'var(--primary)') + '"><title>now Rs ' + m0(x.s1[met[0]]) + '</title></rect><text x="' + (L0 + X(x.s1[met[0]]) + 6).toFixed(1) + '" y="' + (y + 21) + '" font-size="11" fill="var(--muted)">' + (x.s1[met[0]] / 1e6).toFixed(2) + ' Mn</text>'; }).join('') + '</svg>'
+      + '<div class="leg"><span><i class="dot" style="background:var(--muted);opacity:.4"></i>' + esc(P.lab[0]) + '</span><span><i class="dot" style="background:var(--primary)"></i>' + esc(P.lab[1]) + '</span><span><i class="dot" style="background:var(--danger)"></i>now higher than before</span></div></div>';
+    return h;
+  }
+
   // ---------- All operations dashboard (v6.4): Overview / Details / Trend ----------
   let DT = 'ov';
   const OSX_CSS = '.osx{--r:18px}.osx .xhead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:2px 0 14px}'
@@ -409,7 +492,7 @@
       .filter(x => x.n).sort((x, y) => y.o60 - x.o60);
     const T = k => rowsO.reduce((s, x) => s + n(x[k]), 0), tot30 = T('o30'), t240 = rowsO.every(x => x.o240 != null) ? T('o240') : null;
     const kpi = (lab, v, prev, pct, col, hero) => '<div class="xcard kpi' + (hero ? ' xhero' : '') + '"><div class="xlab">' + lab + '</div><div class="v">' + (v == null ? '-' : m0(v)) + '</div>' + (prev === undefined ? '<span class="chip nt">vs last update n/a</span>' : chg(v, prev)) + (pct != null ? ' <span class="hint">' + pc(pct) + ' of Over 30</span>' : '') + '<div class="bar"><i style="width:' + Math.min(100, Math.round((pct == null ? 1 : pct) * 100)) + '%;background:' + col + '"></i></div></div>';
-    const segs = [['ov', 'Overview'], ['det', 'Details'], ['tr', 'Trend']];
+    const segs = [['ov', 'Overview'], ['dec', 'Compare & decide'], ['det', 'Details'], ['tr', 'Trend']];
     let h = '<div class="osx">' + (inFollowUp ? chips() : '')
       + '<div class="xhead"><div><div class="xcrumb">Outstanding / All operations</div><h2>Outstanding overview</h2><div class="hint">' + codes.length + ' operations · C40 as at <b>' + dmy(a) + '</b>' + (L && P ? ' · compared with ' + dmy(P.as_at) : '') + ' · ages from the invoice date</div></div>'
       + '<div class="row2 noprint" style="gap:8px;align-items:center">' + (isBoard() && window.osDecisionView ? '<button class="btn" data-osact="decision">Decision view</button>' : '') + '<div class="seg">' + segs.map(s => '<button data-osdt="' + s[0] + '"' + (DT === s[0] ? ' class="on"' : '') + '>' + s[1] + '</button>').join('') + '</div></div></div>';
@@ -443,6 +526,8 @@
         const ring = (lab, p, sub) => { const v = p == null ? 0 : Math.min(1, p), C = 2 * Math.PI * 30; return '<div style="display:flex;align-items:center;gap:12px"><svg width="76" height="76" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="var(--line)" stroke-width="8"/><circle cx="38" cy="38" r="30" fill="none" stroke="' + (v >= 0.999 ? 'var(--ok)' : v >= 0.8 ? '#fbbf24' : 'var(--danger)') + '" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + (C * v).toFixed(1) + ' ' + C.toFixed(1) + '" transform="rotate(-90 38 38)"/><text x="38" y="43" text-anchor="middle" font-size="15" font-weight="700" fill="currentColor">' + pc(p) + '</text></svg><div><div class="xlab">' + lab + '</div><div class="hint">' + sub + '</div></div></div>'; };
         h += '<div class="xcard" style="margin-top:12px"><div class="row2" style="justify-content:space-between"><div><div class="xlab">This week · ' + esc(wk) + '</div><div class="hint">A = Over 60 cash · B = 70% of invoices turning 61+ · C = Over 60 customers with a fresh reason</div></div><button class="btn" data-osdt="det">Weekly table by operation</button></div>'
           + '<div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:10px">' + ring('A · Over 60 cash', sm('a_target') ? sm('a_coll') / sm('a_target') : null, 'Rs ' + m0(sm('a_coll')) + ' of ' + m0(sm('a_target'))) + ring('B · turning 61+', sm('b_target') ? sm('b_coll') / sm('b_target') : null, 'Rs ' + m0(sm('b_coll')) + ' of ' + m0(sm('b_target'))) + ring('C · fresh reason', cN ? cOk / cN : null, cOk + ' of ' + cN + ' customers') + '</div></div>'; }
+    } else if (DT === 'dec') {
+      h += decDash(codes);
     } else if (DT === 'det') {
       const wk = curWeek(), acts = actionList(codes);
       const offs = {}; rowsO.forEach(x => { const o = x.off || '(no officer)'; const t = offs[o] = offs[o] || {o, ops: [], n: 0, o30: 0, o60: 0, o120: 0, nr: 0, pm: 0}; t.ops.push(x.c); ['n', 'o30', 'o60', 'o120', 'nr', 'pm'].forEach(k => t[k] += n(x[k])); });
@@ -600,9 +685,12 @@
 
   // ---------- events ----------
   document.addEventListener('click', e => {
-    const t = e.target.closest && e.target.closest('[data-ostab],[data-osact],[data-oscp],[data-oswk],[data-osnote],[data-osop],[data-osold],[data-osdt],[data-osneed],#osNoteSave');
+    const t = e.target.closest && e.target.closest('[data-ostab],[data-osact],[data-oscp],[data-oswk],[data-osnote],[data-osop],[data-osold],[data-osdt],[data-osneed],[data-osdsel],[data-osdper],[data-osdmet],#osNoteSave');
     if (!t) return;
     if (t.dataset.osdt) { DT = t.dataset.osdt; go(); window.scrollTo(0, 0); return; }
+    if (t.dataset.osdsel) { const c = t.dataset.osdsel; if (c === 'all') DEC.sel = []; else { const s = new Set(DEC.sel); s.has(c) ? s.delete(c) : s.add(c); DEC.sel = [...s]; } go(); return; }
+    if (t.dataset.osdper) { DEC.per = t.dataset.osdper; go(); return; }
+    if (t.dataset.osdmet) { DEC.met = t.dataset.osdmet; go(); return; }
     if (t.dataset.osneed) { Object.assign(OF, {band: '', rep: '', flag: t.dataset.osneed, reason: '', text: '', status: 'active'}); op = ''; tab = 'cust'; go('items', 'receivable'); return; }
     if (t.dataset.ostab) { tab = t.dataset.ostab; go('items', 'receivable'); }
     else if (t.dataset.oscp) { CP = t.dataset.oscp; go(); }
@@ -618,7 +706,7 @@
     else if (t.dataset.osact === 'nrall') { NR_ALL = !NR_ALL; go(); }
     else if (t.dataset.osact === 'nrlist') { Object.assign(OF, {band: '', rep: '', flag: 'nr', reason: '', text: '', status: 'active'}); tab = 'cust'; go('items', 'receivable'); }
   }, true);
-  document.addEventListener('change', e => { const t = e.target; if (t.dataset && t.dataset.osf && t.tagName === 'SELECT') { OF[t.dataset.osf] = t.value; go(); } else if (t.dataset && t.dataset.oif && t.tagName === 'SELECT') { IF[t.dataset.oif] = t.value; go(); } });
+  document.addEventListener('change', e => { const t = e.target; if (t.dataset && t.dataset.osdc) { DEC[t.dataset.osdc] = t.value; go(); return; } if (t.dataset && t.dataset.osf && t.tagName === 'SELECT') { OF[t.dataset.osf] = t.value; go(); } else if (t.dataset && t.dataset.oif && t.tagName === 'SELECT') { IF[t.dataset.oif] = t.value; go(); } });
   let tmr = null;
   document.addEventListener('input', e => { const t = e.target; if (t.dataset && (t.dataset.osf === 'text' || t.dataset.oif === 'text')) { clearTimeout(tmr); tmr = setTimeout(() => { if (t.dataset.osf) OF.text = t.value; else IF.text = t.value; const pos = t.selectionStart; go(); const n2 = document.querySelector('[data-' + (t.dataset.osf ? 'osf' : 'oif') + '="text"]'); if (n2) { n2.focus(); try { n2.setSelectionRange(pos, pos); } catch (x) {} } }, 350); } });
 
