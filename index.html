@@ -389,9 +389,12 @@ async function fetchAll(path, page = 1000) {
     if (parts.some(p => !p || p.length < page)) return out;
   }
 }
+// v6.0 (2026-11-21): Outstanding = one record per customer from the daily C40 update (details.level = customer, ims-os.js);
+// open customers + those cleared in the last 60 days. The October invoice lists (level invoice_v1) load only on the Old lists page.
 async function loadRows() {
   const want = opsFor('receivable').length || opsFor('rep').length || opsFor('team').length;
-  const [r, c] = await Promise.all([want ? fetchAll('/rest/v1/v_receivable?select=*&order=aging_days.desc,id') : [], want ? fetchContacts() : null]);
+  const since = new Date(Date.now() - 60 * 864e5).toISOString().slice(0, 10);
+  const [r, c] = await Promise.all([want ? fetchAll('/rest/v1/v_receivable?select=*&details->>level=eq.customer&or=(status.not.in.(settled,written_off),closed_at.gte.' + since + ')&order=aging_days.desc,id') : [], want ? fetchContacts() : null]);
   rows = (r || []).map(fixBal); await loadContacts(c);
 }
 // contacts: rep phone once per rep, outlet address / contact no once per outlet; shown on every record of that rep / outlet
@@ -680,7 +683,8 @@ function statusBoxes(v) {
 }
 document.addEventListener('change', e => { const t = e.target; if (t && (t.id === 'eStatus' || t.id === 'fStatus2')) statusBoxes(t.value); });
 document.addEventListener('input', e => { if (e.target && e.target.id === 'xSetAmt') settleDiff(); if (e.target && e.target.id === 'xPayAmt') partDiff(); });
-const canOf = r => { const rv = rank(lvl(r.operation, 'receivable')), mine = me.rep_name && nk(r.owner_name) === nk(me.rep_name), rp = mine ? Math.min(2, rank(lvl(r.operation, 'rep'))) : 0; return {edit: Math.max(rv, rp) >= 2, full: rv >= 3}; };
+const canOf = r => { if (r && r.details && r.details.level === 'invoice_v1') return {edit: false, full: false};   // v6.0: the October lists are read only
+  const rv = rank(lvl(r.operation, 'receivable')), mine = me.rep_name && nk(r.owner_name) === nk(me.rep_name), rp = mine ? Math.min(2, rank(lvl(r.operation, 'rep'))) : 0; return {edit: Math.max(rv, rp) >= 2, full: rv >= 3}; };
 
 // ---------- timeline (one per follow-up item, every module) ----------
 const myTitle = () => (me.job_title || '').trim() || (me.rep_name ? 'Sales Rep' : me.role === 'admin' ? 'Admin' : '');
@@ -689,8 +693,8 @@ const fmtT = d => d.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-dig
 const fmtD = d => d.toLocaleDateString('en-GB', {weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'});
 const ini = n => String(n || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?';
 const tcls = t => { t = String(t || '').toLowerCase(); return /rep|sales/.test(t) ? 'c-rep' : /legal|lawyer/.test(t) ? 'c-leg' : /director/.test(t) ? 'c-dir' : /account|finance|cashier/.test(t) ? 'c-acc' : /head|manager|hod/.test(t) ? 'c-head' : /admin/.test(t) ? 'c-adm' : 'c-oth'; };
-const FLD = {status: 'Status', reason: 'Reason', next_step: 'Next step', next_owner: 'Who does it', next_date: 'Next action date', promised_date: 'Promise date', remarks: 'Short remark', owner_name: 'Sales rep', settled_on: 'Settled date', settled_amount: 'Settled amount', settle_remark: 'Settle remark'};
-const fv = (f, v) => v == null || v === '' ? '(blank)' : f === 'status' ? (STATUS[v] || v) : f === 'settled_amount' ? money(v) : v;
+const FLD = {status: 'Status', reason: 'Reason', next_step: 'Next step / action', next_owner: 'Who does it', next_date: 'Next action date', promised_date: 'Promise date', promised_amount: 'Promise amount', remarks: 'Explanation / short remark', owner_name: 'Sales rep', settled_on: 'Settled date', settled_amount: 'Settled amount', settle_remark: 'Settle remark'};
+const fv = (f, v) => v == null || v === '' ? '(blank)' : f === 'status' ? (STATUS[v] || v) : f === 'settled_amount' || f === 'promised_amount' ? money(v) : v;
 let tlEv = [], tlF = 'all', tlFlash = null, tlItem = null;
 function tlGroups(ev) {
   const out = []; let n = 0;
@@ -734,7 +738,7 @@ const stampLine = () => '<div class="stamp">Logged as <b>' + esc(me.full_name ||
 // side drawer: 'note' = add a remark, 'edit' = update the follow-up (with an optional remark)
 function drawer(modeIn, fromList) {
   const r = cur; if (!r) return; const c = canOf(r), mode = modeIn === 'edit' && c.edit ? 'edit' : 'note';
-  let h = '<div class="dh"><div><h3>' + (mode === 'edit' ? 'Update follow-up' : 'Add remark') + '</h3><div class="hint">' + (r.rec_code ? '<b>' + esc(r.rec_code) + '</b> · ' : '') + esc(r.outlet) + ' · ' + esc(r.ref_key) + ' · <b>' + money(r.amount) + '</b> · ' + r.aging_days + ' days' + (r.owner_name ? ' · rep ' + esc(r.owner_name) : '') + (r.rep_phone || r.outlet_phone ? '<br>' + (r.rep_phone ? 'Rep ' + telA(r.rep_phone) : '') + (r.rep_phone && r.outlet_phone ? ' · ' : '') + (r.outlet_phone ? 'Outlet ' + telA(r.outlet_phone) : '') : '') + '</div></div><button class="btn" data-pact="close">Close</button></div><div class="frm">';
+  let h = '<div class="dh"><div><h3>' + (mode === 'edit' ? 'Update follow-up' : 'Add remark') + '</h3><div class="hint">' + (r.rec_code ? '<b>' + esc(r.rec_code) + '</b> · ' : '') + esc(r.outlet) + ' · ' + (r.details && r.details.level === 'customer' ? 'Over 30' : esc(r.ref_key)) + ' · <b>' + money(r.amount) + '</b> · ' + r.aging_days + ' days' + (r.owner_name ? ' · rep ' + esc(r.owner_name) : '') + (r.rep_phone || r.outlet_phone ? '<br>' + (r.rep_phone ? 'Rep ' + telA(r.rep_phone) : '') + (r.rep_phone && r.outlet_phone ? ' · ' : '') + (r.outlet_phone ? 'Outlet ' + telA(r.outlet_phone) : '') : '') + '</div></div><button class="btn" data-pact="close">Close</button></div><div class="frm">';
   if (mode === 'edit') h += formHtml(r, true, c.full) + '<label>Remark for the timeline (optional)</label><textarea id="dNote" rows="3" maxlength="2000" placeholder="Why it changed, e.g. Customer promised to pay on 15 Nov in a phone call"></textarea>';
   else h += '<label>Remark</label><textarea id="dNote" rows="6" maxlength="2000" placeholder="e.g. Visited the shop. The owner will pay in 3 instalments, first one on 10 Nov. Type @ to mention a member (it goes on their To-do)."></textarea>';
   h += stampLine() + '<div class="row2"><button class="btn p" data-pact="' + (mode === 'edit' ? 'save' : 'post') + '">' + (mode === 'edit' ? 'Save' : 'Post remark') + '</button><button class="btn" data-pact="close">Cancel</button>'
@@ -818,7 +822,8 @@ async function afterWrite(msg, flashNew) {
   toast(msg);
 }
 async function save() {
-  const v = {status: $('eStatus').value, reason: $('eReason').value || null, next_step: $('eStep').value || null, next_owner: $('eOwner').value.trim() || null, next_date: $('eNext').value || null, promised_date: $('ePromise').value || null, remarks: $('eRem').value.trim() || null};
+  const v = {status: $('eStatus').value, reason: $('eReason').value || null, next_step: ($('eStep').value || '').trim() || null, next_owner: $('eOwner').value.trim() || null, next_date: $('eNext').value || null, promised_date: $('ePromise').value || null, remarks: $('eRem').value.trim() || null};
+  if ($('ePAmt')) { const pa = $('ePAmt').value.trim(); if (pa !== '' && (isNaN(Number(pa)) || Number(pa) < 0)) { $('pErr').textContent = 'Promise amount must be a number (0 or more)'; return; } v.promised_amount = pa === '' ? null : r2(pa); }
   const note = $('dNote').value.trim();
   if (v.status === 'promised' && !v.promised_date) { $('pErr').textContent = 'Promised needs a promise date'; return; }
   let pay = null;
@@ -989,4 +994,5 @@ window.addEventListener('hashchange', () => { if (me) route(); });
 if (sess) start();
 </script>
 <script src="ims-perm.js?v=10"></script>
+<script src="ims-os.js?v=1"></script>
 <script src="ims-mobile.js?v=3"></script></body></html>
